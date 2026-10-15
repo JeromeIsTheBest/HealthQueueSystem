@@ -139,27 +139,67 @@ require __DIR__ . '/../includes/header.php';
 
 <main class="portal-shell"><div class="container"><section class="booking-layout"><div class="booking-copy"><a href="<?= HQ_BASE_URL ?>/patient/dashboard.php" class="back-link">&larr; Back to dashboard</a><span class="eyebrow">Book care</span><h1>Request an appointment</h1><p>Select a clinic and your preferred schedule. The clinic will review and confirm your request.</p></div><form class="booking-form" method="post" id="directBookingForm"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="no_time_confirmed" value="0"><h2>Appointment details</h2><?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?><div class="form-stack"><label>Clinic<select name="clinic_id" required><option value="">Select a clinic</option><?php foreach ($clinics as $clinic): ?><option value="<?= (int) $clinic['ClinicID'] ?>" <?= $values['clinic_id'] === (string) $clinic['ClinicID'] ? 'selected' : '' ?>><?= htmlspecialchars($clinic['ClinicName']) ?> &mdash; <?= htmlspecialchars($clinic['Address']) ?></option><?php endforeach; ?></select></label><label>Preferred physician <span class="optional">(optional)</span><select name="physician_id"><option value="">No preference</option><?php foreach ($physicians as $physician): ?><option value="<?= (int) $physician['UserID'] ?>" <?= $values['physician_id'] === (string) $physician['UserID'] ? 'selected' : '' ?>>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?> &mdash; <?= htmlspecialchars($physician['ClinicName']) ?></option><?php endforeach; ?></select></label><div class="form-stack form-cols-2"><label>Preferred date<input type="date" name="appointment_date" min="<?= date('Y-m-d') ?>" value="<?= htmlspecialchars($values['appointment_date']) ?>" required></label><label>Preferred time <span class="optional">(optional)</span><input type="time" name="appointment_time" value="<?= htmlspecialchars($values['appointment_time']) ?>"></label><p class="form-message warning">No time selected? Join the regular queue for that day; this is not a scheduled appointment time.</p></div><label>Reason for visit <span class="optional">(optional)</span><textarea name="concern" rows="4" placeholder="Briefly describe what you need help with."><?= htmlspecialchars($values['concern']) ?></textarea></label></div><button class="btn btn-primary btn-block" type="submit">Submit appointment request</button></form></section></div></main>
 
+<div class="modal-overlay" id="directNoTimeChoiceModal">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="directNoTimeTitle">
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    <h2 id="directNoTimeTitle">No specific time selected</h2>
+    <p class="modal-subtitle">Before proceeding to payment, set a specific appointment time or confirm a regular queue booking.</p>
+    <div class="sa-actions">
+      <button type="button" class="btn btn-danger" id="directChooseTime">Set a specific time</button>
+      <button type="button" class="btn btn-primary" id="directConfirmQueue">Confirm</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="directQueueEstimateModal">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="directQueueEstimateTitle">
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    <h2 id="directQueueEstimateTitle">Approximate queue time</h2>
+    <p class="modal-subtitle" id="directQueueEstimateText">Calculating the current queue estimate...</p>
+    <div class="sa-actions">
+      <button type="button" class="btn btn-outline" id="directEditQueue">Go back</button>
+      <button type="button" class="btn btn-primary" id="directContinuePayment">Continue to payment</button>
+    </div>
+  </div>
+</div>
+
 <script>
-document.getElementById('directBookingForm').addEventListener('submit', async function (event) {
-  var form = event.currentTarget;
-  var time = form.elements.appointment_time.value;
-  if (time || form.elements.no_time_confirmed.value === '1') return;
+var directBookingForm = document.getElementById('directBookingForm');
+var directNoTimeChoiceModal = document.getElementById('directNoTimeChoiceModal');
+var directQueueEstimateModal = document.getElementById('directQueueEstimateModal');
+var directQueueEstimateText = document.getElementById('directQueueEstimateText');
+directBookingForm.addEventListener('submit', function (event) {
+  if (directBookingForm.elements.appointment_time.value || directBookingForm.elements.no_time_confirmed.value === '1') return;
   event.preventDefault();
-  if (window.confirm('You did not select a specific time. Choose OK to set a time, or Cancel to confirm a queue booking.')) {
-    form.elements.appointment_time.focus();
-    return;
-  }
-  var params = new URLSearchParams({ clinic_id: form.elements.clinic_id.value, appointment_date: form.elements.appointment_date.value });
-  try {
-    var response = await fetch('<?= HQ_BASE_URL ?>/patient/queue-estimate.php?' + params.toString());
-    var estimate = await response.json();
-    if (!estimate.ok) throw new Error();
-    if (!window.confirm('The current approximate queue time is ' + estimate.estimate + ' (about ' + estimate.wait_minutes + ' minutes). This may change as bookings are added. Continue?')) return;
-  } catch (error) {
-    if (!window.confirm('We could not calculate the current queue estimate. Continue with a queue booking anyway?')) return;
-  }
-  form.elements.no_time_confirmed.value = '1';
-  form.requestSubmit();
+  window.hqOpenModal(directNoTimeChoiceModal);
+});
+document.getElementById('directChooseTime').addEventListener('click', function () {
+  window.hqCloseModal(directNoTimeChoiceModal);
+  directBookingForm.elements.no_time_confirmed.value = '0';
+  directBookingForm.elements.appointment_time.focus();
+});
+document.getElementById('directConfirmQueue').addEventListener('click', function () {
+  window.hqCloseModal(directNoTimeChoiceModal);
+  window.hqOpenModal(directQueueEstimateModal);
+  directQueueEstimateText.textContent = 'Calculating the current queue estimate...';
+  var params = new URLSearchParams({ clinic_id: directBookingForm.elements.clinic_id.value, appointment_date: directBookingForm.elements.appointment_date.value });
+  fetch('<?= HQ_BASE_URL ?>/patient/queue-estimate.php?' + params.toString(), { headers: { 'X-Requested-With': 'fetch' } })
+    .then(function (response) { if (!response.ok) throw new Error('estimate'); return response.json(); })
+    .then(function (estimate) {
+      if (!estimate.ok) throw new Error('estimate');
+      directQueueEstimateText.textContent = 'Based on the current online and walk-in queue, your approximate turn is around ' + estimate.estimate + ' (about ' + estimate.wait_minutes + ' minutes). This may change as the queue changes.';
+    })
+    .catch(function () {
+      directQueueEstimateText.textContent = 'We could not calculate the current estimate. You can go back or continue with a queue booking.';
+    });
+});
+document.getElementById('directEditQueue').addEventListener('click', function () {
+  window.hqCloseModal(directQueueEstimateModal);
+  window.hqOpenModal(directNoTimeChoiceModal);
+});
+document.getElementById('directContinuePayment').addEventListener('click', function () {
+  directBookingForm.elements.no_time_confirmed.value = '1';
+  window.hqCloseModal(directQueueEstimateModal);
+  directBookingForm.requestSubmit();
 });
 document.querySelectorAll('#directBookingForm select[name="clinic_id"], #directBookingForm input[name="appointment_date"], #directBookingForm input[name="appointment_time"]').forEach(function (field) {
   field.addEventListener('change', function () { document.querySelector('#directBookingForm [name="no_time_confirmed"]').value = '0'; });

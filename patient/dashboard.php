@@ -19,7 +19,7 @@ $dataError = null;
 
 if ($pdo) {
     try {
-        $stmt = $pdo->prepare("SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Status, c.ClinicName, c.Address FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.PatientID = ? AND a.AppointmentDate >= CURDATE() ORDER BY a.AppointmentDate, a.AppointmentTime LIMIT 5");
+        $stmt = $pdo->prepare("SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Status, a.BookingFeePaid, c.ClinicName, c.Address FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.PatientID = ? AND a.AppointmentDate >= CURDATE() AND a.Status IN ('Pending', 'Confirmed') ORDER BY a.AppointmentDate, a.AppointmentTime LIMIT 5");
         $stmt->execute([$user['UserID']]);
         $appointments = $stmt->fetchAll();
 
@@ -176,7 +176,24 @@ require __DIR__ . '/../includes/header.php';
 
       <div>
         <div class="portal-heading"><div><span class="section-kicker">My schedule</span><h2>Upcoming appointments</h2></div><a href="<?= HQ_BASE_URL ?>/patient/my-appointments.php" class="text-link">View All <span>→</span></a></div>
-        <?php if ($appointments): ?><div class="appointment-list"><?php foreach ($appointments as $appointment): ?><article class="appointment-card"><div class="appointment-date"><strong><?= htmlspecialchars(date('d', strtotime($appointment['AppointmentDate']))) ?></strong><span><?= htmlspecialchars(date('M', strtotime($appointment['AppointmentDate']))) ?></span></div><div class="appointment-info"><h3><?= htmlspecialchars($appointment['ClinicName']) ?></h3><p><?= htmlspecialchars(date('l, F j', strtotime($appointment['AppointmentDate']))) ?> · <?= $appointment['AppointmentTime'] ? htmlspecialchars(date('g:i A', strtotime($appointment['AppointmentTime']))) : 'Queue booking, approximate time in My Appointments' ?></p><span><?= htmlspecialchars($appointment['Address']) ?></span></div><span class="status-badge status-<?= strtolower(htmlspecialchars($appointment['Status'])) ?>"><?= htmlspecialchars($appointment['Status']) ?></span></article><?php endforeach; ?></div><?php else: ?><div class="empty-state"><div class="empty-icon">+</div><h3>No upcoming appointments</h3><p>Choose a partner clinic and request a schedule that works for you.</p><a href="<?= HQ_BASE_URL ?>/patient/clinics.php" class="btn btn-primary btn-sm">Find a clinic</a></div><?php endif; ?>
+        <?php if ($appointments): ?>
+          <div class="appointment-list">
+            <?php foreach ($appointments as $appointment): ?>
+              <?php $hasSpecificTime = (bool) $appointment['BookingFeePaid'] && !empty($appointment['AppointmentTime']) && $appointment['AppointmentTime'] !== '00:00:00'; ?>
+              <article class="appointment-card">
+                <div class="appointment-date"><strong><?= htmlspecialchars(date('d', strtotime($appointment['AppointmentDate']))) ?></strong><span><?= htmlspecialchars(date('M', strtotime($appointment['AppointmentDate']))) ?></span></div>
+                <div class="appointment-info">
+                  <h3><?= htmlspecialchars($appointment['ClinicName']) ?></h3>
+                  <p><?= htmlspecialchars(date('l, F j', strtotime($appointment['AppointmentDate']))) ?> · <?= $hasSpecificTime ? htmlspecialchars(date('g:i A', strtotime($appointment['AppointmentTime']))) : 'Queue booking, approximate time in My Appointments' ?></p>
+                  <span><?= htmlspecialchars($appointment['Address']) ?></span>
+                </div>
+                <span class="status-badge status-<?= strtolower(htmlspecialchars($appointment['Status'])) ?>"><?= htmlspecialchars($appointment['Status']) ?></span>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="empty-state"><div class="empty-icon">+</div><h3>No upcoming appointments</h3><p>Choose a partner clinic and request a schedule that works for you.</p><a href="<?= HQ_BASE_URL ?>/patient/clinics.php" class="btn btn-primary btn-sm">Find a clinic</a></div>
+        <?php endif; ?>
       </div>
     </div>
   </section>

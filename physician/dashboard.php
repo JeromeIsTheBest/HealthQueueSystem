@@ -107,7 +107,10 @@ if ($pdo) {
         $stats['today_earnings'] = (float) $todayEarningsStmt->fetchColumn();
 
         $upcomingCountStmt = $pdo->prepare(
-            "SELECT COUNT(*) FROM Appointments WHERE PhysicianID = ? AND AppointmentDate >= CURDATE() AND Status NOT IN ('Cancelled', 'NoShow')"
+            "SELECT COUNT(*) FROM Appointments
+             WHERE PhysicianID = ? AND Status IN ('Pending', 'Confirmed')
+               AND (AppointmentDate > CURDATE()
+                    OR (AppointmentDate = CURDATE() AND (AppointmentTime IS NULL OR AppointmentTime = '00:00:00' OR AppointmentTime > CURTIME())))"
         );
         $upcomingCountStmt->execute([$user['UserID']]);
         $stats['upcoming'] = (int) $upcomingCountStmt->fetchColumn();
@@ -124,8 +127,9 @@ if ($pdo) {
              JOIN Users pat ON pat.UserID = a.PatientID
              WHERE a.ClinicID = ?
                AND (a.PhysicianID = ? OR a.PhysicianID IS NULL)
-               AND a.AppointmentDate >= CURDATE()
-               AND a.AppointmentTime IS NOT NULL
+               AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) > NOW()
+               AND a.AppointmentTime IS NOT NULL AND a.AppointmentTime <> '00:00:00'
+               AND a.BookingFeePaid = 1
                AND a.Status IN ('Pending', 'Confirmed')
              ORDER BY a.AppointmentDate, a.AppointmentTime"
         );
@@ -142,7 +146,7 @@ if ($pdo) {
              JOIN Clinic c ON c.ClinicID = a.ClinicID
              JOIN Users pat ON pat.UserID = a.PatientID
              WHERE a.PhysicianID = ? AND a.AppointmentDate >= CURDATE()
-               AND a.AppointmentTime IS NULL
+               AND (a.AppointmentTime IS NULL OR a.AppointmentTime = '00:00:00')
                AND a.Status IN ('Pending', 'Confirmed')
              ORDER BY a.AppointmentDate
              LIMIT 8"

@@ -41,7 +41,7 @@ function waitingLine(PDO $pdo, int $clinicId, ?int $physicianId): array
 /** Marks a waiting entry as Calling and notifies the patient. */
 function callQueueEntry(PDO $pdo, int $queueId, int $clinicId, int $staffId): ?string
 {
-    $targetStmt = $pdo->prepare("SELECT PhysicianID FROM Queue WHERE QueueID = ? AND ClinicID = ? AND Status = 'Waiting'");
+    $targetStmt = $pdo->prepare("SELECT q.PhysicianID FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID WHERE q.QueueID = ? AND q.ClinicID = ? AND q.Status = 'Waiting' AND (a.AppointmentTime IS NULL OR a.AppointmentTime = '00:00:00' OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW())");
     $targetStmt->execute([$queueId, $clinicId]);
     $targetPhysicianId = $targetStmt->fetchColumn();
     if ($targetPhysicianId === false) return null;
@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$errors) {
                         $physicianId = $walkInValues['physician_id'] !== '' ? (int) $walkInValues['physician_id'] : null;
                         if (!$physicianId) {
-                            $singlePhysician = $pdo->prepare("SELECT UserID FROM Users WHERE ClinicID = ? AND RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Physician') AND Status = 'Active' ORDER BY UserID LIMIT 2");
+                            $singlePhysician = $pdo->prepare("SELECT UserID FROM Users WHERE ClinicID = ? AND RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Physician') AND Status = 'Active' AND DeletedAt IS NULL ORDER BY UserID LIMIT 2");
                             $singlePhysician->execute([$clinicId]);
                             $clinicPhysicians = $singlePhysician->fetchAll(PDO::FETCH_COLUMN);
                             if (count($clinicPhysicians) === 1) $physicianId = (int) $clinicPhysicians[0];

@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'st
         $errors[] = 'Your session expired. Please try again.';
     } elseif ($pdo && $appointmentId) {
         try {
-            $check = $pdo->prepare("SELECT a.AppointmentID, a.ClinicID, a.PatientID FROM Appointments a WHERE a.AppointmentID = ? AND a.PhysicianID = ? AND a.Status = 'Confirmed'");
+            $check = $pdo->prepare("SELECT a.AppointmentID, a.ClinicID, a.PatientID FROM Appointments a WHERE a.AppointmentID = ? AND a.PhysicianID = ? AND a.Status = 'Confirmed' AND (a.AppointmentTime IS NULL OR a.AppointmentTime = '00:00:00' OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW())");
             $check->execute([$appointmentId, $physicianId]);
             if ($appt = $check->fetch()) {
                 $pdo->prepare(
@@ -55,6 +55,7 @@ $inProgress = [];
 $upNext = [];
 $awaiting = [];
 $scheduled = [];
+$scheduledAppointments = [];
 $stats = ['waiting' => 0, 'seen' => 0];
 $clinicName = '';
 $dataError = null;
@@ -84,6 +85,8 @@ if ($pdo) {
                  ORDER BY q2.CreatedAt DESC LIMIT 1
              )
              WHERE a.PhysicianID = ? AND a.Status = 'Confirmed'
+               AND (a.AppointmentTime IS NULL OR a.AppointmentTime = '00:00:00'
+                    OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW())
              ORDER BY COALESCE(q.Position, q.QueueNumber * 10), a.AppointmentDate, a.AppointmentTime"
         );
         $stmt->execute([$physicianId]);
@@ -100,6 +103,25 @@ if ($pdo) {
         }
         $stats['waiting'] = count($upNext);
 
+        // Show future timed visits here, separate from today's live queue.
+        // The physician can see the schedule early, but cannot start it until
+        // its appointment time makes it eligible for the queue.
+        $scheduledStmt = $pdo->prepare(
+            "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern,
+                    pat.FirstName, pat.LastName
+             FROM Appointments a
+             JOIN Users pat ON pat.UserID = a.PatientID
+             WHERE a.ClinicID = ?
+               AND (a.PhysicianID = ? OR a.PhysicianID IS NULL)
+               AND a.Status IN ('Pending', 'Confirmed')
+               AND a.AppointmentTime IS NOT NULL AND a.AppointmentTime <> '00:00:00'
+               AND a.BookingFeePaid = 1
+               AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) > NOW()
+             ORDER BY a.AppointmentDate, a.AppointmentTime"
+        );
+        $scheduledStmt->execute([(int) $user['ClinicID'], $physicianId]);
+        $scheduledAppointments = $scheduledStmt->fetchAll();
+
         $seenStmt = $pdo->prepare(
             "SELECT COUNT(*) FROM Queue WHERE PhysicianID = ? AND DATE(CreatedAt) = CURDATE() AND Status = 'Completed'"
         );
@@ -111,7 +133,11 @@ if ($pdo) {
     }
 }
 
-$source = static fn(array $r): string => $r['BookingFeePaid'] ? 'Appointment ' . date('g:i A', strtotime($r['AppointmentTime'])) : 'Walk-in';
+$source = static fn(array $r): string => !$r['BookingFeePaid']
+    ? 'Walk-in'
+    : (empty($r['AppointmentTime']) || $r['AppointmentTime'] === '00:00:00'
+        ? 'Regular queue'
+        : 'Appointment ' . date('g:i A', strtotime($r['AppointmentTime'])));
 $concern = static fn(array $r): string => trim((string) $r['Concern']) !== '' ? '"' . mb_strimwidth(trim($r['Concern']), 0, 60, '…') . '"' : 'No stated concern';
 $waitLabel = static fn(int $m): string => $m < 60 ? "waiting {$m} min" : 'waiting ' . intdiv($m, 60) . ' h ' . ($m % 60) . ' min';
 $csrf = htmlspecialchars(csrfToken());
@@ -180,6 +206,24 @@ require __DIR__ . '/../includes/header.php';
     </div>
   <?php else: ?>
     <p class="cs-empty">No patients waiting in your queue.</p>
+  <?php endif; ?>
+
+  <h3 class="qm-section-title">Scheduled appointments · <?= count($scheduledAppointments) ?></h3>
+  <?php if ($scheduledAppointments): ?>
+    <div class="sa-list">
+      <?php foreach ($scheduledAppointments as $row): ?>
+        <article class="cs-row">
+          <div class="cs-main">
+            <strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong>
+            <p><?= htmlspecialchars($concern($row)) ?></p>
+          </div>
+          <span class="ma-pill ma-pill-pending"><?= htmlspecialchars(date('M j, g:i A', strtotime($row['AppointmentDate'] . ' ' . $row['AppointmentTime']))) ?></span>
+          <span class="ma-pill ma-pill-pending">Not yet due</span>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <p class="cs-empty">No upcoming timed appointments.</p>
   <?php endif; ?>
 
   <h3 class="qm-section-title">Awaiting staff confirmation · <?= count($awaiting) ?></h3>

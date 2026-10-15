@@ -170,10 +170,11 @@ if ($pdo) {
             "SELECT q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.Address, c.CloseTime,
                     a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern,
                     (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange,
+                    (SELECT r.Status FROM AppointmentRescheduleRequests r WHERE r.AppointmentID = a.AppointmentID ORDER BY r.RequestID DESC LIMIT 1) AS RescheduleStatus,
                     TIME(ADDTIME(NOW(), SEC_TO_TIME((SELECT COUNT(*) * 900 FROM Queue ahead
                       WHERE ahead.ClinicID = q.ClinicID AND DATE(ahead.CreatedAt) = CURDATE()
                         AND COALESCE(ahead.Position, ahead.QueueNumber * 10) < COALESCE(q.Position, q.QueueNumber * 10)
-                        AND ahead.Status IN ('Waiting', 'Calling', 'Serving')))) AS EstimatedQueueTime,
+                        AND ahead.Status IN ('Waiting', 'Calling', 'Serving'))))) AS EstimatedQueueTime,
                     phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName
              FROM Queue q
              JOIN Appointments a ON a.AppointmentID = q.AppointmentID
@@ -289,6 +290,11 @@ require __DIR__ . '/../includes/header.php';
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           Directions
         </a>
+        <?php if ($activeQueue['CanChange'] && $activeQueue['RescheduleStatus'] !== 'Pending'): ?>
+          <button type="button" class="btn btn-outline btn-sm view-concern-btn" data-target="activeQueueRescheduleForm">Reschedule</button>
+        <?php elseif ($activeQueue['RescheduleStatus'] === 'Pending'): ?>
+          <span class="ma-pill ma-pill-pending">Reschedule pending</span>
+        <?php endif; ?>
         <?php if ($activeQueue['CanChange']): ?><form method="post">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
           <input type="hidden" name="form_type" value="cancel_appointment">
@@ -297,6 +303,17 @@ require __DIR__ . '/../includes/header.php';
           <button type="button" class="btn btn-outline btn-sm ma-danger" data-confirm-modal="cancelConfirmModal">Cancel</button>
         </form><?php endif; ?>
       </div>
+      <?php if ($activeQueue['CanChange'] && $activeQueue['RescheduleStatus'] !== 'Pending'): ?>
+        <form method="post" id="activeQueueRescheduleForm" class="ma-resched" style="display:none;">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
+          <input type="hidden" name="form_type" value="reschedule_appointment">
+          <input type="hidden" name="appointment_id" value="<?= (int) $activeQueue['AppointmentID'] ?>">
+          <input type="date" name="appointment_date" aria-label="New appointment date" min="<?= date('Y-m-d') ?>" value="<?= htmlspecialchars($activeQueue['AppointmentDate']) ?>" required>
+          <input type="time" name="appointment_time" aria-label="New appointment time" value="<?= htmlspecialchars((string) $activeQueue['AppointmentTime']) ?>" required>
+          <button type="submit" class="btn btn-primary btn-sm">Send request to staff</button>
+          <?php if ($activeQueue['RescheduleStatus'] === 'Declined'): ?><span class="form-message warning">Your original appointment is still active.</span><?php endif; ?>
+        </form>
+      <?php endif; ?>
     </section>
   <?php endif; ?>
 
