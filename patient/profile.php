@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/wallet.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Patient']);
@@ -32,6 +33,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Your session expired. Please try again.';
     } elseif (!$pdo) {
         $errors[] = 'The database is temporarily unavailable.';
+    } elseif (($_POST['form_type'] ?? '') === 'deactivate_account') {
+        try {
+            $pdo->beginTransaction();
+            $active = $pdo->prepare("SELECT AppointmentID FROM Appointments WHERE PatientID = ? AND Status IN ('Pending', 'Confirmed') FOR UPDATE");
+            $active->execute([$user['UserID']]);
+            foreach ($active->fetchAll(PDO::FETCH_COLUMN) as $activeAppointmentId) {
+                cancelBooking($pdo, (int) $activeAppointmentId, (int) $user['UserID'], 'Patient account deactivated', 'Refund for cancelled booking at ');
+            }
+            $pdo->prepare("UPDATE Users SET Status = 'Inactive', DeletedAt = NOW() WHERE UserID = ? AND RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Patient')")->execute([$user['UserID']]);
+            $pdo->commit();
+            logoutUser();
+            header('Location: ' . HQ_BASE_URL . '/auth/login.php?deactivated=1');
+            exit;
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('Patient account deactivation failed: ' . $e->getMessage());
+            $errors[] = 'We could not deactivate your account right now.';
+        }
     } elseif (($_POST['form_type'] ?? '') === 'update_profile') {
         $firstName = trim((string) ($_POST['first_name'] ?? ''));
         $lastName  = trim((string) ($_POST['last_name'] ?? ''));
@@ -322,6 +341,15 @@ require __DIR__ . '/../includes/header.php';
           <p class="admin-empty">No consultations yet.</p>
           <a href="<?= HQ_BASE_URL ?>/patient/clinics.php" class="btn btn-primary btn-sm" style="margin-top:12px;">Book an appointment</a>
         <?php endif; ?>
+      </div>
+      <div class="info-card">
+        <h2>Deactivate account</h2>
+        <p>Deactivation signs you out and prevents future sign-ins. Active bookings will be cancelled and eligible booking fees refunded.</p>
+        <form method="post" onsubmit="return confirm('Deactivate your patient account? Active bookings will be cancelled.');">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
+          <input type="hidden" name="form_type" value="deactivate_account">
+          <button type="submit" class="btn btn-outline ma-danger">Deactivate my account</button>
+        </form>
       </div>
     </div>
   </div>

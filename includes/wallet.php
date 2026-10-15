@@ -52,7 +52,13 @@ function walletRefund(PDO $pdo, int $patientId, float $amount, ?int $appointment
 {
     $stmt = $pdo->prepare('SELECT WalletBalance FROM Users WHERE UserID = ? FOR UPDATE');
     $stmt->execute([$patientId]);
-    $newBalance = round((float) $stmt->fetchColumn() + $amount, 2);
+    $currentBalance = (float) $stmt->fetchColumn();
+    if ($appointmentId !== null) {
+        $existing = $pdo->prepare("SELECT COUNT(*) FROM WalletTransactions WHERE RelatedAppointmentID = ? AND Type = 'Refund'");
+        $existing->execute([$appointmentId]);
+        if ((int) $existing->fetchColumn()) return $currentBalance;
+    }
+    $newBalance = round($currentBalance + $amount, 2);
 
     $pdo->prepare('UPDATE Users SET WalletBalance = ? WHERE UserID = ?')->execute([$newBalance, $patientId]);
     $pdo->prepare(
@@ -60,4 +66,28 @@ function walletRefund(PDO $pdo, int $patientId, float $amount, ?int $appointment
     )->execute([$patientId, 'Refund', $amount, $newBalance, $appointmentId, $description]);
 
     return $newBalance;
+}
+
+/** Cancels an active booking, removes every live queue ticket, and refunds at most once. Caller owns transaction. */
+function cancelBooking(PDO $pdo, int $appointmentId, int $patientId, string $reason, string $description): bool
+{
+    $stmt = $pdo->prepare("SELECT a.Status, a.BookingFeePaid, c.ClinicName, c.BaseConsultationFee FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.AppointmentID = ? AND a.PatientID = ? FOR UPDATE");
+    $stmt->execute([$appointmentId, $patientId]);
+    $booking = $stmt->fetch();
+    if (!$booking || !in_array($booking['Status'], ['Pending', 'Confirmed'], true)) return false;
+
+    $pdo->prepare("UPDATE Appointments SET Status = 'Cancelled', CancellationReason = ? WHERE AppointmentID = ?")
+        ->execute([$reason, $appointmentId]);
+    $pdo->prepare("UPDATE Queue SET Status = 'Removed' WHERE AppointmentID = ? AND Status IN ('Waiting', 'Calling', 'Serving')")
+        ->execute([$appointmentId]);
+    $pdo->prepare("UPDATE AppointmentRescheduleRequests SET Status = 'Withdrawn', ReviewedAt = NOW() WHERE AppointmentID = ? AND Status = 'Pending'")
+        ->execute([$appointmentId]);
+    if ((int) $booking['BookingFeePaid']) {
+        $refunded = $pdo->prepare("SELECT COUNT(*) FROM WalletTransactions WHERE RelatedAppointmentID = ? AND Type = 'Refund'");
+        $refunded->execute([$appointmentId]);
+        if (!(int) $refunded->fetchColumn()) {
+            walletRefund($pdo, $patientId, round((float) $booking['BaseConsultationFee'], 2), $appointmentId, $description . $booking['ClinicName']);
+        }
+    }
+    return true;
 }

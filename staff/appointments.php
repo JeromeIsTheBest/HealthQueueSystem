@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/wallet.php';
+require_once __DIR__ . '/../includes/availability.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Staff']);
@@ -25,6 +26,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$appointmentId) {
             $errors[] = 'Invalid appointment.';
+        } elseif (in_array($formType, ['approve_reschedule', 'decline_reschedule'], true)) {
+            $requestId = filter_input(INPUT_POST, 'request_id', FILTER_VALIDATE_INT);
+            if (!$requestId) {
+                $errors[] = 'Invalid reschedule request.';
+            } else {
+                $clinicLocked = lockClinicBooking($pdo, $clinicId);
+                if (!$clinicLocked) {
+                    $errors[] = 'The clinic is busy right now. Please try again in a moment.';
+                } else {
+                try {
+                    $pdo->beginTransaction();
+                    $lookup = $pdo->prepare(
+                        "SELECT r.RequestID, r.PatientID, r.RequestedDate, r.RequestedTime,
+                                a.ClinicID, a.PhysicianID, a.Status AS AppointmentStatus,
+                                a.AppointmentDate AS OriginalDate, a.AppointmentTime AS OriginalTime,
+                                c.CloseTime
+                         FROM AppointmentRescheduleRequests r
+                         JOIN Appointments a ON a.AppointmentID = r.AppointmentID
+                         JOIN Clinic c ON c.ClinicID = a.ClinicID
+                         WHERE r.RequestID = ? AND r.AppointmentID = ? AND r.ClinicID = ?
+                           AND r.Status = 'Pending'
+                         FOR UPDATE"
+                    );
+                    $lookup->execute([$requestId, $appointmentId, $clinicId]);
+                    $request = $lookup->fetch();
+                    if (!$request || !in_array($request['AppointmentStatus'], ['Pending', 'Confirmed'], true)) {
+                        $errors[] = 'That reschedule request is no longer active.';
+                    } elseif ($formType === 'decline_reschedule') {
+                        $pdo->prepare("UPDATE AppointmentRescheduleRequests SET Status = 'Declined', ReviewedBy = ?, ReviewedAt = NOW() WHERE RequestID = ? AND Status = 'Pending'")
+                            ->execute([$user['UserID'], $requestId]);
+                        $pdo->commit();
+                        notifyPatient($pdo, (int) $request['PatientID'], 'The clinic declined your reschedule request. Your original appointment remains active.', $appointmentId);
+                        logActivity($pdo, $user['UserID'], $clinicId, 'Declined appointment reschedule request', "Appointment #{$appointmentId}");
+                        $flash = 'Reschedule request declined. The original appointment remains active.';
+                    } elseif (strtotime($request['RequestedDate'] . ' ' . $request['RequestedTime']) <= time()) {
+                        $errors[] = 'The requested time has already passed.';
+                    } elseif (!isBookable($pdo, $clinicId, $request['PhysicianID'] ? (int) $request['PhysicianID'] : null, $request['RequestedDate'], $request['RequestedTime'], $appointmentId)) {
+                        $errors[] = 'The requested time is no longer available. Decline this request so the patient can choose another time.';
+                        unlockClinicBooking($pdo, $clinicId);
+                        $clinicLocked = false;
+                    } else {
+                        $again = $pdo->prepare("SELECT RequestID FROM AppointmentRescheduleRequests WHERE RequestID = ? AND Status = 'Pending' FOR UPDATE");
+                        $again->execute([$requestId]);
+                        if (!$again->fetchColumn()) {
+                            $pdo->rollBack();
+                            $errors[] = 'That reschedule request has already been reviewed.';
+                        } else {
+                            $pdo->prepare('UPDATE Appointments SET AppointmentDate = ?, AppointmentTime = ? WHERE AppointmentID = ? AND ClinicID = ?')
+                                ->execute([$request['RequestedDate'], $request['RequestedTime'], $appointmentId, $clinicId]);
+                            $pdo->prepare("UPDATE Queue SET Status = 'Removed' WHERE AppointmentID = ? AND Status IN ('Waiting', 'Calling', 'Serving')")
+                                ->execute([$appointmentId]);
+                            if ($request['AppointmentStatus'] === 'Confirmed') {
+                                $numbers = $pdo->prepare('SELECT COALESCE(MAX(QueueNumber), 0) + 1 FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = ?');
+                                $numbers->execute([$clinicId, $request['RequestedDate']]);
+                                $queueNumber = (int) $numbers->fetchColumn();
+                                $scheduled = $pdo->prepare("SELECT COALESCE(MAX(ScheduledNumber), 0) + 1 FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID WHERE q.ClinicID = ? AND a.AppointmentDate = ? AND q.ScheduledNumber IS NOT NULL");
+                                $scheduled->execute([$clinicId, $request['RequestedDate']]);
+                                $scheduledNumber = (int) $scheduled->fetchColumn();
+                                $insert = $pdo->prepare("INSERT INTO Queue (ClinicID, AppointmentID, PhysicianID, QueueNumber, ScheduledNumber, Status, CreatedByStaffID, CreatedAt) VALUES (?, ?, ?, ?, ?, 'Waiting', ?, GREATEST(NOW(), TIMESTAMP(?, ?)))");
+                                $insert->execute([$clinicId, $appointmentId, $request['PhysicianID'], $queueNumber, $scheduledNumber, $user['UserID'], $request['RequestedDate'], $request['RequestedTime']]);
+                            }
+                            $pdo->prepare("UPDATE AppointmentRescheduleRequests SET Status = 'Approved', ReviewedBy = ?, ReviewedAt = NOW() WHERE RequestID = ?")
+                                ->execute([$user['UserID'], $requestId]);
+                            $pdo->commit();
+                            notifyPatient($pdo, (int) $request['PatientID'], 'Your reschedule request was approved. Your appointment is now ' . $request['RequestedDate'] . ' at ' . date('g:i A', strtotime($request['RequestedTime'])) . '.', $appointmentId);
+                            logActivity($pdo, $user['UserID'], $clinicId, 'Approved appointment reschedule request', "Appointment #{$appointmentId} to {$request['RequestedDate']} {$request['RequestedTime']}");
+                            $flash = 'Reschedule request approved.';
+                        }
+                        unlockClinicBooking($pdo, $clinicId);
+                        $clinicLocked = false;
+                    }
+                    if ($pdo->inTransaction()) {
+                        if ($errors) $pdo->rollBack();
+                        else $pdo->commit();
+                    }
+                } catch (Throwable $e) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    error_log('Reschedule review failed: ' . $e->getMessage());
+                    $errors[] = 'We could not review this reschedule request.';
+                    if (!empty($clinicLocked)) {
+                        unlockClinicBooking($pdo, $clinicId);
+                        $clinicLocked = false;
+                    }
+                }
+                if ($clinicLocked) unlockClinicBooking($pdo, $clinicId);
+                }
+            }
         } elseif ($formType === 'accept_request') {
             $physicianId = filter_input(INPUT_POST, 'physician_id', FILTER_VALIDATE_INT) ?: null;
             try {
@@ -213,13 +301,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$tabs = ['requests' => 'Requests', 'today' => 'Today', 'confirm' => 'To confirm', 'all' => 'All'];
+$tabs = ['requests' => 'Requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today', 'confirm' => 'To confirm', 'all' => 'All'];
 $activeTab = isset($tabs[$_GET['tab'] ?? '']) ? $_GET['tab'] : 'requests';
 $search = trim((string) ($_GET['q'] ?? ''));
 $dateFilter = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date'] ?? '')) ? $_GET['date'] : '';
 $declineReasons = ['Fully booked', 'Physician unavailable', 'Other'];
 
 $requests = [];
+$rescheduleRequests = [];
 $todayList = [];
 $pendingConfirmations = [];
 $allList = [];
@@ -260,6 +349,29 @@ if ($pdo && $clinicId) {
         );
         $stmt->execute(array_merge([$clinicId], $filterParams));
         $requests = $stmt->fetchAll();
+
+        $rescheduleSql = '';
+        $rescheduleParams = [$clinicId];
+        if ($search !== '') {
+            $rescheduleSql .= " AND CONCAT(pat.FirstName, ' ', pat.LastName) LIKE ?";
+            $rescheduleParams[] = '%' . $search . '%';
+        }
+        if ($dateFilter !== '') {
+            $rescheduleSql .= ' AND r.RequestedDate = ?';
+            $rescheduleParams[] = $dateFilter;
+        }
+        $rescheduleStmt = $pdo->prepare(
+            "SELECT r.RequestID, r.AppointmentID, r.PatientID, r.RequestedDate, r.RequestedTime, r.RequestedAt,
+                    a.AppointmentDate AS OriginalDate, a.AppointmentTime AS OriginalTime, a.Status AS AppointmentStatus,
+                    pat.FirstName, pat.LastName, pat.ContactNumber
+             FROM AppointmentRescheduleRequests r
+             JOIN Appointments a ON a.AppointmentID = r.AppointmentID
+             JOIN Users pat ON pat.UserID = r.PatientID
+             WHERE r.ClinicID = ? AND r.Status = 'Pending' AND a.Status IN ('Pending', 'Confirmed'){$rescheduleSql}
+             ORDER BY r.RequestedAt"
+        );
+        $rescheduleStmt->execute($rescheduleParams);
+        $rescheduleRequests = $rescheduleStmt->fetchAll();
 
         $physStmt = $pdo->prepare(
             "SELECT UserID, FirstName, LastName, AvailabilityStatus FROM Users
@@ -343,7 +455,7 @@ if ($pdo && $clinicId) {
         $allStmt->execute(array_merge([$clinicId], $filterParams));
         $allList = $allStmt->fetchAll();
 
-        $tabCounts = ['requests' => count($requests), 'today' => count($todayList), 'confirm' => count($pendingConfirmations), 'all' => count($allList)];
+        $tabCounts = ['requests' => count($requests), 'reschedules' => count($rescheduleRequests), 'today' => count($todayList), 'confirm' => count($pendingConfirmations), 'all' => count($allList)];
     } catch (PDOException $e) {
         error_log('Appointments list load failed: ' . $e->getMessage());
         $dataError = 'Appointments are temporarily unavailable.';
@@ -406,7 +518,35 @@ require __DIR__ . '/../includes/header.php';
     <?php endforeach; ?>
   </nav>
 
-  <?php if ($activeTab === 'requests'): ?>
+  <?php if ($activeTab === 'reschedules'): ?>
+    <?php if ($rescheduleRequests): ?>
+      <div class="sa-list">
+        <?php foreach ($rescheduleRequests as $request): ?>
+          <article class="sa-item">
+            <div class="sa-head">
+              <span class="sa-avatar"><?= htmlspecialchars($initials($request)) ?></span>
+              <div>
+                <strong><?= htmlspecialchars($request['FirstName'] . ' ' . $request['LastName']) ?></strong>
+                <p>Current: <?= htmlspecialchars(date('M j, Y', strtotime($request['OriginalDate']))) ?><?= $request['OriginalTime'] ? ' at ' . htmlspecialchars(date('g:i A', strtotime($request['OriginalTime']))) : ' · Queue booking' ?></p>
+                <p>Requested: <?= htmlspecialchars(date('M j, Y', strtotime($request['RequestedDate']))) ?> at <?= htmlspecialchars(date('g:i A', strtotime($request['RequestedTime']))) ?></p>
+              </div>
+            </div>
+            <div class="sa-actions">
+              <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
+                <input type="hidden" name="appointment_id" value="<?= (int) $request['AppointmentID'] ?>">
+                <input type="hidden" name="request_id" value="<?= (int) $request['RequestID'] ?>">
+                <button class="btn btn-outline btn-sm" name="form_type" value="decline_reschedule">Decline</button>
+                <button class="btn btn-outline btn-sm sa-approve" name="form_type" value="approve_reschedule">Approve new time</button>
+              </form>
+            </div>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <div class="ma-empty"><h3>No reschedule requests</h3><p>Patient requests to change an appointment time will appear here.</p></div>
+    <?php endif; ?>
+  <?php elseif ($activeTab === 'requests'): ?>
     <?php if ($requests): ?>
       <div class="sa-list">
         <?php foreach ($requests as $req): ?>
@@ -420,7 +560,7 @@ require __DIR__ . '/../includes/header.php';
               <span class="sa-avatar"><?= htmlspecialchars($initials($req)) ?></span>
               <div>
                 <strong><?= htmlspecialchars($req['FirstName'] . ' ' . $req['LastName']) ?></strong>
-                <p><?= htmlspecialchars(date('M j, g:i A', strtotime($req['AppointmentDate'] . ' ' . $req['AppointmentTime']))) ?> · <?= htmlspecialchars($concernLabel($req['Concern'])) ?> · requested <?= htmlspecialchars($timeAgo((int) $req['MinutesAgo'])) ?></p>
+                <p><?= htmlspecialchars(date('M j', strtotime($req['AppointmentDate']))) ?><?= $req['AppointmentTime'] ? ' at ' . htmlspecialchars(date('g:i A', strtotime($req['AppointmentTime']))) : ' · Queue booking (no specific time)' ?> · <?= htmlspecialchars($concernLabel($req['Concern'])) ?> · requested <?= htmlspecialchars($timeAgo((int) $req['MinutesAgo'])) ?></p>
               </div>
             </div>
 
@@ -492,7 +632,7 @@ require __DIR__ . '/../includes/header.php';
         <?php foreach ($todayList as $row): ?>
           <?php [$pillLabel, $pillClass] = $statusPill($row); ?>
           <article class="sa-item sa-row">
-            <span class="sa-time"><?= htmlspecialchars(date('g:i A', strtotime($row['AppointmentTime']))) ?></span>
+            <span class="sa-time"><?= $row['AppointmentTime'] ? htmlspecialchars(date('g:i A', strtotime($row['AppointmentTime']))) : 'Queue' ?></span>
             <div class="sa-row-main">
               <strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong>
               <p><?= htmlspecialchars($concernLabel($row['Concern'])) ?> · <?= $row['PhyLastName'] ? 'Dr. ' . htmlspecialchars($row['PhyLastName']) : 'No physician' ?><?= $row['BookingFeePaid'] ? '' : ' · walk-in' ?><?= $row['QueueNumber'] ? ' - queue ' . ($row['ScheduledNumber'] !== null ? 'S-' . (int) $row['ScheduledNumber'] : '#' . (int) ($row['RegularNumber'] ?? $row['QueueNumber'])) . ' (' . htmlspecialchars(str_replace('_', ' ', $row['QueueStatus'])) . ')' : '' ?></p>
@@ -532,7 +672,7 @@ require __DIR__ . '/../includes/header.php';
             <div class="ma-date"><span><?= strtoupper(date('M', $ts)) ?></span><strong><?= date('j', $ts) ?></strong></div>
             <div class="sa-row-main">
               <strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong>
-              <p><?= htmlspecialchars(date('g:i A', strtotime($row['AppointmentTime']))) ?> · <?= htmlspecialchars($concernLabel($row['Concern'])) ?> · <?= $row['PhyLastName'] ? 'Dr. ' . htmlspecialchars($row['PhyLastName']) : 'No physician' ?><?= $row['DeclineReason'] ? ' · ' . htmlspecialchars($row['DeclineReason']) : '' ?></p>
+              <p><?= $row['AppointmentTime'] ? htmlspecialchars(date('g:i A', strtotime($row['AppointmentTime']))) : 'Queue booking' ?> · <?= htmlspecialchars($concernLabel($row['Concern'])) ?> · <?= $row['PhyLastName'] ? 'Dr. ' . htmlspecialchars($row['PhyLastName']) : 'No physician' ?><?= $row['DeclineReason'] ? ' · ' . htmlspecialchars($row['DeclineReason']) : '' ?></p>
             </div>
             <span class="ma-pill <?= $pillClass ?>"><?= $pillLabel ?></span>
           </article>

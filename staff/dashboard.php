@@ -223,7 +223,7 @@ require __DIR__ . '/../includes/header.php';
           <?php foreach (array_slice($upNext, 0, 5) as $i => $entry): ?>
             <li>
               <span class="sd-num"><?= $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']) ?></span>
-              <span class="sd-name"><?= htmlspecialchars($entry['FirstName'] . ' ' . $entry['LastName']) ?> <em>· <?= $entry['BookingFeePaid'] ? htmlspecialchars(date('g:i A', strtotime($entry['AppointmentTime']))) : 'walk-in' ?></em></span>
+              <span class="sd-name"><?= htmlspecialchars($entry['FirstName'] . ' ' . $entry['LastName']) ?> <em>· <?= !$entry['AppointmentTime'] ? 'queue booking' : ($entry['BookingFeePaid'] ? htmlspecialchars(date('g:i A', strtotime($entry['AppointmentTime']))) : 'walk-in') ?></em></span>
               <span class="sd-wait">~<?= ($i + 1) * MINUTES_PER_PATIENT ?> min</span>
             </li>
           <?php endforeach; ?>
@@ -248,7 +248,7 @@ require __DIR__ . '/../includes/header.php';
               <li>
                 <div>
                   <b><?= htmlspecialchars($req['FirstName'] . ' ' . $req['LastName']) ?></b>
-                  <p><?= htmlspecialchars(date('M j, g:i A', strtotime($req['AppointmentDate'] . ' ' . $req['AppointmentTime']))) ?> · <?= htmlspecialchars(mb_strimwidth(trim((string) $req['Concern']) ?: 'General', 0, 28, '…')) ?></p>
+                  <p><?= htmlspecialchars(date('M j', strtotime($req['AppointmentDate']))) ?><?= $req['AppointmentTime'] ? ' at ' . htmlspecialchars(date('g:i A', strtotime($req['AppointmentTime']))) : ' · Queue booking (no specific time)' ?> · <?= htmlspecialchars(mb_strimwidth(trim((string) $req['Concern']) ?: 'General', 0, 28, '…')) ?></p>
                 </div>
                 <form method="post" action="<?= HQ_BASE_URL ?>/staff/appointments.php" class="sd-req-actions">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">

@@ -148,7 +148,7 @@ require __DIR__ . '/../includes/header.php';
       <p class="pay-hold" data-hold-seconds="<?= (int) $appointment['HoldSeconds'] ?>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> <span>Slot held for <b data-hold-left>15:00</b></span></p>
       <h3><?= htmlspecialchars($appointment['ClinicName']) ?></h3>
       <p class="pay-sub"><?= $appointment['PhyFirstName'] ? 'Dr. ' . htmlspecialchars($appointment['PhyFirstName'] . ' ' . $appointment['PhyLastName']) : 'No physician preference' ?> · <?= htmlspecialchars(trim((string) $appointment['Concern']) !== '' ? mb_strimwidth($appointment['Concern'], 0, 40, '…') : 'General consultation') ?></p>
-      <p class="pay-sub"><?= htmlspecialchars(date('D, M j, Y', strtotime($appointment['AppointmentDate'])) . ' · ' . date('g:i A', strtotime($appointment['AppointmentTime']))) ?></p>
+      <p class="pay-sub"><?= htmlspecialchars(date('D, M j, Y', strtotime($appointment['AppointmentDate'])) . ' · ' . ($appointment['AppointmentTime'] ? date('g:i A', strtotime($appointment['AppointmentTime'])) : 'Queue booking, no specific time')) ?></p>
       <dl class="pay-rows">
         <div><dt>Booking fee</dt><dd>₱<?= number_format($fee, 2) ?></dd></div>
         <div class="pay-total"><dt>Pay now</dt><dd>₱<?= number_format($fee, 2) ?></dd></div>

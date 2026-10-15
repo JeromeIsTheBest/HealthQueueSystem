@@ -10,6 +10,10 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
+// Store and calculate clinic queue times consistently with the clinic's
+// operating timezone (Philippine time).
+date_default_timezone_set('Asia/Manila');
+
 function getDbConnection(): ?PDO
 {
     static $pdo = null;
@@ -25,6 +29,7 @@ function getDbConnection(): ?PDO
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
         ]);
+        $pdo->exec("SET time_zone = '+08:00'");
         return $pdo;
     } catch (PDOException $e) {
         // Database not set up yet (e.g. schema.sql not imported) — pages

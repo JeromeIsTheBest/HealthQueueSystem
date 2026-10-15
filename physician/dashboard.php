@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/ai-transcription.php';
+require_once __DIR__ . '/../includes/wallet.php';
+require_once __DIR__ . '/../includes/notifications.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Physician']);
@@ -25,12 +27,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'up
         } else {
             try {
                 // Scoped to this physician's own UserID so one physician can never touch another's appointment.
-                $stmt = $pdo->prepare('UPDATE Appointments SET Status = ? WHERE AppointmentID = ? AND PhysicianID = ?');
-                $stmt->execute([$newStatus, $appointmentId, $user['UserID']]);
-                if ($stmt->rowCount()) {
+                $pdo->beginTransaction();
+                $patientStmt = $pdo->prepare('SELECT PatientID FROM Appointments WHERE AppointmentID = ? AND PhysicianID = ? FOR UPDATE');
+                $patientStmt->execute([$appointmentId, $user['UserID']]);
+                $patientId = $patientStmt->fetchColumn();
+                $changed = $newStatus === 'Cancelled' && $patientId
+                    ? cancelBooking($pdo, (int) $appointmentId, (int) $patientId, 'Cancelled by physician', 'Refund for physician-cancelled booking at ')
+                    : false;
+                if ($newStatus === 'NoShow' && $patientId) {
+                    $stmt = $pdo->prepare("UPDATE Appointments SET Status = 'NoShow' WHERE AppointmentID = ? AND PhysicianID = ? AND Status = 'Confirmed'");
+                    $stmt->execute([$appointmentId, $user['UserID']]);
+                    $changed = (bool) $stmt->rowCount();
+                }
+                if ($changed) {
+                    $pdo->commit();
                     logActivity($pdo, $user['UserID'], $user['ClinicID'], 'Updated appointment status', "Appointment #{$appointmentId} set to {$newStatus}.");
+                    if ($newStatus === 'Cancelled') notifyPatient($pdo, (int) $patientId, 'Your appointment was cancelled by the physician. Any eligible booking fee refund has been applied to your wallet.', (int) $appointmentId);
                     $flash = 'Appointment updated.';
                 } else {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
                     $errors[] = 'That appointment could not be found.';
                 }
             } catch (PDOException $e) {
@@ -101,6 +116,25 @@ if ($pdo) {
         $totalStmt->execute([$user['UserID']]);
         $stats['total'] = (int) $totalStmt->fetchColumn();
 
+        $scheduledStmt = $pdo->prepare(
+            "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Status, a.Concern,
+                    c.ClinicName, pat.FirstName, pat.LastName
+             FROM Appointments a
+             JOIN Clinic c ON c.ClinicID = a.ClinicID
+             JOIN Users pat ON pat.UserID = a.PatientID
+             WHERE a.ClinicID = ?
+               AND (a.PhysicianID = ? OR a.PhysicianID IS NULL)
+               AND a.AppointmentDate >= CURDATE()
+               AND a.AppointmentTime IS NOT NULL
+               AND a.Status IN ('Pending', 'Confirmed')
+             ORDER BY a.AppointmentDate, a.AppointmentTime"
+        );
+        // Include clinic bookings that have no physician preference even when
+        // the clinic has multiple physicians. These are visible ahead of time
+        // here and remain out of the live queue until their scheduled time.
+        $scheduledStmt->execute([$user['ClinicID'], $user['UserID']]);
+        $scheduledAppointments = $scheduledStmt->fetchAll();
+
         $upcomingStmt = $pdo->prepare(
             "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Status, a.Concern,
                     c.ClinicName, pat.FirstName, pat.LastName
@@ -108,19 +142,27 @@ if ($pdo) {
              JOIN Clinic c ON c.ClinicID = a.ClinicID
              JOIN Users pat ON pat.UserID = a.PatientID
              WHERE a.PhysicianID = ? AND a.AppointmentDate >= CURDATE()
-             ORDER BY a.AppointmentDate, a.AppointmentTime
+               AND a.AppointmentTime IS NULL
+               AND a.Status IN ('Pending', 'Confirmed')
+             ORDER BY a.AppointmentDate
              LIMIT 8"
         );
         $upcomingStmt->execute([$user['UserID']]);
         $upcoming = $upcomingStmt->fetchAll();
 
-        // The soonest Confirmed visit is what "Call Next Patient" jumps straight into.
-        foreach ($upcoming as $candidate) {
-            if ($candidate['Status'] === 'Confirmed') {
-                $nextPatient = $candidate;
-                break;
-            }
-        }
+        // The physician follows the same clinic queue the front desk calls from.
+        $nextStmt = $pdo->prepare(
+            "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Status, a.Concern,
+                    c.ClinicName, pat.FirstName, pat.LastName
+             FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID
+             JOIN Clinic c ON c.ClinicID = a.ClinicID JOIN Users pat ON pat.UserID = a.PatientID
+             WHERE q.PhysicianID = ? AND DATE(q.CreatedAt) = CURDATE()
+               AND q.Status IN ('Calling', 'Serving')
+               AND a.Status = 'Confirmed'
+             ORDER BY FIELD(q.Status, 'Calling', 'Serving'), q.CalledAt, q.CreatedAt LIMIT 1"
+        );
+        $nextStmt->execute([$user['UserID']]);
+        $nextPatient = $nextStmt->fetch() ?: null;
 
         $earningsListStmt = $pdo->prepare(
             "SELECT p.PhysicianRevenue, p.PaidAt, c.ClinicName, pat.FirstName, pat.LastName
@@ -191,7 +233,40 @@ require __DIR__ . '/../includes/header.php';
   </section>
 
   <section class="portal-section">
-    <div class="portal-heading"><div><span class="section-kicker">My schedule</span><h2>Upcoming appointments</h2></div></div>
+    <div class="portal-heading"><div><span class="section-kicker">By appointment time</span><h2>Scheduled appointments</h2></div></div>
+    <?php if ($scheduledAppointments): ?>
+      <div class="appointment-list">
+        <?php foreach ($scheduledAppointments as $appointment): ?>
+          <article class="appointment-card">
+            <div class="appointment-date">
+              <strong><?= htmlspecialchars(date('d', strtotime($appointment['AppointmentDate']))) ?></strong>
+              <span><?= htmlspecialchars(date('M', strtotime($appointment['AppointmentDate']))) ?></span>
+            </div>
+            <div class="appointment-info">
+              <h3><?= htmlspecialchars($appointment['FirstName'] . ' ' . $appointment['LastName']) ?></h3>
+              <p><?= htmlspecialchars(date('l, F j', strtotime($appointment['AppointmentDate']))) ?> &middot; <?= htmlspecialchars(date('g:i A', strtotime($appointment['AppointmentTime']))) ?></p>
+              <span><?= htmlspecialchars($appointment['ClinicName']) ?><?= $appointment['Concern'] ? ' — ' . htmlspecialchars($appointment['Concern']) : '' ?></span>
+              <?php if ($appointment['Concern']): ?>
+                <button type="button" class="btn btn-ghost btn-sm view-concern-btn" data-target="scheduled-concern-<?= (int) $appointment['AppointmentID'] ?>" style="padding-left:0;">View Concern Summary</button>
+                <div id="scheduled-concern-<?= (int) $appointment['AppointmentID'] ?>" class="dev-note" style="display:none;margin-top:8px;">
+                  <strong>AI pre-consult summary (stubbed):</strong> <?= htmlspecialchars(summarizeTranscript($appointment['Concern'])) ?>
+                </div>
+              <?php endif; ?>
+            </div>
+            <span class="status-badge status-<?= strtolower(htmlspecialchars($appointment['Status'])) ?>"><?= htmlspecialchars($appointment['Status']) ?></span>
+            <?php if ($appointment['Status'] === 'Confirmed'): ?>
+              <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="update_appointment_status"><input type="hidden" name="appointment_id" value="<?= (int) $appointment['AppointmentID'] ?>"><input type="hidden" name="status" value="Cancelled"><button class="btn btn-outline btn-sm" onclick="return confirm('Cancel this appointment?');">Cancel</button></form>
+            <?php endif; ?>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <div class="empty-state"><div class="empty-icon">+</div><h3>No scheduled appointments</h3><p>Appointments with a specific time will appear here.</p></div>
+    <?php endif; ?>
+  </section>
+
+  <section class="portal-section">
+    <div class="portal-heading"><div><span class="section-kicker">Queue schedule</span><h2>Appointments without a set time</h2></div></div>
     <?php if ($upcoming): ?>
       <div class="appointment-list">
         <?php foreach ($upcoming as $appointment): ?>
@@ -202,7 +277,7 @@ require __DIR__ . '/../includes/header.php';
             </div>
             <div class="appointment-info">
               <h3><?= htmlspecialchars($appointment['FirstName'] . ' ' . $appointment['LastName']) ?></h3>
-              <p><?= htmlspecialchars(date('l, F j', strtotime($appointment['AppointmentDate']))) ?> &middot; <?= htmlspecialchars(date('g:i A', strtotime($appointment['AppointmentTime']))) ?></p>
+              <p><?= htmlspecialchars(date('l, F j', strtotime($appointment['AppointmentDate']))) ?> &middot; Queue booking, time assigned by clinic</p>
               <span><?= htmlspecialchars($appointment['ClinicName']) ?><?= $appointment['Concern'] ? ' — ' . htmlspecialchars($appointment['Concern']) : '' ?></span>
               <?php if ($appointment['Concern']): ?>
                 <button type="button" class="btn btn-ghost btn-sm view-concern-btn" data-target="concern-<?= (int) $appointment['AppointmentID'] ?>" style="padding-left:0;">View Concern Summary</button>
@@ -228,7 +303,7 @@ require __DIR__ . '/../includes/header.php';
         <?php endforeach; ?>
       </div>
     <?php else: ?>
-      <div class="empty-state"><div class="empty-icon">+</div><h3>No upcoming appointments</h3><p>New requests assigned to you by clinic staff will appear here.</p></div>
+      <div class="empty-state"><div class="empty-icon">+</div><h3>No queue appointments</h3><p>Appointments without a specific time will appear here.</p></div>
     <?php endif; ?>
   </section>
 

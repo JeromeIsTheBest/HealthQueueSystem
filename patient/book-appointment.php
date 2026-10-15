@@ -33,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $clinicIds = array_map(static fn(array $clinic): string => (string) $clinic['ClinicID'], $clinics);
     if (!in_array($values['clinic_id'], $clinicIds, true)) $errors[] = 'Please select a clinic.';
     if ($values['appointment_date'] === '' || $values['appointment_date'] < date('Y-m-d')) $errors[] = 'Please choose a future appointment date.';
+    if ($values['appointment_time'] === '' && ($_POST['no_time_confirmed'] ?? '') !== '1') {
+        $errors[] = 'Please confirm that you want a queue booking without a specific time.';
+    }
     if ($values['physician_id'] !== '') {
         $validPhysician = false;
         foreach ($physicians as $physician) {
@@ -69,13 +72,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors && $pdo) {
         try {
+            $bookingPhysicianId = $values['physician_id'] !== '' ? (int) $values['physician_id'] : null;
+            if (!$bookingPhysicianId) {
+                $onlyPhysician = $pdo->prepare("SELECT u.UserID FROM Users u WHERE u.ClinicID = ? AND u.RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Physician') AND u.Status = 'Active' AND u.DeletedAt IS NULL ORDER BY u.UserID LIMIT 2");
+                $onlyPhysician->execute([(int) $values['clinic_id']]);
+                $clinicPhysicians = $onlyPhysician->fetchAll(PDO::FETCH_COLUMN);
+                if (count($clinicPhysicians) === 1) $bookingPhysicianId = (int) $clinicPhysicians[0];
+            }
             $stmt = $pdo->prepare('INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern) VALUES (?, ?, ?, ?, ?, ?)');
-            $stmt->execute([$user['UserID'], (int) $values['clinic_id'], $values['physician_id'] !== '' ? (int) $values['physician_id'] : null, $values['appointment_date'], $values['appointment_time'] !== '' ? $values['appointment_time'] : null, $values['concern'] ?: null]);
+            $stmt->execute([$user['UserID'], (int) $values['clinic_id'], $bookingPhysicianId, $values['appointment_date'], $values['appointment_time'] !== '' ? $values['appointment_time'] : null, $values['concern'] ?: null]);
             $newAppointmentId = (int) $pdo->lastInsertId();
 
             if ($isAjax) {
                 $clinicRow = array_values(array_filter($clinics, static fn(array $c): bool => (string) $c['ClinicID'] === $values['clinic_id']))[0] ?? null;
-                $physRow = array_values(array_filter($physicians, static fn(array $p): bool => (string) $p['UserID'] === $values['physician_id']))[0] ?? null;
+                $physRow = array_values(array_filter($physicians, static fn(array $p): bool => (int) $p['UserID'] === $bookingPhysicianId))[0] ?? null;
                 $feeStmt = $pdo->prepare('SELECT BaseConsultationFee FROM Clinic WHERE ClinicID = ?');
                 $feeStmt->execute([(int) $values['clinic_id']]);
                 $fee = (float) $feeStmt->fetchColumn();
@@ -127,6 +137,33 @@ $pageTitle = 'Book an Appointment — HealthQueue';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="portal-shell"><div class="container"><section class="booking-layout"><div class="booking-copy"><a href="<?= HQ_BASE_URL ?>/patient/dashboard.php" class="back-link">&larr; Back to dashboard</a><span class="eyebrow">Book care</span><h1>Request an appointment</h1><p>Select a clinic and your preferred schedule. The clinic will review and confirm your request.</p></div><form class="booking-form" method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><h2>Appointment details</h2><?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?><div class="form-stack"><label>Clinic<select name="clinic_id" required><option value="">Select a clinic</option><?php foreach ($clinics as $clinic): ?><option value="<?= (int) $clinic['ClinicID'] ?>" <?= $values['clinic_id'] === (string) $clinic['ClinicID'] ? 'selected' : '' ?>><?= htmlspecialchars($clinic['ClinicName']) ?> &mdash; <?= htmlspecialchars($clinic['Address']) ?></option><?php endforeach; ?></select></label><label>Preferred physician <span class="optional">(optional)</span><select name="physician_id"><option value="">No preference</option><?php foreach ($physicians as $physician): ?><option value="<?= (int) $physician['UserID'] ?>" <?= $values['physician_id'] === (string) $physician['UserID'] ? 'selected' : '' ?>>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?> &mdash; <?= htmlspecialchars($physician['ClinicName']) ?></option><?php endforeach; ?></select></label><div class="form-stack form-cols-2"><label>Preferred date<input type="date" name="appointment_date" min="<?= date('Y-m-d') ?>" value="<?= htmlspecialchars($values['appointment_date']) ?>" required></label><label>Preferred time <span class="optional">(optional)</span><input type="time" name="appointment_time" value="<?= htmlspecialchars($values['appointment_time']) ?>"></label><p class="form-message warning">No time selected? Join the regular queue for that day; this is not a scheduled appointment time.</p></div><label>Reason for visit <span class="optional">(optional)</span><textarea name="concern" rows="4" placeholder="Briefly describe what you need help with."><?= htmlspecialchars($values['concern']) ?></textarea></label></div><button class="btn btn-primary btn-block" type="submit">Submit appointment request</button></form></section></div></main>
+<main class="portal-shell"><div class="container"><section class="booking-layout"><div class="booking-copy"><a href="<?= HQ_BASE_URL ?>/patient/dashboard.php" class="back-link">&larr; Back to dashboard</a><span class="eyebrow">Book care</span><h1>Request an appointment</h1><p>Select a clinic and your preferred schedule. The clinic will review and confirm your request.</p></div><form class="booking-form" method="post" id="directBookingForm"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="no_time_confirmed" value="0"><h2>Appointment details</h2><?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?><div class="form-stack"><label>Clinic<select name="clinic_id" required><option value="">Select a clinic</option><?php foreach ($clinics as $clinic): ?><option value="<?= (int) $clinic['ClinicID'] ?>" <?= $values['clinic_id'] === (string) $clinic['ClinicID'] ? 'selected' : '' ?>><?= htmlspecialchars($clinic['ClinicName']) ?> &mdash; <?= htmlspecialchars($clinic['Address']) ?></option><?php endforeach; ?></select></label><label>Preferred physician <span class="optional">(optional)</span><select name="physician_id"><option value="">No preference</option><?php foreach ($physicians as $physician): ?><option value="<?= (int) $physician['UserID'] ?>" <?= $values['physician_id'] === (string) $physician['UserID'] ? 'selected' : '' ?>>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?> &mdash; <?= htmlspecialchars($physician['ClinicName']) ?></option><?php endforeach; ?></select></label><div class="form-stack form-cols-2"><label>Preferred date<input type="date" name="appointment_date" min="<?= date('Y-m-d') ?>" value="<?= htmlspecialchars($values['appointment_date']) ?>" required></label><label>Preferred time <span class="optional">(optional)</span><input type="time" name="appointment_time" value="<?= htmlspecialchars($values['appointment_time']) ?>"></label><p class="form-message warning">No time selected? Join the regular queue for that day; this is not a scheduled appointment time.</p></div><label>Reason for visit <span class="optional">(optional)</span><textarea name="concern" rows="4" placeholder="Briefly describe what you need help with."><?= htmlspecialchars($values['concern']) ?></textarea></label></div><button class="btn btn-primary btn-block" type="submit">Submit appointment request</button></form></section></div></main>
+
+<script>
+document.getElementById('directBookingForm').addEventListener('submit', async function (event) {
+  var form = event.currentTarget;
+  var time = form.elements.appointment_time.value;
+  if (time || form.elements.no_time_confirmed.value === '1') return;
+  event.preventDefault();
+  if (window.confirm('You did not select a specific time. Choose OK to set a time, or Cancel to confirm a queue booking.')) {
+    form.elements.appointment_time.focus();
+    return;
+  }
+  var params = new URLSearchParams({ clinic_id: form.elements.clinic_id.value, appointment_date: form.elements.appointment_date.value });
+  try {
+    var response = await fetch('<?= HQ_BASE_URL ?>/patient/queue-estimate.php?' + params.toString());
+    var estimate = await response.json();
+    if (!estimate.ok) throw new Error();
+    if (!window.confirm('The current approximate queue time is ' + estimate.estimate + ' (about ' + estimate.wait_minutes + ' minutes). This may change as bookings are added. Continue?')) return;
+  } catch (error) {
+    if (!window.confirm('We could not calculate the current queue estimate. Continue with a queue booking anyway?')) return;
+  }
+  form.elements.no_time_confirmed.value = '1';
+  form.requestSubmit();
+});
+document.querySelectorAll('#directBookingForm select[name="clinic_id"], #directBookingForm input[name="appointment_date"], #directBookingForm input[name="appointment_time"]').forEach(function (field) {
+  field.addEventListener('change', function () { document.querySelector('#directBookingForm [name="no_time_confirmed"]').value = '0'; });
+});
+</script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

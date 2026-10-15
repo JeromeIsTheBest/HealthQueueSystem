@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/wallet.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
+require_once __DIR__ . '/../includes/appointment-rules.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Patient']);
@@ -30,7 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // Scoped to this patient's own active entry for today.
             $lookup = $pdo->prepare(
-                "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.ClinicID, q.Status, a.AppointmentID, a.BookingFeePaid, c.ClinicName, c.BaseConsultationFee
+                "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.ClinicID, q.Status, a.AppointmentID, a.BookingFeePaid, c.ClinicName, c.BaseConsultationFee,
+                        (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange
                  FROM Queue q
                  JOIN Appointments a ON a.AppointmentID = q.AppointmentID
                  JOIN Clinic c ON c.ClinicID = q.ClinicID
@@ -54,17 +56,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flash = 'We let the clinic know you are running late.';
                 }
             } elseif ($formType === 'leave_queue') {
+                if (!$target['CanChange']) {
+                    $errors[] = 'The cancellation window has closed.';
+                } else {
                 $pdo->beginTransaction();
-                $pdo->prepare("UPDATE Queue SET Status = 'Removed' WHERE QueueID = ?")->execute([$target['QueueID']]);
-                $pdo->prepare("UPDATE Appointments SET Status = 'Cancelled', CancellationReason = 'Left the queue' WHERE AppointmentID = ?")
-                    ->execute([$target['AppointmentID']]);
-                if ($target['BookingFeePaid']) {
-                    walletRefund($pdo, $user['UserID'], round((float) $target['BaseConsultationFee'], 2), (int) $target['AppointmentID'], 'Refund for leaving the queue at ' . $target['ClinicName']);
-                }
+                $cancelled = cancelBooking($pdo, (int) $target['AppointmentID'], (int) $user['UserID'], 'Left the queue', 'Refund for leaving the queue at ');
+                if (!$cancelled) throw new RuntimeException('Booking is no longer active.');
                 $pdo->commit();
                 notifyClinic($pdo, (int) $target['ClinicID'], "{$patientName} (queue #{$target['QueueNumber']}) left the queue.", (int) $target['AppointmentID']);
                 logActivity($pdo, $user['UserID'], (int) $target['ClinicID'], 'Left the queue', "Queue #{$target['QueueNumber']}");
                 $flash = $target['BookingFeePaid'] ? 'You left the queue. Your booking fee was refunded to your wallet.' : 'You left the queue.';
+                }
             }
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -82,7 +84,8 @@ $dataError = null;
 if ($pdo) {
     try {
         $stmt = $pdo->prepare(
-            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, a.Concern,
+            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.CloseTime, a.AppointmentDate, a.AppointmentTime, a.Concern,
+                    (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange,
                     phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName
              FROM Queue q
              JOIN Appointments a ON a.AppointmentID = q.AppointmentID
@@ -204,12 +207,12 @@ if ($entries):
               I'm running late
             </button>
           </form>
-          <form method="post" onsubmit="return confirm('Leave the queue? You will lose your place in line. Any booking fee you paid will be refunded to your wallet.');">
+          <?php if ($entry['CanChange']): ?><form method="post" onsubmit="return confirm('Leave the queue? You will lose your place in line. Any booking fee you paid will be refunded to your wallet.');">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
             <input type="hidden" name="form_type" value="leave_queue">
             <input type="hidden" name="queue_id" value="<?= (int) $entry['QueueID'] ?>">
             <button type="submit" class="btn btn-outline btn-sm ma-danger">Leave queue</button>
-          </form>
+          </form><?php else: ?><p class="lq-footnote">The cancellation window has closed.</p><?php endif; ?>
         </div>
       <?php endif; ?>
     </section>

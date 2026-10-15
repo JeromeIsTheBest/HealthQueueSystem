@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/wallet.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Staff']);
@@ -17,6 +18,7 @@ $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
 $flash = '';
+if (isset($_GET['registered'])) $flash = 'Walk-in registered successfully.';
 $clinicId = (int) $user['ClinicID'];
 $physicianFilter = filter_var($_GET['physician'] ?? null, FILTER_VALIDATE_INT) ?: null;
 $walkInValues = ['first_name' => '', 'last_name' => '', 'contact_number' => '', 'email' => '', 'physician_id' => '', 'concern' => '', 'priority' => ''];
@@ -112,6 +114,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     if (!$errors) {
                         $physicianId = $walkInValues['physician_id'] !== '' ? (int) $walkInValues['physician_id'] : null;
+                        if (!$physicianId) {
+                            $singlePhysician = $pdo->prepare("SELECT UserID FROM Users WHERE ClinicID = ? AND RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Physician') AND Status = 'Active' ORDER BY UserID LIMIT 2");
+                            $singlePhysician->execute([$clinicId]);
+                            $clinicPhysicians = $singlePhysician->fetchAll(PDO::FETCH_COLUMN);
+                            if (count($clinicPhysicians) === 1) $physicianId = (int) $clinicPhysicians[0];
+                        }
                         $insertAppt = $pdo->prepare(
                             "INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern, Status)
                              VALUES (?, ?, ?, CURDATE(), NULL, ?, 'Confirmed')"
@@ -143,10 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
                         $insertQueue->execute([$clinicId, $appointmentId, $physicianId, $queueNumber, $regularNumber, $position, $walkInValues['priority'] ?: null, $user['UserID']]);
 
-                        $pdo->commit();
                         logActivity($pdo, $user['UserID'], $clinicId, 'Registered walk-in patient', "{$walkInValues['first_name']} {$walkInValues['last_name']}, queue #{$queueNumber}");
-                        $flash = "Walk-in registered as queue #{$queueNumber}" . ($walkInValues['priority'] ? " (priority: {$walkInValues['priority']})." : '.');
-                        $walkInValues = array_map(static fn() => '', $walkInValues);
+                        $pdo->commit();
+                        header('Location: ' . HQ_BASE_URL . '/staff/queue.php?registered=1');
+                        exit;
                     }
 
                     if ($errors && $pdo->inTransaction()) $pdo->rollBack();
@@ -251,8 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $pdo->rollBack();
                             $errors[] = 'That booking could not be removed because it is no longer active.';
                         } else {
-                            $pdo->prepare("UPDATE Queue SET Status = 'Removed' WHERE QueueID = ? AND ClinicID = ? AND Status IN ('Waiting', 'Calling', 'Serving')")->execute([$queueId, $clinicId]);
-                            $pdo->prepare("UPDATE Appointments SET Status = 'Cancelled', CancellationReason = ? WHERE AppointmentID = ? AND ClinicID = ? AND Status IN ('Pending', 'Confirmed')")->execute([$reason, $target['AppointmentID'], $clinicId]);
+                            cancelBooking($pdo, (int) $target['AppointmentID'], (int) $target['PatientID'], $reason, 'Refund for clinic-cancelled booking at ');
                             $pdo->commit();
                             logActivity($pdo, $user['UserID'], $clinicId, 'Removed patient booking from queue', "Appointment #{$target['AppointmentID']}: {$reason}");
                             notifyPatient($pdo, (int) $target['PatientID'], 'Your appointment and queue booking was cancelled by the clinic. Reason: ' . $reason, (int) $target['AppointmentID']);

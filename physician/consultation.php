@@ -39,6 +39,15 @@ if (!$appointment || $appointment['Status'] === 'Cancelled') {
     header('Location: ' . HQ_BASE_URL . '/physician/consultations.php');
     exit;
 }
+$queueGate = $pdo->prepare("SELECT COUNT(*) FROM Queue WHERE AppointmentID = ? AND PhysicianID = ? AND Status IN ('Calling', 'Serving')");
+$queueGate->execute([$appointmentId, $user['UserID']]);
+if ($appointment['Status'] !== 'Completed' && !(int) $queueGate->fetchColumn()) {
+    header('Location: ' . HQ_BASE_URL . '/physician/dashboard.php');
+    exit;
+}
+$recordsStmt = $pdo->prepare('SELECT RecordID, Title, Category, UploadedAt FROM MedicalRecords WHERE PatientID = ? ORDER BY UploadedAt DESC');
+$recordsStmt->execute([$appointment['PatientID']]);
+$patientUploads = $recordsStmt->fetchAll();
 $isCompleted = $appointment['Status'] === 'Completed';
 
 /** Returns this appointment's ConsultationID, creating the row if it doesn't exist yet. */
@@ -384,6 +393,18 @@ require __DIR__ . '/../includes/header.php';
     <div>
       <span class="an-eyebrow"><?= $queueEntry ? 'Queue #' . (int) $queueEntry['QueueNumber'] : 'Consultation' ?><?= $appointment['IDNumber'] ? ' · ID ' . htmlspecialchars($appointment['IDNumber']) : '' ?></span>
       <h1><?= htmlspecialchars($appointment['FirstName'] . ' ' . $appointment['LastName']) ?> <small>· <?= htmlspecialchars($source) ?><?= $appointment['AppointmentDate'] !== date('Y-m-d') ? ' · ' . htmlspecialchars(date('M j', strtotime($appointment['AppointmentDate']))) : '' ?></small></h1>
+      <section class="portal-section" aria-label="Patient uploaded medical records">
+        <h2>Patient uploaded records</h2>
+        <?php if ($patientUploads): ?>
+          <ul>
+            <?php foreach ($patientUploads as $upload): ?>
+              <li><?= htmlspecialchars($upload['Title']) ?> · <?= htmlspecialchars($upload['Category']) ?> · <?= htmlspecialchars(date('M j, Y', strtotime($upload['UploadedAt']))) ?>
+                <a href="<?= HQ_BASE_URL ?>/physician/record-stream.php?appointment_id=<?= (int) $appointmentId ?>&amp;record_id=<?= (int) $upload['RecordID'] ?>" target="_blank" rel="noopener">View</a>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        <?php else: ?><p class="cw-muted">The patient has not uploaded any records.</p><?php endif; ?>
+      </section>
       <div class="cw-steps">
         <?php foreach ($steps as $n => $label): ?>
           <span class="<?= $n < $step || ($n === $step && $n === 4) ? 'is-done' : ($n === $step ? 'is-current' : '') ?>"><?= $n < $step || ($n === $step && $n === 4) ? '✓ ' : '' ?><?= $label ?></span>

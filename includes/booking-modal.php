@@ -33,6 +33,7 @@ if ($pdo) {
     <form method="post" action="<?= HQ_BASE_URL ?>/patient/book-appointment.php" id="bookNowForm">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
       <input type="hidden" name="appointment_date" id="bookNowDateInput" required>
+      <input type="hidden" name="no_time_confirmed" id="bookNowNoTimeConfirmed" value="0">
 
       <div class="booking-modal-grid">
         <div>
@@ -117,6 +118,30 @@ if ($pdo) {
       </svg>
       <h2 style="margin:16px 0 4px;">Payment Successful!</h2>
       <p class="modal-subtitle">Your request has been sent to the clinic for confirmation.</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="noTimeChoiceModal">
+  <div class="modal-box">
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    <h2>No specific time selected</h2>
+    <p class="modal-subtitle">Before proceeding to payment, choose whether you want a specific appointment time or a place in the regular queue.</p>
+    <div class="sa-actions">
+      <button type="button" class="btn btn-danger" id="chooseSpecificTime">Set a specific time</button>
+      <button type="button" class="btn btn-primary" id="confirmQueueBooking">Confirm</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="noTimeEstimateModal">
+  <div class="modal-box">
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    <h2>Approximate queue time</h2>
+    <p class="modal-subtitle" id="noTimeEstimateText">Calculating the current queue estimate…</p>
+    <div id="noTimeEstimateError" class="form-message error" role="alert" style="display:none;"></div>
+    <div class="sa-actions">
+      <button type="button" class="btn btn-outline" id="editQueueBooking">Go back</button>
+      <button type="button" class="btn btn-primary" id="continueQueueBooking">Continue to payment</button>
     </div>
   </div>
 </div>
@@ -257,6 +282,14 @@ document.addEventListener('DOMContentLoaded', function () {
   var bookForm = document.getElementById('bookNowForm');
   var bookErrors = document.getElementById('bookNowErrors');
   var bookModal = document.getElementById('bookNowModal');
+  var noTimeChoiceModal = document.getElementById('noTimeChoiceModal');
+  var noTimeEstimateModal = document.getElementById('noTimeEstimateModal');
+  var noTimeConfirmed = document.getElementById('bookNowNoTimeConfirmed');
+  var estimateText = document.getElementById('noTimeEstimateText');
+  var estimateError = document.getElementById('noTimeEstimateError');
+  [clinicSelect, dateInput, timeSelect].forEach(function (field) {
+    if (field) field.addEventListener('change', function () { noTimeConfirmed.value = '0'; });
+  });
   var payDrawer = document.getElementById('payDrawer');
   var payClinic = document.getElementById('payDrawerClinic');
   var payBtn = document.getElementById('payDrawerPayBtn');
@@ -302,6 +335,10 @@ document.addEventListener('DOMContentLoaded', function () {
         showErrors(bookErrors, ['Please choose a date on the calendar.']);
         return;
       }
+      if (!timeSelect.value && noTimeConfirmed.value !== '1') {
+        window.hqOpenModal(noTimeChoiceModal);
+        return;
+      }
       var formData = new FormData(bookForm);
       fetch(bookForm.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'fetch' } })
         .then(function (res) { return res.json(); })
@@ -332,6 +369,36 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
   }
+
+  document.getElementById('chooseSpecificTime').addEventListener('click', function () {
+    window.hqCloseModal(noTimeChoiceModal);
+    noTimeConfirmed.value = '0';
+    if (timeSelect) timeSelect.focus();
+  });
+  document.getElementById('confirmQueueBooking').addEventListener('click', function () {
+    estimateError.style.display = 'none';
+    estimateText.textContent = 'Calculating the current queue estimate…';
+    window.hqCloseModal(noTimeChoiceModal);
+    window.hqOpenModal(noTimeEstimateModal);
+    fetch('<?= HQ_BASE_URL ?>/patient/queue-estimate.php?clinic_id=' + encodeURIComponent(clinicSelect.value) + '&appointment_date=' + encodeURIComponent(dateInput.value), { headers: { 'X-Requested-With': 'fetch' } })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error('estimate');
+        estimateText.textContent = 'Based on current online and walk-in bookings, your approximate turn is around ' + data.estimate + ' (about ' + data.wait_minutes + ' minutes). This may change as the clinic queue changes.';
+      })
+      .catch(function () {
+        estimateText.textContent = 'We could not calculate the current estimate. You can go back or continue with a queue booking.';
+      });
+  });
+  document.getElementById('editQueueBooking').addEventListener('click', function () {
+    window.hqCloseModal(noTimeEstimateModal);
+    window.hqOpenModal(noTimeChoiceModal);
+  });
+  document.getElementById('continueQueueBooking').addEventListener('click', function () {
+    noTimeConfirmed.value = '1';
+    window.hqCloseModal(noTimeEstimateModal);
+    bookForm.requestSubmit();
+  });
 
   if (payBtn) {
     payBtn.addEventListener('click', function () {
