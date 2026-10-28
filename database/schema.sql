@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS Users (
     FirstName     VARCHAR(50)  NOT NULL,
     LastName      VARCHAR(50)  NOT NULL,
     Email         VARCHAR(100) NOT NULL UNIQUE,
+    EmailVerifiedAt DATETIME NULL,
     ContactNumber VARCHAR(20)  NULL,
     PasswordHash  VARCHAR(255) NOT NULL,
     CreatedAt     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -117,6 +118,30 @@ CREATE TABLE IF NOT EXISTS PasswordResets (
     UsedAt    DATETIME NULL,
     CONSTRAINT fk_password_resets_user FOREIGN KEY (UserID) REFERENCES Users (UserID),
     UNIQUE KEY uq_token_hash (TokenHash)
+);
+
+-- Stores hashed, single-use email verification links for patient signup.
+CREATE TABLE IF NOT EXISTS EmailVerificationTokens (
+    VerificationID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID        INT NOT NULL,
+    TokenHash     CHAR(64) NOT NULL UNIQUE,
+    ExpiresAt     DATETIME NOT NULL,
+    UsedAt        DATETIME NULL,
+    CreatedAt     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_email_verification_user FOREIGN KEY (UserID) REFERENCES Users (UserID) ON DELETE CASCADE,
+    INDEX idx_email_verification_user (UserID)
+);
+
+-- Short-lived email verification tokens issued before a patient account exists.
+CREATE TABLE IF NOT EXISTS SignupEmailVerifications (
+    SignupVerificationID INT AUTO_INCREMENT PRIMARY KEY,
+    Email               VARCHAR(100) NOT NULL,
+    TokenHash           CHAR(64) NOT NULL UNIQUE,
+    ExpiresAt            DATETIME NOT NULL,
+    VerifiedAt           DATETIME NULL,
+    UsedAt               DATETIME NULL,
+    CreatedAt            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_signup_verification_email (Email)
 );
 
 -- Physician weekly availability (Data Dictionary Table 11). A physician

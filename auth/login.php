@@ -10,6 +10,7 @@ $pdo = getDbConnection();
 
 $errors = [];
 $email = '';
+$emailUnverified = false;
 $adminSetupAvailable = false;
 
 if ($pdo) {
@@ -39,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors && $pdo) {
         try {
             $stmt = $pdo->prepare(
-                'SELECT u.UserID, u.ClinicID, u.RoleID, r.RoleName, u.FirstName, u.LastName, u.Email, u.PasswordHash, u.Status
+                'SELECT u.UserID, u.ClinicID, u.RoleID, r.RoleName, u.FirstName, u.LastName, u.Email, u.PasswordHash, u.Status, u.EmailVerifiedAt
                  FROM Users u
                  JOIN Roles r ON r.RoleID = u.RoleID
                  WHERE u.Email = ? AND u.DeletedAt IS NULL'
@@ -51,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Invalid email or password.';
             } elseif ($user['Status'] !== 'Active') {
                 $errors[] = 'This account is currently inactive. Please contact your clinic administrator.';
+            } elseif ($user['RoleName'] === 'Patient' && empty($user['EmailVerifiedAt'])) {
+                $emailUnverified = true;
             } else {
                 loginUser($user);
                 header('Location: ' . HQ_BASE_URL . '/' . dashboardPathFor($user['RoleName']));
@@ -79,6 +82,11 @@ require __DIR__ . '/../includes/header.php';
       <div class="form-message error" role="alert">
         <strong>Please check the following:</strong>
         <ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul>
+      </div>
+    <?php endif; ?>
+    <?php if ($emailUnverified): ?>
+      <div class="form-message error" role="alert">
+        Please verify your email address before signing in. <a href="<?= HQ_BASE_URL ?>/auth/resend-verification.php">Send another verification link</a>.
       </div>
     <?php endif; ?>
 

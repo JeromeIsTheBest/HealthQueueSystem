@@ -42,12 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user) {
                 $rawToken = createPasswordResetToken($pdo, (int) $user['UserID']);
 
-                $baseUrl = rtrim(getenv('HQ_APP_URL') ?: '', '/');
-                if ($baseUrl === '') {
-                    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-                    $baseUrl = ($isHttps ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-                }
-                $resetUrl = $baseUrl . '/auth/reset-password.php?token=' . urlencode($rawToken);
+                $resetUrl = healthQueueUrl('auth/reset-password.php?token=' . urlencode($rawToken));
                 sendPasswordResetEmail($email, (string) $user['FirstName'], $resetUrl);
             }
         } catch (PDOException $e) {

@@ -154,6 +154,61 @@ function consumePasswordResetToken(PDO $pdo, int $resetId): void
     $stmt->execute([$resetId]);
 }
 
+/** Creates a hashed, single-use verification link valid for 24 hours. */
+function createEmailVerificationToken(PDO $pdo, int $userId): string
+{
+    $rawToken = bin2hex(random_bytes(32));
+    $pdo->prepare('DELETE FROM EmailVerificationTokens WHERE UserID = ? AND UsedAt IS NULL')->execute([$userId]);
+    $stmt = $pdo->prepare('INSERT INTO EmailVerificationTokens (UserID, TokenHash, ExpiresAt) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))');
+    $stmt->execute([$userId, hash('sha256', $rawToken)]);
+    return $rawToken;
+}
+
+/** Verifies and consumes one valid email token, then marks its patient verified. */
+function verifyPatientEmail(PDO $pdo, string $rawToken): bool
+{
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT t.VerificationID, u.UserID FROM EmailVerificationTokens t
+             JOIN Users u ON u.UserID = t.UserID JOIN Roles r ON r.RoleID = u.RoleID
+             WHERE t.TokenHash = ? AND t.UsedAt IS NULL AND t.ExpiresAt > NOW() AND u.EmailVerifiedAt IS NULL AND r.RoleName = 'Patient'
+             FOR UPDATE"
+        );
+        $stmt->execute([hash('sha256', $rawToken)]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            $pdo->rollBack();
+            return false;
+        }
+        $pdo->prepare('UPDATE Users SET EmailVerifiedAt = NOW() WHERE UserID = ?')->execute([(int) $row['UserID']]);
+        $pdo->prepare('UPDATE EmailVerificationTokens SET UsedAt = NOW() WHERE VerificationID = ?')->execute([(int) $row['VerificationID']]);
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
+/** Creates a one-time token used to verify email before patient registration. */
+function createSignupEmailVerification(PDO $pdo, string $email): string
+{
+    $rawToken = bin2hex(random_bytes(32));
+    $pdo->prepare('DELETE FROM SignupEmailVerifications WHERE Email = ? AND UsedAt IS NULL')->execute([$email]);
+    $stmt = $pdo->prepare('INSERT INTO SignupEmailVerifications (Email, TokenHash, ExpiresAt) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))');
+    $stmt->execute([$email, hash('sha256', $rawToken)]);
+    return $rawToken;
+}
+
+/** Returns the confirmed email for a signup token, if it is still eligible. */
+function findSignupEmailVerification(PDO $pdo, string $rawToken): ?array
+{
+    $stmt = $pdo->prepare('SELECT Email FROM SignupEmailVerifications WHERE TokenHash = ? AND VerifiedAt IS NOT NULL AND UsedAt IS NULL AND ExpiresAt > NOW()');
+    $stmt->execute([hash('sha256', $rawToken)]);
+    return $stmt->fetch() ?: null;
+}
+
 /** Generates (and caches in-session) a CSRF token for the current session. */
 function csrfToken(): string
 {

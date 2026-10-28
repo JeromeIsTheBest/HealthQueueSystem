@@ -808,6 +808,10 @@ a { color: inherit; text-decoration: none; }
 .auth-card-header p { margin: 0; color: var(--slate-500); font-size: 14.5px; }
 
 .form-stack { display: grid; gap: 16px; margin-bottom: 22px; }
+.signup-email-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.signup-email-verify { white-space: nowrap; margin-bottom: 0; min-height: 42px; }
+.signup-email-verified-mark { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 42px; color: #15803d; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.signup-email-verified-mark[hidden] { display: none; }
 .form-stack.form-cols-2 { grid-template-columns: 1fr 1fr; }
 .form-stack label { display: grid; gap: 6px; color: var(--slate-700); font-size: 13px; font-weight: 700; }
 .form-stack input, .form-stack select, .form-stack textarea {
