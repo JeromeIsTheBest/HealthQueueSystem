@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/email.php';
 require_once __DIR__ . '/../includes/wallet.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
 require_once __DIR__ . '/../includes/appointment-rules.php';
@@ -86,11 +87,12 @@ if ($pdo) {
         $stmt = $pdo->prepare(
             "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.CloseTime, a.AppointmentDate, a.AppointmentTime, a.Concern,
                     (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange,
-                    phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName
+                    phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName, patient.Email AS PatientEmail, patient.FirstName AS PatientFirstName
              FROM Queue q
              JOIN Appointments a ON a.AppointmentID = q.AppointmentID
              JOIN Clinic c ON c.ClinicID = q.ClinicID
              LEFT JOIN Users phy ON phy.UserID = q.PhysicianID
+             JOIN Users patient ON patient.UserID = a.PatientID
              WHERE a.PatientID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status IN ('Waiting', 'Calling', 'Serving')
              ORDER BY q.CreatedAt DESC"
         );
@@ -109,6 +111,15 @@ if ($pdo) {
             $entry['WaitMinutes'] = $entry['Ahead'] * MINUTES_PER_PATIENT;
             $servingStmt->execute([$entry['ClinicID']]);
             $entry['NowServing'] = $servingStmt->fetchColumn() ?: null;
+            if ($entry['Status'] === 'Waiting' && $entry['Ahead'] <= ALMOST_TURN_AHEAD) {
+                $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
+                $notice = "Your queue number {$ticketNumber} at {$entry['ClinicName']} is coming up soon.";
+                $noticeStmt = $pdo->prepare('INSERT INTO PatientNotifications (PatientID, Message, RelatedAppointmentID) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM PatientNotifications WHERE PatientID = ? AND RelatedAppointmentID = ? AND Message = ?)');
+                $noticeStmt->execute([(int) $user['UserID'], $notice, (int) $entry['AppointmentID'], (int) $user['UserID'], (int) $entry['AppointmentID'], $notice]);
+                if ($noticeStmt->rowCount() > 0) {
+                    sendQueueNearEmail((string) $entry['PatientEmail'], (string) $entry['PatientFirstName'], $ticketNumber, (string) $entry['ClinicName']);
+                }
+            }
         }
         unset($entry);
 

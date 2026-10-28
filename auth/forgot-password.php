@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/email.php';
 
 define('HQ_BASE_URL', '..');
 requireGuest();
@@ -11,7 +12,6 @@ $pdo = getDbConnection();
 $errors = [];
 $email = '';
 $submitted = false;
-$devResetLink = null; // Dev-mode only: see note near the form below.
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors && $pdo) {
         try {
-            $stmt = $pdo->prepare('SELECT UserID FROM Users WHERE Email = ? AND DeletedAt IS NULL');
+            $stmt = $pdo->prepare('SELECT UserID, FirstName FROM Users WHERE Email = ? AND DeletedAt IS NULL');
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
@@ -42,11 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user) {
                 $rawToken = createPasswordResetToken($pdo, (int) $user['UserID']);
 
-                // No email/SMS gateway is wired up yet (that's the
-                // Automated Notification Engine module), so the reset
-                // link is shown directly here instead of being sent out.
-                $devResetLink = HQ_BASE_URL . '/auth/reset-password.php?token=' . urlencode($rawToken);
-                error_log("Password reset requested for {$email}: {$devResetLink}");
+                $baseUrl = rtrim(getenv('HQ_APP_URL') ?: '', '/');
+                if ($baseUrl === '') {
+                    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+                    $baseUrl = ($isHttps ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+                }
+                $resetUrl = $baseUrl . '/auth/reset-password.php?token=' . urlencode($rawToken);
+                sendPasswordResetEmail($email, (string) $user['FirstName'], $resetUrl);
             }
         } catch (PDOException $e) {
             error_log('Forgot-password lookup failed: ' . $e->getMessage());
@@ -80,12 +82,6 @@ require __DIR__ . '/../includes/header.php';
         If an account exists for <?= htmlspecialchars($email) ?>, reset instructions have been sent.
       </div>
 
-      <?php if ($devResetLink): ?>
-        <div class="dev-note">
-          <strong>Dev mode</strong> — no email/SMS gateway is connected yet, so here's the link that would have been sent:
-          <a href="<?= htmlspecialchars($devResetLink) ?>"><?= htmlspecialchars($devResetLink) ?></a>
-        </div>
-      <?php endif; ?>
     <?php else: ?>
       <form method="post" action="">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">

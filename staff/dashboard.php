@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/email.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
 
 define('HQ_BASE_URL', '..');
@@ -32,8 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // Next in line = lowest waiting queue number today.
             $next = $pdo->prepare(
-                "SELECT q.QueueID, q.QueueNumber, a.PatientID, a.AppointmentID FROM Queue q
+                "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, a.PatientID, a.AppointmentID, u.Email, u.FirstName, c.ClinicName FROM Queue q
                  JOIN Appointments a ON a.AppointmentID = q.AppointmentID
+                 JOIN Users u ON u.UserID = a.PatientID JOIN Clinic c ON c.ClinicID = q.ClinicID
                  WHERE q.ClinicID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status = 'Waiting' AND (a.AppointmentTime IS NULL OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW()) AND NOT EXISTS (SELECT 1 FROM Queue activeQ WHERE activeQ.ClinicID = q.ClinicID AND activeQ.Status IN ('Calling', 'Serving'))
                  ORDER BY CASE WHEN a.AppointmentTime IS NOT NULL AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW() THEN 0 ELSE 1 END, CASE WHEN a.AppointmentTime IS NOT NULL AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW() THEN TIMESTAMP(a.AppointmentDate, a.AppointmentTime) END, q.QueueNumber LIMIT 1"
             );
@@ -44,6 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $pdo->prepare("UPDATE Queue SET Status = 'Calling', CalledAt = NOW() WHERE QueueID = ? AND Status = 'Waiting'")->execute([$entry['QueueID']]);
                 notifyPatient($pdo, (int) $entry['PatientID'], "You're being called now — please proceed to the counter.", (int) $entry['AppointmentID']);
+                $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
+                sendQueueNearEmail((string) $entry['Email'], (string) $entry['FirstName'], $ticketNumber, (string) $entry['ClinicName']);
                 logActivity($pdo, $user['UserID'], $clinicId, 'Updated queue status', "Queue #{$entry['QueueNumber']} set to Calling");
                 $flash = ['success', "Calling queue #{$entry['QueueNumber']}."];
             }

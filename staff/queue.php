@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/email.php';
 require_once __DIR__ . '/../includes/wallet.php';
 
 define('HQ_BASE_URL', '..');
@@ -53,11 +54,12 @@ function callQueueEntry(PDO $pdo, int $queueId, int $clinicId, int $staffId): ?s
     $stmt = $pdo->prepare("UPDATE Queue SET Status = 'Calling', CalledAt = NOW() WHERE QueueID = ? AND ClinicID = ? AND Status = 'Waiting'");
     $stmt->execute([$queueId, $clinicId]);
     if (!$stmt->rowCount()) return null;
-    $row = $pdo->prepare('SELECT q.QueueNumber, q.ScheduledNumber, q.RegularNumber, a.PatientID, a.AppointmentID FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID WHERE q.QueueID = ?');
+    $row = $pdo->prepare('SELECT q.QueueNumber, q.ScheduledNumber, q.RegularNumber, a.PatientID, a.AppointmentID, u.Email, u.FirstName, c.ClinicName FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID JOIN Users u ON u.UserID = a.PatientID JOIN Clinic c ON c.ClinicID = q.ClinicID WHERE q.QueueID = ?');
     $row->execute([$queueId]);
     $entry = $row->fetch();
     notifyPatient($pdo, (int) $entry['PatientID'], "You're being called now - please proceed to the counter.", (int) $entry['AppointmentID']);
     $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
+    sendQueueNearEmail((string) $entry['Email'], (string) $entry['FirstName'], $ticketNumber, (string) $entry['ClinicName']);
     logActivity($pdo, $staffId, $clinicId, 'Updated queue status', "Queue {$ticketNumber} set to Calling");
     return $ticketNumber;
 }

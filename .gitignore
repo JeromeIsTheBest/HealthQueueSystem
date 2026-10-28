@@ -1,0 +1,6 @@
+/vendor/
+/storage/
+/assets/uploads/
+.env
+.env.*
+!.env.example
