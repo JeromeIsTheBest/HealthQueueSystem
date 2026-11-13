@@ -85,7 +85,7 @@ $dataError = null;
 if ($pdo) {
     try {
         $stmt = $pdo->prepare(
-            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.CloseTime, a.AppointmentDate, a.AppointmentTime, a.Concern,
+            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.CloseTime, a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern,
                     (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange,
                     phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName, patient.Email AS PatientEmail, patient.FirstName AS PatientFirstName
              FROM Queue q
@@ -186,7 +186,7 @@ if ($entries):
           <p><?= htmlspecialchars($meta) ?></p>
           </div>
         </div>
-        <span class="lq-live"><span class="lq-live-dot"></span>Live · updated <span data-updated-seconds>0</span>s ago</span>
+        <span class="lq-live"><span class="lq-live-dot"></span>Live</span>
       </div>
 
       <div class="lq-stats">
@@ -286,19 +286,13 @@ require __DIR__ . '/../includes/header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Refresh the queue card every 15s and tick the "Updated Xs ago" label.
+  // Refresh the queue card every 15 seconds.
   var container = document.getElementById('liveQueue');
-  var lastUpdate = Date.now();
-
-  setInterval(function () {
-    var seconds = Math.floor((Date.now() - lastUpdate) / 1000);
-    container.querySelectorAll('[data-updated-seconds]').forEach(function (el) { el.textContent = seconds; });
-  }, 1000);
 
   setInterval(function () {
     fetch('<?= HQ_BASE_URL ?>/patient/queue-status.php', { headers: { 'X-Requested-With': 'fetch' } })
       .then(function (res) { return res.text(); })
-      .then(function (html) { container.innerHTML = html; lastUpdate = Date.now(); })
+      .then(function (html) { container.innerHTML = html; })
       .catch(function () { /* keep the last view; try again next tick */ });
   }, 15000);
 });

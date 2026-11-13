@@ -10,7 +10,8 @@ requireRole(['Admin']);
 $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
-$flash = '';
+$flash = (string) ($_SESSION['admin_success'][basename(__FILE__)] ?? '');
+unset($_SESSION['admin_success'][basename(__FILE__)]);
 $values = ['title' => '', 'message' => '', 'audience' => 'Everyone', 'clinic_id' => '', 'category' => 'General', 'affects_date' => ''];
 $audiences = ['Everyone', 'Patients', 'Staff', 'Physicians'];
 $categories = ANNOUNCEMENT_CATEGORIES;
@@ -48,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare('INSERT INTO Announcements (PostedByUserID, ClinicID, Title, Category, Message, PhotoPath, Audience, AffectsDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
                 $stmt->execute([$user['UserID'], $values['clinic_id'] !== '' ? (int) $values['clinic_id'] : null, $values['title'], $values['category'], $values['message'], $photo, $values['audience'], $values['affects_date'] ?: null]);
                 logActivity($pdo, $user['UserID'], null, 'Posted announcement', $values['title'] . ' (' . $values['audience'] . ')');
+                $_SESSION['admin_success'][basename(__FILE__)] = $flash !== '' ? $flash : 'Announcement published.';
                 header('Location: ' . HQ_BASE_URL . '/admin/announcements.php');
                 exit;
             } catch (PDOException $e) {

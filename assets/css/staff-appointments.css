@@ -1,0 +1,127 @@
+/* Staff appointment workspace; scoped to preserve other portal pages. */
+.sa-page { --sa-blue:var(--teal-600); --sa-navy:var(--teal-900); max-width:1440px; color:var(--sa-navy); padding:26px 28px 36px; background:linear-gradient(135deg,#f8fcff,#eef7fc); border-radius:20px; }
+.sa-page .sa-hero {position:relative; padding:0 0 22px; margin:0; background:none; border:0; box-shadow:none; display:block;}
+.sa-page .an-eyebrow {color:var(--teal-700);font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;}
+.sa-page h1 {font-size:32px;line-height:1.2;margin:5px 0 6px;letter-spacing:-1px;}
+.sa-page .sa-hero>p {font-size:14px;margin:0;color:var(--slate-500);}
+.sa-page .sa-hero-actions {display:flex;align-items:center;gap:12px;position:absolute;right:0;top:12px;}
+.sa-page .sa-current-date,.sa-page .sa-hero-actions .btn {padding:10px 15px;background:var(--slate-50);border:1px solid var(--slate-200);border-radius:8px;font-size:12px;font-weight:700;}
+.sa-page .sa-hero-actions .btn {color:var(--sa-blue);border-color:var(--teal-500);}
+.sa-page .sa-workspace {background:#fff;border:1px solid var(--slate-200);border-radius:15px;padding:0 20px 14px;box-shadow:var(--shadow-sm);overflow:hidden;}
+.sa-page .sa-tabs {display:flex;gap:0;border:0;border-bottom:1px solid var(--slate-200);padding:0;margin:0 0 18px;background:transparent;overflow-x:auto;border-radius:0;}
+.sa-page .sa-tab {flex:1;justify-content:center;display:flex;align-items:center;gap:8px;white-space:nowrap;padding:17px 12px 14px;color:var(--slate-600);font-size:13px;font-weight:700;border:0;border-bottom:3px solid transparent;border-radius:0;background:none;text-decoration:none;}
+.sa-page .sa-tab.is-active {background:var(--teal-50);border-bottom-color:var(--teal-600);color:var(--teal-600);}
+.sa-page .sa-count,.sa-page .sa-count.is-amber {background:var(--slate-100);color:var(--slate-600);font-size:11px;padding:2px 7px;min-width:22px;border-radius:20px;}
+.sa-page .is-active .sa-count {background:var(--teal-100);color:var(--teal-600);}
+.sa-page .sa-filters {display:flex;align-items:center;gap:12px;margin:0 0 20px;padding:0;}
+.sa-page .sa-search {flex:1.6;display:flex;align-items:center;gap:9px;border:1px solid var(--slate-200);border-radius:8px;padding:0 12px;background:#fff;min-width:0;}
+.sa-page .sa-search input {border:0;box-shadow:none;background:none;width:100%;min-width:0;height:42px;padding:0;font-size:12px;}
+.sa-page .sa-filters>input[type=date] {flex:1;min-width:140px;width:auto;height:44px;margin:0;padding:9px 12px;border:1px solid var(--slate-200);border-radius:8px;font:inherit;font-size:12px;background:#fff;}
+.sa-page .sa-filter-btn {height:44px;background:#fff;border:1px solid var(--teal-600);border-radius:8px;color:var(--teal-600);font-size:12px;padding:10px 22px;}
+.sa-page .sa-clear {color:var(--slate-500);font-size:12px;text-decoration:none;}
+.sa-page .sa-list-heading h2 {font-size:20px;margin:0 0 4px;letter-spacing:-.4px;}
+.sa-page .sa-list-heading p {font-size:12px;color:var(--slate-500);margin:0 0 17px;}
+.sa-page .sa-list {display:flex;flex-direction:column;gap:9px;}
+.sa-page .sa-item {display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:13px 15px;background:#fff;border:1px solid var(--slate-200);border-radius:11px;box-shadow:none;margin:0;}
+.sa-page .sa-head {display:flex;align-items:center;gap:12px;flex:1;min-width:155px;}
+.sa-page .sa-avatar {width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;background:var(--teal-100);color:var(--teal-600);border-radius:12px;font-size:14px;font-weight:800;}
+.sa-page .sa-head strong,.sa-page .sa-row-main strong {font-size:13px;display:block;}
+.sa-page .sa-head p,.sa-page .sa-row-main p {font-size:11px;color:var(--slate-500);margin:4px 0 0;}
+.sa-page .sa-request-date {flex:1;min-width:155px;border-left:1px solid var(--slate-200);padding-left:16px;}
+.sa-page .sa-field-label {display:block;color:var(--slate-500);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
+.sa-page .sa-request-date strong {font-size:11px;font-weight:600;}
+.sa-page .sa-approve-form {display:flex;align-items:center;flex:2;gap:15px;flex-wrap:wrap;margin:0;min-width:360px;}
+.sa-page .sa-assignment {flex:1;border-left:1px solid var(--slate-200);padding-left:16px;position:relative;min-width:135px;}
+.sa-page .sa-physician-name {font-size:11px;display:block;pointer-events:none;}
+.sa-page .is-unassigned {color:#bf8000;font-weight:700;}
+.sa-page .sa-physician {position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;margin:0;}
+.sa-page .sa-assignment:focus-within {outline:2px solid var(--teal-600);outline-offset:4px;border-radius:4px;}
+.sa-page .sa-fee {background:var(--teal-100);border-radius:20px;padding:4px 9px;font-size:10px;color:var(--teal-600);font-weight:700;white-space:nowrap;}
+.sa-page .sa-actions {display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0;}
+.sa-page .sa-actions .btn {padding:8px 13px;font-size:11px;border-radius:7px;min-height:34px;}
+.sa-page .sa-actions [data-open-decline] {border:0;background:transparent;color:var(--slate-500);}
+.sa-page .sa-actions .sa-approve {background:var(--gradient-brand);border-color:var(--teal-600);color:#fff;min-width:105px;}
+.sa-page .sa-link {font-size:10px;color:var(--slate-500);background:none;border:0;cursor:pointer;padding:3px;}
+.sa-page .sa-actions .sa-link {flex-basis:auto;}
+.sa-page .sa-warning {flex-basis:100%;font-size:11px;margin:0;color:#9c6800;}
+.sa-page .sa-details,.sa-page .sa-resched,.sa-page .sa-decline {flex-basis:100%;border-top:1px solid var(--slate-200);padding-top:14px;}
+.sa-page [hidden] {display:none!important;}
+.sa-page .sa-details {display:flex;gap:18px;flex-wrap:wrap;font-size:12px;}
+.sa-page .sa-resched {display:flex;gap:10px;flex-wrap:wrap;}
+.sa-page .sa-resched input {max-width:220px;}
+.sa-page .sa-list-total {margin:14px 0 0;font-size:11px;color:var(--slate-500);}
+.sa-page .sa-guidance {display:flex;align-items:center;gap:12px;background:var(--teal-50);border:1px solid var(--teal-500);color:var(--teal-700);border-radius:9px;padding:12px 16px;font-size:12px;font-weight:600;margin:17px 0 10px;}
+.sa-page .sa-guidance span {font-size:20px;}
+.sa-page .sa-completed {display:flex;justify-content:space-between;gap:16px;background:#fff;border:1px solid var(--slate-200);border-radius:9px;padding:13px 16px;font-size:12px;box-shadow:var(--shadow-sm);}
+.sa-page .sa-completed a {color:var(--teal-600);font-weight:700;text-decoration:none;}
+.sa-page .ma-empty {padding:38px 18px;text-align:center;background:var(--slate-50);border-radius:12px;}
+.sa-page .ma-empty h3 {font-size:18px;margin:0 0 8px;}
+.sa-page .ma-empty p {font-size:13px;margin:0;color:var(--slate-500);}
+.sa-page .sa-row-main {flex:1;min-width:180px;}
+.sa-page .sa-time {font-size:13px;font-weight:700;min-width:85px;}
+@media(min-width:1200px) {.sa-page .sa-approve-form>.sa-actions {max-width:235px;justify-content:flex-end;}.sa-page .sa-actions .sa-link {font-size:9px;}}
+@media(max-width:1100px) {.sa-page .sa-hero-actions {position:static;margin-top:16px;}.sa-page .sa-approve-form {flex-basis:100%;}.sa-page .sa-assignment {border-left:0;padding-left:0;}.sa-page .sa-hero {padding-bottom:18px;}}
+@media(max-width:600px) {.sa-page {padding:18px 12px 26px;border-radius:12px;}.sa-page h1 {font-size:27px;}.sa-page .sa-hero>p {font-size:12px;}.sa-page .sa-workspace {padding:0 12px 14px;}.sa-page .sa-tab {flex:none;padding:14px 13px;}.sa-page .sa-filters {flex-wrap:wrap;gap:8px;}.sa-page .sa-search {flex-basis:100%;}.sa-page .sa-filter-btn {padding:9px 12px;}.sa-page .sa-item {padding:13px;gap:13px;}.sa-page .sa-head {flex-basis:100%;}.sa-page .sa-request-date {border-left:0;padding-left:0;}.sa-page .sa-approve-form {min-width:0;gap:12px;}.sa-page .sa-assignment {flex-basis:65%;}.sa-page .sa-actions {width:100%;}.sa-page .sa-actions .btn {min-height:40px;}.sa-page .sa-guidance {font-size:11px;align-items:flex-start;}.sa-page .sa-completed {flex-direction:column;gap:8px;}.sa-page .sa-current-date,.sa-page .sa-hero-actions .btn {font-size:11px;padding:9px;}}
+
+/* Use the shared brand states for appointment controls. */
+.sa-page :is(h1,h2,h3,.sa-head strong,.sa-row-main strong) {color:var(--teal-900);}
+.sa-page .sa-actions .sa-approve:hover {background:var(--teal-700);border-color:var(--teal-700);color:#fff;}
+.sa-page :is(.sa-filter-btn,.sa-hero-actions .btn):hover {background:var(--teal-50);border-color:var(--teal-600);color:var(--teal-700);}
+.sa-page .sa-tab:not(.is-active):hover {background:var(--slate-50);color:var(--teal-700);}
+.sa-page .sa-fee {color:var(--teal-700);}
+
+/* Keep the date readable against the light appointment header. */
+.sa-page .sa-hero .sa-current-date {
+  color:var(--teal-900);
+  background:#fff;
+  border-color:var(--slate-200);
+  opacity:1;
+}
+
+/* Align the appointment heading controls at every screen size. */
+.sa-page .sa-hero {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  column-gap:24px;
+  align-items:center;
+}
+.sa-page .sa-hero > :is(.an-eyebrow,h1,p) {grid-column:1;}
+.sa-page .sa-hero .sa-hero-actions {
+  position:static;
+  grid-column:2;
+  grid-row:1 / 4;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  margin:0;
+}
+.sa-page .sa-hero-actions > :is(.sa-current-date,.btn) {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:44px;
+  padding:10px 16px;
+  margin:0;
+  box-sizing:border-box;
+  line-height:1.4;
+  white-space:nowrap;
+}
+@media(max-width:1100px) {
+  .sa-page .sa-hero {grid-template-columns:minmax(0,1fr);}
+  .sa-page .sa-hero .sa-hero-actions {
+    grid-column:1;
+    grid-row:4;
+    justify-content:flex-start;
+    margin-top:16px;
+    flex-wrap:wrap;
+  }
+}
+@media(max-width:600px) {
+  .sa-page .sa-hero .sa-hero-actions {gap:10px;}
+  .sa-page .sa-hero-actions > :is(.sa-current-date,.btn) {
+    min-height:42px;
+    padding:10px 12px;
+    font-size:11px;
+  }
+}

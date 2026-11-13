@@ -5,6 +5,7 @@ if (!defined('HQ_BASE_URL')) {
 require_once __DIR__ . '/auth.php';
 $pageTitle = $pageTitle ?? 'HealthQueue';
 $hqUser = currentUser();
+$hqAppRole = $hqUser && in_array($hqUser['RoleName'], ['Admin', 'Staff', 'Physician', 'Patient'], true);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -18,8 +19,41 @@ $hqUser = currentUser();
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../assets/css/style.css') ?: 1 ?>">
+<?php if (!empty($isLandingPage)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/landing.css?v=<?= filemtime(__DIR__ . '/../assets/css/landing.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isMobileAuthPage)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/auth-mobile.css?v=<?= filemtime(__DIR__ . '/../assets/css/auth-mobile.css') ?>">
+<?php endif; ?>
+<?php if ($hqAppRole): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/app-mobile.css?v=<?= filemtime(__DIR__ . '/../assets/css/app-mobile.css') ?>">
+<?php endif; ?>
+<?php if (($hqUser['RoleName'] ?? '') === 'Patient'): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/patient-mobile.css?v=<?= filemtime(__DIR__ . '/../assets/css/patient-mobile.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isPhysicianDashboard)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/physician-dashboard.css?v=<?= filemtime(__DIR__ . '/../assets/css/physician-dashboard.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isPhysicianConsultations)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/physician-consultations.css?v=<?= filemtime(__DIR__ . '/../assets/css/physician-consultations.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isPhysicianHistory)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/physician-history.css?v=<?= filemtime(__DIR__ . '/../assets/css/physician-history.css') ?>">
+<?php endif; ?>
+<?php if ($hqAppRole): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/app-toast.css?v=<?= filemtime(__DIR__ . '/../assets/css/app-toast.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isStaffDashboard)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/staff-dashboard.css?v=<?= filemtime(__DIR__ . '/../assets/css/staff-dashboard.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isStaffAppointments)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/staff-appointments.css?v=<?= filemtime(__DIR__ . '/../assets/css/staff-appointments.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isStaffQueue)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/staff-queue.css?v=<?= filemtime(__DIR__ . '/../assets/css/staff-queue.css') ?>">
+<?php endif; ?>
 </head>
-<body>
+<body class="<?= $hqAppRole ? 'app-portal' . ($hqUser['RoleName'] === 'Patient' ? ' patient-portal' : '') : '' ?><?= !empty($isLandingPage) ? ' landing-home' : '' ?><?= !empty($isMobileAuthPage) ? ' mobile-auth-page' : '' ?>">
 
 <?php
 // Admin, Physician, Staff, and Patient all get the app-style sidebar shell;
@@ -169,7 +203,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
     <nav class="admin-nav">
       <?php foreach ($hqSidebarNav as $item): ?>
         <?php $hqBadgeCount = $hqSidebarBadges[$item['file']] ?? 0; ?>
-        <a href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/<?= $item['file'] ?>" class="admin-nav-link<?= $hqCurrentFile === $item['file'] ? ' active' : '' ?>" title="<?= htmlspecialchars($item['label']) ?><?= $hqBadgeCount > 0 ? ' (' . $hqBadgeCount . ')' : '' ?>">
+        <a href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/<?= $item['file'] ?>" class="admin-nav-link<?= $hqCurrentFile === $item['file'] ? ' active' : '' ?>"<?= $hqCurrentFile === $item['file'] ? ' aria-current="page"' : '' ?> title="<?= htmlspecialchars($item['label']) ?><?= $hqBadgeCount > 0 ? ' (' . $hqBadgeCount . ')' : '' ?>">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><?= $item['icon'] ?></svg>
           <span class="admin-nav-label"><?= $item['label'] ?></span>
           <?php if ($hqBadgeCount > 0): ?><span class="admin-nav-badge"><?= $hqBadgeCount > 99 ? '99+' : $hqBadgeCount ?></span><?php endif; ?>
@@ -189,9 +223,11 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
     // sidebar doesn't flash full-width on load -- localStorage is per-browser,
     // read here synchronously rather than waiting for main.js at the bottom.
     (function () {
-      if (window.innerWidth > 980 && localStorage.getItem('hqSidebarCollapsed') === 'true') {
-        document.getElementById('adminSidebar').classList.add('is-collapsed');
-      }
+      try {
+        if (window.innerWidth > 980 && localStorage.getItem('hqSidebarCollapsed') === 'true') {
+          document.getElementById('adminSidebar').classList.add('is-collapsed');
+        }
+      } catch (e) { /* Browser storage may be unavailable. */ }
     })();
   </script>
 
@@ -200,6 +236,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
       <button type="button" class="admin-sidebar-toggle admin-sidebar-toggle-mobile" aria-label="Toggle menu" aria-expanded="false" aria-controls="adminSidebar">
         <span></span><span></span><span></span>
       </button>
+      <a class="app-mobile-brand<?= $hqUser['RoleName'] === 'Patient' ? ' patient-mobile-brand' : '' ?>" href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/dashboard.php">HealthQueue</a>
       <div class="admin-topbar-icons">
         <?php if (in_array('notifications.php', array_column($hqSidebarNav, 'file'), true)): ?>
           <a href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/notifications.php" class="header-icon-btn" aria-label="Notifications">
@@ -237,8 +274,15 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
           <li><a href="<?= HQ_BASE_URL ?>/index.php#services">Services</a></li>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#how-it-works">How It Works</a></li>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#clinics">Clinics</a></li>
+          <?php if (empty($isLandingPage)): ?>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#faq">FAQ</a></li>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#contact">Contact</a></li>
+          <?php endif; ?>
+          <?php if (!empty($isLandingPage) && !$hqUser): ?>
+          <li class="landing-mobile-auth"><a href="<?= HQ_BASE_URL ?>/auth/login.php">Sign in</a></li>
+          <li class="landing-mobile-auth"><a href="<?= HQ_BASE_URL ?>/auth/register.php">Create a patient account</a></li>
+          <li class="landing-mobile-auth"><a href="#clinic-registration">Register clinic</a></li>
+          <?php endif; ?>
         <?php endif; ?>
       </ul>
     </nav>

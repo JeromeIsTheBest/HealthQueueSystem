@@ -1,0 +1,74 @@
+/* Physician consultation history, scoped independently from other screens. */
+.physician-history { --history-ink:var(--teal-900); --history-muted:#65788b; padding:30px 0 52px; background:linear-gradient(135deg,#eef7fd,#f7fafd 75%); }
+.physician-history .ph-history-container { max-width:1600px; padding-inline:28px; }
+.physician-history .ph-history-heading { display:flex; justify-content:space-between; align-items:center; gap:24px; margin-bottom:26px; }
+.physician-history .ph-history-eyebrow { font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:800; color:var(--teal-700); }
+.physician-history h1 { margin:8px 0 10px; font-size:clamp(28px,3cqi,42px); line-height:1.2; letter-spacing:-.04em; color:var(--history-ink); }
+.physician-history .ph-history-heading p { margin:0; color:var(--history-muted); font-size:14px; }
+.physician-history .ph-history-today { display:inline-flex; align-items:center; gap:12px; flex-shrink:0; padding:12px 16px; border:1px solid #cbdde9; border-radius:12px; background:#ffffffb3; color:var(--history-ink); font-size:13px; }
+.physician-history svg { flex-shrink:0; }
+.physician-history .ph-history-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:26px; padding:16px; border:1px solid #e0eaf1; border-radius:16px; background:#fff; }
+.physician-history .ph-history-search { display:flex; flex:1 1 260px; align-items:center; gap:10px; min-width:0; padding:0 8px 0 14px; border:1px solid #cbdbe7; border-radius:10px; color:#6b7e90; background:#fbfdff; }
+.physician-history .ph-history-search:focus-within { outline:2px solid #a3d1e0; outline-offset:2px; }
+.physician-history .ph-history-search input { min-width:0; width:100%; min-height:44px; padding:10px 0; border:0; border-radius:0; outline:none; box-shadow:none; background:transparent; color:var(--history-ink); font:inherit; font-size:13px; }
+.physician-history .ph-history-search-submit { display:grid; place-items:center; width:34px; height:34px; padding:0; border:0; border-radius:8px; background:#edf6fc; color:var(--teal-700); cursor:pointer; }
+.physician-history .ph-history-periods { display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0; border:0; min-width:0; }
+.physician-history .ph-history-periods button,.physician-history .ph-history-reset { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 16px; border:1px solid #d3dfeb; border-radius:9px; background:#fff; color:#38526c; font:inherit; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.physician-history .ph-history-periods button.is-active { background:#dcedfc; color:var(--teal-700); border-color:#dcedfc; font-weight:800; }
+.physician-history .ph-history-periods button:hover,.physician-history .ph-history-reset:hover { border-color:#85bad5; background:#f0f8ff; }
+.physician-history .ph-history-panel { padding:24px; border:1px solid #dce7ef; border-radius:18px; background:#fff; box-shadow:0 4px 16px #23496705; }
+.physician-history .ph-history-panel-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:26px; }
+.physician-history .ph-history-panel-heading h2 { display:flex; align-items:center; gap:12px; margin:0; color:var(--history-ink); font-size:23px; letter-spacing:-.035em; }
+.physician-history .ph-history-panel-heading > span { color:var(--history-muted); font-size:12px; }
+.physician-history .ph-history-count { display:inline-grid; place-items:center; min-width:30px; padding:3px 9px; border-radius:8px; background:#e0f1fc; color:var(--teal-700); font-size:14px; font-weight:800; }
+.physician-history .ph-history-group + .ph-history-group { margin-top:24px; }
+.physician-history .ph-history-date { display:flex; align-items:center; gap:16px; margin:0 0 14px; color:var(--history-ink); font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.physician-history .ph-history-date::after { content:""; flex:1; height:1px; background:#d5e2ec; }
+.physician-history .ph-history-rows { display:grid; gap:10px; }
+.physician-history .ph-history-row { display:grid; grid-template-columns:minmax(190px,1.5fr) minmax(110px,.85fr) minmax(80px,.65fr) minmax(95px,.7fr) auto; grid-template-areas:"patient date time status actions"; gap:18px; align-items:center; padding:16px 18px; border:1px solid #dce5ee; border-radius:13px; background:#fff; transition:border-color .18s ease,background .18s ease; }
+.physician-history .ph-history-row:hover { border-color:#b9d5e8; background:#fbfdff; }
+.physician-history .ph-history-patient { grid-area:patient; display:flex; align-items:center; gap:12px; min-width:0; }
+.physician-history .ph-history-avatar { display:grid; place-items:center; flex-shrink:0; width:42px; height:42px; border-radius:50%; background:#ddf1fd; color:var(--teal-700); font-size:13px; font-weight:800; }
+.physician-history .ph-history-patient h4 { margin:0 0 4px; font-size:14px; color:var(--history-ink); line-height:1.4; overflow-wrap:anywhere; }
+.physician-history .ph-history-patient p { margin:0; color:var(--history-muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.physician-history :is(.ph-history-visit-date,.ph-history-visit-time,.ph-history-completed) { display:flex; align-items:center; gap:9px; color:#465f77; font-size:11px; }
+.physician-history .ph-history-visit-date { grid-area:date; }
+.physician-history .ph-history-visit-time { grid-area:time; }
+.physician-history .ph-history-completed { grid-area:status; color:var(--teal-700); font-weight:700; }
+.physician-history .ph-history-completed svg { color:var(--teal-600); }
+.physician-history .ph-history-actions { grid-area:actions; display:flex; align-items:center; gap:10px; }
+.physician-history .ph-history-actions .btn { gap:8px; min-height:40px; padding:10px 14px; border-radius:10px; font-size:11px; text-decoration:none; box-shadow:none; }
+.physician-history .ph-history-panel-footer { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; margin-top:28px; padding-top:20px; border-top:1px solid #dce5ee; color:var(--history-muted); font-size:12px; }
+.physician-history .ph-history-panel-footer a { display:inline-flex; align-items:center; min-height:40px; color:var(--teal-700); font-weight:700; }
+.physician-history .ph-history-empty { display:grid; justify-items:center; padding:48px 16px; text-align:center; }
+.physician-history .ph-history-empty > svg { width:42px; height:42px; margin-bottom:16px; color:var(--teal-600); }
+.physician-history .ph-history-empty h3 { margin:0 0 8px; color:var(--history-ink); font-size:18px; }
+.physician-history .ph-history-empty p { margin:0 0 18px; color:var(--history-muted); font-size:13px; }
+.ph-history-sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+@container admin-content (max-width:1150px) {
+  .physician-history .ph-history-row { grid-template-columns:minmax(0,1fr) 130px 110px; grid-template-areas:"patient date time" "actions actions status"; gap:16px; }
+  .physician-history .ph-history-completed { justify-self:end; }
+}
+@media (max-width:760px) {
+  .physician-history .ph-history-container { padding-inline:16px; }
+  .physician-history .ph-history-heading { flex-direction:column; align-items:flex-start; gap:16px; }
+  .physician-history h1 { font-size:29px; }
+  .physician-history .ph-history-heading p { font-size:13px; }
+  .physician-history .ph-history-today { padding:10px 14px; font-size:12px; }
+  .physician-history .ph-history-toolbar { gap:12px; padding:14px; }
+  .physician-history .ph-history-search { flex-basis:100%; }
+  .physician-history .ph-history-search input { font-size:16px; }
+  .physician-history .ph-history-search-submit { min-width:44px; height:44px; }
+  .physician-history .ph-history-periods { flex:1 1 100%; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .physician-history .ph-history-periods button { padding:10px 8px; font-size:11px; }
+  .physician-history .ph-history-reset { width:100%; }
+  .physician-history .ph-history-panel { padding:20px 14px; }
+  .physician-history .ph-history-panel-heading h2 { font-size:21px; }
+  .physician-history .ph-history-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-areas:"patient patient" "date time" "status status" "actions actions"; gap:14px; padding:18px 14px; }
+  .physician-history .ph-history-completed { justify-self:start; }
+  .physician-history .ph-history-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .physician-history .ph-history-actions .btn { min-height:44px; padding:10px; font-size:11px; white-space:normal; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .physician-history .ph-history-row { transition:none; }
+}

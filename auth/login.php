@@ -6,6 +6,7 @@ define('HQ_BASE_URL', '..');
 requireGuest();
 
 $pageTitle = 'Sign In — HealthQueue';
+$isMobileAuthPage = true;
 $pdo = getDbConnection();
 
 $errors = [];

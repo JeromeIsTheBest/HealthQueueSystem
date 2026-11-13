@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/sms.php';
 require_once __DIR__ . '/../includes/wallet.php';
 require_once __DIR__ . '/../includes/availability.php';
 
@@ -176,6 +177,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $pdo->commit();
                         logActivity($pdo, $user['UserID'], $clinicId, 'Accepted appointment request', "Appointment #{$appointmentId}, queue {$ticketToken}");
+                        queuePatientSms($pdo, (int) $existing['PatientID'], $appointmentId,
+                            'confirmed:' . $appointmentId, 'confirmed',
+                            'HealthQueue: Your appointment on ' . $existing['AppointmentDate'] . ' is confirmed. Queue ' . $ticketToken . '. Check your account for details.');
                         notifyPatient($pdo, (int) $existing['PatientID'], 'Your appointment on ' . $existing['AppointmentDate'] . ' has been confirmed. Your queue number is ' . $ticketToken . '.', $appointmentId);
                         $flash = "Appointment request accepted as queue {$ticketToken}.";
                     }
@@ -340,6 +344,7 @@ if ($pdo && $clinicId) {
                     TIMESTAMPDIFF(MINUTE, a.CreatedAt, NOW()) AS MinutesAgo,
                     pat.UserID AS PatientUserID, pat.FirstName, pat.LastName, pat.Email, pat.ContactNumber,
                     c.BaseConsultationFee,
+                    (SELECT CONCAT('Dr. ', ph.FirstName, ' ', ph.LastName) FROM Users ph WHERE ph.UserID = a.PhysicianID) AS PhysicianName,
                     (SELECT COUNT(*) FROM Appointments h WHERE h.PatientID = a.PatientID AND h.ClinicID = a.ClinicID) AS VisitCount
              FROM Appointments a
              JOIN Users pat ON pat.UserID = a.PatientID
@@ -485,6 +490,7 @@ $tabUrl = static function (string $tab) use ($search, $dateFilter): string {
 };
 
 $pageTitle = 'Appointments — HealthQueue';
+$isStaffAppointments = true;
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -492,23 +498,16 @@ require __DIR__ . '/../includes/header.php';
   <section class="sa-hero">
     <span class="an-eyebrow">Front desk</span>
     <h1>Appointments</h1>
-    <p>Review requests, manage today's schedule, and confirm finished visits.</p>
-    <form method="get" class="sa-filters">
-      <input type="hidden" name="tab" value="<?= htmlspecialchars($activeTab) ?>">
-      <label class="sa-search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="search" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Search patient name" aria-label="Search patient name">
-      </label>
-      <input type="date" name="date" value="<?= htmlspecialchars($dateFilter) ?>" aria-label="Filter by date" onchange="this.form.submit()">
-      <button type="submit" class="btn sa-filter-btn">Search</button>
-      <?php if ($search !== '' || $dateFilter !== ''): ?><a href="?tab=<?= htmlspecialchars($activeTab) ?>" class="sa-clear">Clear</a><?php endif; ?>
-    </form>
+    <p>Review requests and keep your clinic schedule moving.</p>
+
+    <div class="sa-hero-actions"><span class="sa-current-date"><?= htmlspecialchars(date('j F Y')) ?></span><a class="btn btn-outline" href="queue.php#walk-in">Register walk-in</a></div>
   </section>
 
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
   <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
   <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
 
+  <section class="sa-workspace">
   <nav class="sa-tabs" aria-label="Appointment lists">
     <?php foreach ($tabs as $key => $label): ?>
       <a href="<?= htmlspecialchars($tabUrl($key)) ?>" class="sa-tab<?= $activeTab === $key ? ' is-active' : '' ?>"<?= $activeTab === $key ? ' aria-current="page"' : '' ?>>
@@ -517,6 +516,17 @@ require __DIR__ . '/../includes/header.php';
       </a>
     <?php endforeach; ?>
   </nav>
+    <form method="get" class="sa-filters">
+      <input type="hidden" name="tab" value="<?= htmlspecialchars($activeTab) ?>">
+      <label class="sa-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Search patient name" aria-label="Search patient name">
+      </label>
+      <input type="date" name="date" value="<?= htmlspecialchars($dateFilter) ?>" aria-label="Filter by date">
+      <button type="submit" class="btn sa-filter-btn">Apply filters</button>
+      <?php if ($search !== '' || $dateFilter !== ''): ?><a href="?tab=<?= htmlspecialchars($activeTab) ?>" class="sa-clear">Reset</a><?php endif; ?>
+    </form>
+  <header class="sa-list-heading"><h2><?= htmlspecialchars(['requests' => 'Appointment requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today?s appointments', 'confirm' => 'Visits to confirm', 'all' => 'All appointments'][$activeTab]) ?></h2><p><?= $activeTab === 'requests' ? 'Paid bookings awaiting your clinic?s approval' : 'Review and manage your clinic appointments.' ?></p></header>
 
   <?php if ($activeTab === 'reschedules'): ?>
     <?php if ($rescheduleRequests): ?>
@@ -560,22 +570,24 @@ require __DIR__ . '/../includes/header.php';
               <span class="sa-avatar"><?= htmlspecialchars($initials($req)) ?></span>
               <div>
                 <strong><?= htmlspecialchars($req['FirstName'] . ' ' . $req['LastName']) ?></strong>
-                <p><?= htmlspecialchars(date('M j', strtotime($req['AppointmentDate']))) ?><?= $req['AppointmentTime'] ? ' at ' . htmlspecialchars(date('g:i A', strtotime($req['AppointmentTime']))) : ' · Queue booking (no specific time)' ?> · <?= htmlspecialchars($concernLabel($req['Concern'])) ?> · requested <?= htmlspecialchars($timeAgo((int) $req['MinutesAgo'])) ?></p>
+                <p>Requested <?= htmlspecialchars($timeAgo((int) $req['MinutesAgo'])) ?></p>
               </div>
             </div>
 
+            <div class="sa-request-date"><span class="sa-field-label">Date &amp; time</span><strong><?= htmlspecialchars(date('j M Y', strtotime($req['AppointmentDate']))) ?> &middot; <?= $req['AppointmentTime'] ? htmlspecialchars(date('g:i A', strtotime($req['AppointmentTime']))) : 'Queue booking' ?></strong></div>
             <form method="post" class="sa-approve-form">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
               <input type="hidden" name="appointment_id" value="<?= $id ?>">
-              <select name="physician_id" class="sa-physician" aria-label="Assign physician">
+              <div class="sa-assignment"><label class="sa-field-label" for="physician-<?= $id ?>">Physician</label><span class="sa-physician-name<?= empty($req['PhysicianID']) ? ' is-unassigned' : '' ?>"><?= htmlspecialchars($req['PhysicianName'] ?: 'No physician selected') ?></span><select id="physician-<?= $id ?>" name="physician_id" class="sa-physician" aria-label="Assign physician">
                 <option value="">Choose a physician…</option>
                 <?php foreach ($physicians as $physician): ?>
                   <option value="<?= (int) $physician['UserID'] ?>" <?= (int) $req['PhysicianID'] === (int) $physician['UserID'] ? 'selected' : '' ?>>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?></option>
                 <?php endforeach; ?>
-              </select>
+              </select></div>
+              <span class="sa-fee">Fee paid</span>
               <div class="sa-actions">
                 <button type="button" class="btn btn-outline btn-sm" data-open-decline>Decline</button>
-                <button type="submit" name="form_type" value="accept_request" class="btn btn-outline btn-sm sa-approve">Approve</button>
+                <button type="submit" name="form_type" value="accept_request" class="btn btn-outline btn-sm sa-approve"><?= empty($req['PhysicianID']) ? 'Assign physician' : 'Approve' ?></button>
                 <button type="button" class="sa-link" data-toggle="details-<?= $id ?>">Details</button>
                 <button type="button" class="sa-link" data-toggle="resched-<?= $id ?>">Reschedule</button>
               </div>
@@ -682,6 +694,10 @@ require __DIR__ . '/../includes/header.php';
       <div class="ma-empty"><h3>No appointments found</h3><p>Try a different name or date.</p></div>
     <?php endif; ?>
   <?php endif; ?>
+  <p class="sa-list-total"><?= (int) $tabCounts[$activeTab] ?> <?= $activeTab === 'requests' ? 'requests awaiting review' : 'appointments' ?></p>
+  </section>
+  <p class="sa-guidance"><span aria-hidden="true">&#9432;</span> Approve to add a patient to the clinic queue. Assign a physician when needed.</p>
+  <div class="sa-completed"><strong>Need to review completed visits?</strong><a href="<?= htmlspecialchars($tabUrl('confirm')) ?>">Open To confirm</a></div>
 </div></main>
 
 <script>
@@ -715,7 +731,20 @@ document.addEventListener('DOMContentLoaded', function () {
       warning.hidden = !message;
       warning.textContent = message ? '⚠ ' + message : '';
     }
-    select.addEventListener('change', checkPhysician);
+    var approveButton = approveForm.querySelector('.sa-approve');
+    approveForm.addEventListener('submit', function (event) {
+      if (!select.value) {
+        event.preventDefault();
+        select.focus();
+        warning.textContent = 'Choose a physician before approving this visit.';
+        warning.hidden = false;
+      }
+    });
+    select.addEventListener('change', function () {
+      item.querySelector('.sa-physician-name').textContent = select.value ? select.options[select.selectedIndex].text : 'No physician selected';
+      approveButton.textContent = select.value ? 'Approve' : 'Assign physician';
+      checkPhysician();
+    });
     checkPhysician();
 
     item.querySelector('[data-open-decline]').addEventListener('click', function () {

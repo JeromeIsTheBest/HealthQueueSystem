@@ -143,120 +143,115 @@ $waitLabel = static fn(int $m): string => $m < 60 ? "waiting {$m} min" : 'waitin
 $csrf = htmlspecialchars(csrfToken());
 
 $pageTitle = 'Consultations — HealthQueue';
+$isPhysicianConsultations = true;
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="portal-shell"><div class="container cs-page">
-  <section class="an-hero">
-    <div>
-      <span class="an-eyebrow">Active visits</span>
-      <h1>Consultations</h1>
-      <p><?= htmlspecialchars(trim(($clinicName ? $clinicName . ' · ' : '') . ($pdo ? date('l, M j', strtotime((string) $pdo->query('SELECT CURDATE()')->fetchColumn())) : ''))) ?></p>
-    </div>
-    <div class="an-hero-stats">
-      <div><strong><?= $stats['waiting'] ?></strong><span>Waiting</span></div>
-      <div class="cs-stat-green"><strong><?= $stats['seen'] ?></strong><span>Seen today</span></div>
-    </div>
-  </section>
+<?php
+$pcInitials = static fn(array $person): string => htmlspecialchars(strtoupper(substr($person['FirstName'], 0, 1) . substr($person['LastName'], 0, 1)));
+$pcTicket = static fn(array $row): string => $row['ScheduledNumber'] !== null ? 'S-' . (int) $row['ScheduledNumber'] : '#' . (int) ($row['RegularNumber'] ?? $row['QueueNumber']);
+$pcCalendar = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>';
+?>
+<main class="portal-shell physician-consultations">
+  <div class="container pc-container">
+    <header class="pc-heading">
+      <div>
+        <span class="pc-eyebrow">Active visits</span>
+        <h1>Consultations</h1>
+        <p><?= $clinicName ? htmlspecialchars($clinicName) . ' &middot; ' : '' ?><time datetime="<?= date('Y-m-d') ?>"><?= date('l, j F Y') ?></time></p>
+      </div>
+      <div class="pc-stats" aria-label="Today's consultations">
+        <article><span class="pc-stat-icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M17 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5v2"/></svg></span><div><strong><?= (int) $stats['waiting'] ?></strong><span>Waiting</span></div></article>
+        <article><span class="pc-stat-icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span><div><strong><?= (int) $stats['seen'] ?></strong><span>Seen today</span></div></article>
+      </div>
+    </header>
 
-  <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
-  <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-  <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
+    <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
+    <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+    <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
 
-  <h3 class="qm-section-title">In progress</h3>
-  <?php if ($inProgress): ?>
-    <?php foreach ($inProgress as $row): ?>
-      <?php $secs = max(0, (int) $row['ServingSeconds']); ?>
-      <article class="cs-row cs-active">
-        <span class="qm-num"><?= $row['ScheduledNumber'] !== null ? 'S-' . (int) $row['ScheduledNumber'] : '#' . (int) ($row['RegularNumber'] ?? $row['QueueNumber']) ?></span>
-        <div class="cs-main">
-          <strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?> <em>· <?= htmlspecialchars($source($row)) ?></em></strong>
-          <p><?= htmlspecialchars($concern($row)) ?></p>
-        </div>
-        <span class="cs-pill"><?= (int) $row['DraftCount'] ? 'Draft saved · ' : 'In consultation · ' ?><?= sprintf('%02d:%02d', intdiv($secs, 60), $secs % 60) ?></span>
-        <a href="<?= HQ_BASE_URL ?>/physician/consultation.php?appointment_id=<?= (int) $row['AppointmentID'] ?>" class="btn btn-outline btn-sm">Continue</a>
-      </article>
-    <?php endforeach; ?>
-  <?php else: ?>
-    <p class="cs-empty">No one is with you right now.</p>
-  <?php endif; ?>
-
-  <h3 class="qm-section-title">Up next · <?= count($upNext) ?></h3>
-  <?php if ($upNext): ?>
-    <div class="sa-list">
-      <?php foreach ($upNext as $i => $row): ?>
-        <?php $mins = (int) $row['WaitingMinutes']; ?>
-        <article class="cs-row">
-          <span class="qm-num"><?= $row['ScheduledNumber'] !== null ? 'S-' . (int) $row['ScheduledNumber'] : '#' . (int) ($row['RegularNumber'] ?? $row['QueueNumber']) ?></span>
-          <div class="cs-main">
-            <strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?> <em>· <?= htmlspecialchars($source($row)) ?><?= $row['QueueStatus'] === 'Calling' ? ' · being called' : '' ?></em></strong>
-            <p><?= htmlspecialchars($concern($row)) ?></p>
-          </div>
-          <span class="qm-wait<?= $mins >= LONG_WAIT_MINUTES ? ' is-long' : '' ?>"><?= $waitLabel($mins) ?></span>
-          <?php if ($i === 0 && !$inProgress): ?>
-            <form method="post">
-              <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-              <input type="hidden" name="form_type" value="start_consultation">
-              <input type="hidden" name="appointment_id" value="<?= (int) $row['AppointmentID'] ?>">
-              <button type="submit" class="btn btn-outline btn-sm">Start consultation</button>
-            </form>
-          <?php endif; ?>
-        </article>
-      <?php endforeach; ?>
-    </div>
-  <?php else: ?>
-    <p class="cs-empty">No patients waiting in your queue.</p>
-  <?php endif; ?>
-
-  <h3 class="qm-section-title">Scheduled appointments · <?= count($scheduledAppointments) ?></h3>
-  <?php if ($scheduledAppointments): ?>
-    <div class="sa-list">
-      <?php foreach ($scheduledAppointments as $row): ?>
-        <article class="cs-row">
-          <div class="cs-main">
-            <strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong>
-            <p><?= htmlspecialchars($concern($row)) ?></p>
-          </div>
-          <span class="ma-pill ma-pill-pending"><?= htmlspecialchars(date('M j, g:i A', strtotime($row['AppointmentDate'] . ' ' . $row['AppointmentTime']))) ?></span>
-          <span class="ma-pill ma-pill-pending">Not yet due</span>
-        </article>
-      <?php endforeach; ?>
-    </div>
-  <?php else: ?>
-    <p class="cs-empty">No upcoming timed appointments.</p>
-  <?php endif; ?>
-
-  <h3 class="qm-section-title">Awaiting staff confirmation · <?= count($awaiting) ?></h3>
-  <?php if ($awaiting): ?>
-    <div class="sa-list">
-      <?php foreach ($awaiting as $row): ?>
-        <article class="cs-row">
-          <div class="cs-main">
-            <strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?> <em>· finalized <?= htmlspecialchars(date('g:i A', strtotime($row['FinalizedAt']))) ?><?= date('Y-m-d', strtotime($row['FinalizedAt'])) !== date('Y-m-d') ? ' ' . htmlspecialchars(date('M j', strtotime($row['FinalizedAt']))) : '' ?></em></strong>
-          </div>
-          <span class="ma-pill ma-pill-pending">Awaiting confirmation</span>
-          <a href="<?= HQ_BASE_URL ?>/physician/consultation.php?appointment_id=<?= (int) $row['AppointmentID'] ?>" class="btn btn-outline btn-sm">View</a>
-        </article>
-      <?php endforeach; ?>
-    </div>
-  <?php else: ?>
-    <p class="cs-empty">Nothing waiting on the front desk.</p>
-  <?php endif; ?>
-
-  <?php if ($scheduled): ?>
-    <details class="qm-finished cs-scheduled">
-      <summary><span>Other confirmed appointments</span><span class="ma-pill ma-pill-completed"><?= count($scheduled) ?></span></summary>
-      <ul>
-        <?php foreach ($scheduled as $row): ?>
-          <li>
-            <?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?>
-            <em><?= htmlspecialchars(date('M j, g:i A', strtotime($row['AppointmentDate'] . ' ' . $row['AppointmentTime']))) ?></em>
-            <a href="<?= HQ_BASE_URL ?>/physician/consultation.php?appointment_id=<?= (int) $row['AppointmentID'] ?>" class="text-link">Open</a>
-          </li>
+    <section class="pc-active" aria-labelledby="pcActiveHeading">
+      <div class="pc-active-header"><h2 id="pcActiveHeading">In progress</h2></div>
+      <?php if ($inProgress): ?>
+        <?php foreach ($inProgress as $row): ?>
+          <?php $secs = max(0, (int) $row['ServingSeconds']); ?>
+          <article class="pc-active-row">
+            <span class="pc-ticket pc-ticket-large"><?= $pcTicket($row) ?></span>
+            <div class="pc-patient pc-active-patient"><span class="pc-avatar" aria-hidden="true"><?= $pcInitials($row) ?></span><div><h3><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></h3><p><?= htmlspecialchars($source($row)) ?> &middot; <?= htmlspecialchars($concern($row)) ?></p></div></div>
+            <span class="pc-serving"><span aria-hidden="true">&#9679;</span> In consultation &middot; <?= sprintf('%02d:%02d', intdiv($secs, 60), $secs % 60) ?></span>
+            <?php if ((int) $row['DraftCount']): ?><span class="pc-draft">Draft saved</span><?php endif; ?>
+            <a class="btn btn-primary pc-continue" href="<?= HQ_BASE_URL ?>/physician/consultation.php?appointment_id=<?= (int) $row['AppointmentID'] ?>">Continue consultation <span aria-hidden="true">&rarr;</span></a>
+          </article>
         <?php endforeach; ?>
-      </ul>
-    </details>
-  <?php endif; ?>
-</div></main>
+      <?php else: ?><div class="pc-empty pc-active-empty"><h3>No consultation in progress</h3><p>Start the next eligible patient from your queue below.</p></div><?php endif; ?>
+    </section>
 
+    <div class="pc-grid">
+      <div class="pc-main-column">
+        <section class="pc-panel" aria-labelledby="pcQueueHeading">
+          <div class="pc-panel-heading"><h2 id="pcQueueHeading">Up next <span class="pc-count"><?= count($upNext) ?></span></h2><p>Queue order managed by front desk</p></div>
+          <?php if ($upNext): ?>
+            <div class="pc-table-scroll" tabindex="0" role="region" aria-label="Upcoming patient queue">
+              <table class="pc-table">
+                <thead><tr><th scope="col">Queue</th><th scope="col">Patient</th><th scope="col">Concern</th><th scope="col">Waiting</th><?php if (!$inProgress): ?><th scope="col"><span class="pc-sr-only">Action</span></th><?php endif; ?></tr></thead>
+                <tbody>
+                <?php foreach ($upNext as $i => $row): ?>
+                  <?php $mins = max(0, (int) $row['WaitingMinutes']); ?>
+                  <tr>
+                    <td><span class="pc-ticket"><?= $pcTicket($row) ?></span></td>
+                    <td><div class="pc-patient"><span class="pc-avatar" aria-hidden="true"><?= $pcInitials($row) ?></span><div><strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong><small><?= htmlspecialchars($source($row)) ?><?= $row['QueueStatus'] === 'Calling' ? ' ? being called' : '' ?></small></div></div></td>
+                    <td><span class="pc-concern" title="<?= htmlspecialchars($row['Concern'] ?? '') ?>"><?= htmlspecialchars($concern($row)) ?></span></td>
+                    <td><span class="pc-wait<?= $mins >= LONG_WAIT_MINUTES ? ' is-long' : '' ?>"><?= htmlspecialchars($waitLabel($mins)) ?></span></td>
+                    <?php if (!$inProgress): ?><td>
+                      <?php if ($i === 0): ?>
+                        <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="start_consultation"><input type="hidden" name="appointment_id" value="<?= (int) $row['AppointmentID'] ?>"><button type="submit" class="btn btn-primary pc-start">Start consultation</button></form>
+                      <?php endif; ?>
+                    </td><?php endif; ?>
+                  </tr>
+                <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+            <?php if ($inProgress): ?><p class="pc-info"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/></svg>Finish the current consultation before starting the next patient.</p><?php endif; ?>
+          <?php else: ?><div class="pc-empty"><h3>No patients waiting</h3><p>Patients in your live queue will appear here.</p></div><?php endif; ?>
+        </section>
+
+        <?php if ($scheduled): ?>
+          <details class="pc-other">
+            <summary><span>Other confirmed appointments <span class="pc-count"><?= count($scheduled) ?></span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <ul>
+              <?php foreach ($scheduled as $row): ?>
+                <li><div><strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong><small><?= date('M j, g:i A', strtotime($row['AppointmentDate'] . ' ' . $row['AppointmentTime'])) ?></small></div><a class="pc-text-link" href="<?= HQ_BASE_URL ?>/physician/consultation.php?appointment_id=<?= (int) $row['AppointmentID'] ?>">Open consultation</a></li>
+              <?php endforeach; ?>
+            </ul>
+          </details>
+        <?php endif; ?>
+      </div>
+
+      <div class="pc-side-column">
+        <section class="pc-panel" aria-labelledby="pcScheduledHeading">
+          <div class="pc-panel-heading"><h2 id="pcScheduledHeading">Scheduled appointments <span class="pc-count"><?= count($scheduledAppointments) ?></span></h2><p>Not yet due</p></div>
+          <?php if ($scheduledAppointments): ?>
+            <ul class="pc-schedule-list">
+              <?php foreach ($scheduledAppointments as $row): ?>
+                <li><span class="pc-calendar-icon" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><?= $pcCalendar ?></svg></span><div><h3><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></h3><time datetime="<?= htmlspecialchars($row['AppointmentDate'] . 'T' . $row['AppointmentTime']) ?>"><?= date('M j, g:i A', strtotime($row['AppointmentDate'] . ' ' . $row['AppointmentTime'])) ?></time><p><?= htmlspecialchars($concern($row)) ?></p></div><span class="pc-not-due">Not yet due</span></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php else: ?><div class="pc-empty"><h3>No upcoming timed appointments</h3><p>Future scheduled visits will appear here.</p></div><?php endif; ?>
+        </section>
+
+        <section class="pc-panel" aria-labelledby="pcAwaitingHeading">
+          <div class="pc-panel-heading"><h2 id="pcAwaitingHeading">Awaiting staff confirmation <span class="pc-count"><?= count($awaiting) ?></span></h2></div>
+          <?php if ($awaiting): ?>
+            <ul class="pc-awaiting-list">
+              <?php foreach ($awaiting as $row): ?>
+                <li><div class="pc-patient"><span class="pc-avatar" aria-hidden="true"><?= $pcInitials($row) ?></span><div><h3><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></h3><small>Finalized <?= date('M j, g:i A', strtotime($row['FinalizedAt'])) ?></small></div></div><span class="pc-pending">Awaiting confirmation</span><a class="pc-text-link" href="<?= HQ_BASE_URL ?>/physician/consultation.php?appointment_id=<?= (int) $row['AppointmentID'] ?>">View consultation <span aria-hidden="true">&rarr;</span></a></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php else: ?><div class="pc-empty"><h3>All caught up</h3><p>Nothing is waiting on the front desk.</p></div><?php endif; ?>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

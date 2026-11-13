@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/sms.php';
 require_once __DIR__ . '/../includes/email.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
 
@@ -47,6 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("UPDATE Queue SET Status = 'Calling', CalledAt = NOW() WHERE QueueID = ? AND Status = 'Waiting'")->execute([$entry['QueueID']]);
                 notifyPatient($pdo, (int) $entry['PatientID'], "You're being called now — please proceed to the counter.", (int) $entry['AppointmentID']);
                 $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
+                queuePatientSms($pdo, (int) $entry['PatientID'], (int) $entry['AppointmentID'],
+                    'called:' . $entry['QueueID'], 'called', 'HealthQueue: You are being called now. Please proceed to the clinic counter.');
                 sendQueueNearEmail((string) $entry['Email'], (string) $entry['FirstName'], $ticketNumber, (string) $entry['ClinicName']);
                 logActivity($pdo, $user['UserID'], $clinicId, 'Updated queue status', "Queue #{$entry['QueueNumber']} set to Calling");
                 $flash = ['success', "Calling queue #{$entry['QueueNumber']}."];
@@ -103,14 +106,14 @@ if ($pdo && $clinicId) {
         $stats['avg_wait_yesterday'] = ($v = $waitStmt->fetchColumn()) !== null ? (int) round((float) $v) : null;
 
         $queueStmt = $pdo->prepare(
-            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, a.AppointmentTime, a.BookingFeePaid,
+            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, a.AppointmentDate, a.AppointmentTime, a.BookingFeePaid,
                     pat.FirstName, pat.LastName, phy.LastName AS PhyLastName
              FROM Queue q
              JOIN Appointments a ON a.AppointmentID = q.AppointmentID
              JOIN Users pat ON pat.UserID = a.PatientID
              LEFT JOIN Users phy ON phy.UserID = q.PhysicianID
              WHERE q.ClinicID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status IN ('Waiting', 'Calling', 'Serving')
-             ORDER BY FIELD(q.Status, 'Serving', 'Calling', 'Waiting'), q.QueueNumber"
+             ORDER BY FIELD(q.Status, 'Serving', 'Calling', 'Waiting'), CASE WHEN a.AppointmentTime IS NOT NULL AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW() THEN 0 ELSE 1 END, CASE WHEN a.AppointmentTime IS NOT NULL AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW() THEN TIMESTAMP(a.AppointmentDate, a.AppointmentTime) END, q.QueueNumber"
         );
         $queueStmt->execute([$clinicId]);
         $active = $queueStmt->fetchAll();
@@ -127,7 +130,7 @@ if ($pdo && $clinicId) {
             "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern, a.PhysicianID, pat.FirstName, pat.LastName
              FROM Appointments a JOIN Users pat ON pat.UserID = a.PatientID
              WHERE a.ClinicID = ? AND a.Status = 'Pending' AND a.BookingFeePaid = 1
-             ORDER BY a.AppointmentDate, a.AppointmentTime LIMIT 3"
+             ORDER BY a.AppointmentDate, a.AppointmentTime LIMIT 2"
         );
         $reqStmt->execute([$clinicId]);
         $pendingRequests = $reqStmt->fetchAll();
@@ -147,6 +150,8 @@ if ($pdo && $clinicId) {
     }
 }
 
+if (!$pdo || !$clinicId) $dataError = 'Your clinic dashboard is temporarily unavailable. Contact your administrator if no clinic is assigned.';
+
 $hour = $now ? (int) $now->format('G') : (int) date('G');
 $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
 $hours = $clinic && $now ? clinicOpenStatus($clinic, $now) : null;
@@ -158,143 +163,112 @@ $availabilityDots = ['Available' => 'sd-dot-green', 'On Break' => 'sd-dot-amber'
 $waitDelta = ($stats['avg_wait'] !== null && $stats['avg_wait_yesterday'] !== null) ? $stats['avg_wait_yesterday'] - $stats['avg_wait'] : null;
 
 $pageTitle = 'Staff Dashboard — HealthQueue';
+$isStaffDashboard = true;
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="portal-shell"><div class="container sd-page">
-  <section class="sd-hero">
-    <div>
-      <h1><?= $greeting ?>, <?= htmlspecialchars($user['FirstName']) ?></h1>
-      <p><?= $now ? htmlspecialchars($now->format('l, M j')) : '' ?><?= $hoursText ? ' · ' . htmlspecialchars($hoursText) : '' ?></p>
-    </div>
-    <div class="sd-hero-actions">
-      <a href="<?= HQ_BASE_URL ?>/staff/queue.php#walk-in" class="btn sd-btn-ghost">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
-        Register walk-in
-      </a>
-      <form method="post">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
-        <input type="hidden" name="form_type" value="call_next">
-        <button type="submit" class="btn sd-btn-call"<?= ($upNext && !$nowServing) ? '' : ' disabled title="A visit is in progress or no one is waiting"' ?>>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
-          Call next patient
-        </button>
-      </form>
-    </div>
-  </section>
+<?php
+$fdTicket = static fn(array $entry): string => $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
+$fdSource = static fn(array $entry): string => !$entry['BookingFeePaid'] ? 'Walk-in' : (!empty($entry['AppointmentTime']) && $entry['AppointmentTime'] !== '00:00:00' ? 'Scheduled visit' : 'Queue booking');
+$fdInitials = static fn(array $person): string => htmlspecialchars(mb_strtoupper(mb_substr($person['FirstName'], 0, 1) . mb_substr($person['LastName'], 0, 1)));
+$fdIcons = [
+    'person' => '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M19 8v6M16 11h6"/>',
+    'call' => '<path d="m3 10 17-5v14L3 14v-4zM7 15l2 6h4l-2-5M21 2l2-1M22 11h2"/>',
+    'requests' => '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v4H9zM8 11h8M8 15h6"/>',
+    'calendar' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',
+    'people' => '<circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M17 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5v2"/>',
+    'clock' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+];
+$fdIcon = static fn(string $name): string => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($fdIcons[$name] ?? '') . '</svg>';
+$nextInLine = null;
+$fdNow = $now ? $now->getTimestamp() : time();
+foreach ($upNext as $entry) {
+    if ($entry['AppointmentTime'] === null || strtotime($entry['AppointmentDate'] . ' ' . $entry['AppointmentTime']) <= $fdNow) { $nextInLine = $entry; break; }
+}
+?>
+<main class="portal-shell staff-dashboard">
+  <div class="container fd-container">
+    <header class="fd-heading">
+      <div><span class="fd-eyebrow"><?= htmlspecialchars($clinic['ClinicName'] ?? 'Front desk') ?></span><h1>Your front desk, organized.</h1><p><?= htmlspecialchars(($now ?? new DateTimeImmutable())->format('l, j F Y')) ?><?= $hoursText ? ' ? ' . htmlspecialchars($hoursText) : '' ?></p></div>
+      <div class="fd-heading-actions"><a class="btn btn-outline" href="<?= HQ_BASE_URL ?>/staff/queue.php#walk-in"><?= $fdIcon('person') ?>Register walk-in</a><a class="fd-text-link" href="<?= HQ_BASE_URL ?>/staff/queue.php">Open queue</a></div>
+    </header>
 
-  <?php if ($flash): ?><p class="form-message <?= $flash[0] === 'error' ? 'error' : 'success' ?>" role="status"><?= htmlspecialchars($flash[1]) ?></p><?php endif; ?>
-  <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
+    <?php if ($flash): ?><p class="form-message <?= $flash[0] === 'error' ? 'error' : 'success' ?>" role="<?= $flash[0] === 'error' ? 'alert' : 'status' ?>"><?= htmlspecialchars($flash[1]) ?></p><?php endif; ?>
+    <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
 
-  <section class="sd-stats">
-    <a href="<?= HQ_BASE_URL ?>/staff/appointments.php">
-      <span>Pending requests</span><strong><?= $stats['pending'] ?></strong>
-      <small class="<?= $stats['pending_new'] ? 'sd-amber' : '' ?>"><?= $stats['pending_new'] ?> new today</small>
-    </a>
-    <a href="<?= HQ_BASE_URL ?>/staff/appointments.php">
-      <span>Today's appointments</span><strong><?= $stats['today'] ?></strong>
-      <small><?= $stats['today_done'] ?> done · <?= $stats['today'] - $stats['today_done'] ?> left</small>
-    </a>
-    <a href="<?= HQ_BASE_URL ?>/staff/queue.php">
-      <span>In queue</span><strong><?= $stats['in_queue'] ?></strong>
-      <small><?= $nowServing ? 'Serving #' . (int) $nowServing['QueueNumber'] : 'No one being served' ?></small>
-    </a>
-    <div>
-      <span>Average wait</span><strong><?= $stats['avg_wait'] !== null ? $stats['avg_wait'] . '<em> min</em>' : '—' ?></strong>
-      <small class="<?= $waitDelta !== null ? ($waitDelta >= 0 ? 'sd-green' : 'sd-red') : '' ?>">
-        <?php if ($stats['avg_wait'] === null): ?>No calls yet today<?php elseif ($waitDelta === null): ?>Joining the queue → being called<?php elseif ($waitDelta === 0): ?>Same as yesterday<?php else: ?><?= abs($waitDelta) ?> min <?= $waitDelta > 0 ? 'faster' : 'slower' ?> than yesterday<?php endif; ?>
-      </small>
-    </div>
-  </section>
-
-  <div class="sd-grid">
-    <section class="sd-card">
-      <div class="sd-card-head">
-        <h2>Queue</h2>
-        <a href="<?= HQ_BASE_URL ?>/staff/queue.php" class="text-link">Open queue management</a>
+    <section class="fd-command" aria-label="Current patient and next queue action">
+      <div class="fd-command-cell">
+        <h2><?= $nowServing && $nowServing['Status'] === 'Calling' ? 'Now calling' : 'Now serving' ?></h2>
+        <?php if ($nowServing): ?>
+          <strong class="fd-big-ticket"><?= $fdTicket($nowServing) ?></strong>
+          <p class="fd-current-name"><?= htmlspecialchars($nowServing['FirstName'] . ' ' . $nowServing['LastName']) ?></p><p class="fd-command-meta"><?= $nowServing['PhyLastName'] ? 'Dr. ' . htmlspecialchars($nowServing['PhyLastName']) : 'No physician assigned' ?></p>
+          <span class="fd-serving-badge"><?= $nowServing['Status'] === 'Serving' ? 'In consultation' : 'Being called' ?></span>
+        <?php else: ?><strong class="fd-idle">Ready for the next visit</strong><p class="fd-command-meta">No patient is currently being served.</p><?php endif; ?>
       </div>
-      <?php if ($nowServing): ?>
-        <div class="sd-serving">
-          <div><span>Now <?= $nowServing['Status'] === 'Calling' ? 'calling' : 'serving' ?></span><strong><?= $nowServing['ScheduledNumber'] !== null ? 'S-' . (int) $nowServing['ScheduledNumber'] : '#' . (int) ($nowServing['RegularNumber'] ?? $nowServing['QueueNumber']) ?></strong></div>
-          <div>
-            <b><?= htmlspecialchars($nowServing['FirstName'] . ' ' . $nowServing['LastName']) ?></b>
-            <p><?= $nowServing['PhyLastName'] ? 'Dr. ' . htmlspecialchars($nowServing['PhyLastName']) : 'No physician assigned' ?></p>
-          </div>
-        </div>
-      <?php endif; ?>
-      <?php if ($upNext): ?>
-        <ul class="sd-queue">
-          <?php foreach (array_slice($upNext, 0, 5) as $i => $entry): ?>
-            <li>
-              <span class="sd-num"><?= $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']) ?></span>
-              <span class="sd-name"><?= htmlspecialchars($entry['FirstName'] . ' ' . $entry['LastName']) ?> <em>· <?= !$entry['AppointmentTime'] ? 'queue booking' : ($entry['BookingFeePaid'] ? htmlspecialchars(date('g:i A', strtotime($entry['AppointmentTime']))) : 'walk-in') ?></em></span>
-              <span class="sd-wait">~<?= ($i + 1) * MINUTES_PER_PATIENT ?> min</span>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-        <?php if (count($upNext) > 5): ?><p class="sd-more">+<?= count($upNext) - 5 ?> more waiting</p><?php endif; ?>
-      <?php elseif (!$nowServing): ?>
-        <p class="sd-empty">No one in the queue yet today.</p>
-      <?php else: ?>
-        <p class="sd-empty">No one else is waiting.</p>
-      <?php endif; ?>
+      <div class="fd-command-cell">
+        <h2>Next in line</h2>
+        <?php if ($nextInLine): ?>
+          <strong class="fd-big-ticket"><?= $fdTicket($nextInLine) ?></strong><p class="fd-current-name"><?= htmlspecialchars($nextInLine['FirstName'] . ' ' . $nextInLine['LastName']) ?></p><p class="fd-command-meta"><?= $fdSource($nextInLine) ?></p>
+        <?php else: ?><strong class="fd-idle">No patient ready</strong><p class="fd-command-meta">Eligible patients will appear here when they join the queue.</p><?php endif; ?>
+      </div>
+      <div class="fd-command-cell fd-call-cell">
+        <span class="fd-call-icon"><?= $fdIcon('call') ?></span>
+        <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="call_next"><button type="submit" class="btn btn-primary" <?= $nextInLine && !$nowServing ? '' : 'disabled' ?>>Call next patient</button></form>
+        <p><?= $nowServing ? 'Available when the current visit ends.' : ($nextInLine ? 'Call the next eligible patient to the counter.' : 'Available when a patient is ready in the queue.') ?></p>
+      </div>
     </section>
 
-    <div class="sd-col">
-      <section class="sd-card">
-        <div class="sd-card-head">
-          <h2>Pending requests</h2>
-          <a href="<?= HQ_BASE_URL ?>/staff/appointments.php" class="text-link">View all <?= $stats['pending'] ?></a>
-        </div>
-        <?php if ($pendingRequests): ?>
-          <ul class="sd-requests">
-            <?php foreach ($pendingRequests as $req): ?>
-              <li>
-                <div>
-                  <b><?= htmlspecialchars($req['FirstName'] . ' ' . $req['LastName']) ?></b>
-                  <p><?= htmlspecialchars(date('M j', strtotime($req['AppointmentDate']))) ?><?= $req['AppointmentTime'] ? ' at ' . htmlspecialchars(date('g:i A', strtotime($req['AppointmentTime']))) : ' · Queue booking (no specific time)' ?> · <?= htmlspecialchars(mb_strimwidth(trim((string) $req['Concern']) ?: 'General', 0, 28, '…')) ?></p>
-                </div>
-                <form method="post" action="<?= HQ_BASE_URL ?>/staff/appointments.php" class="sd-req-actions">
-                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
-                  <input type="hidden" name="appointment_id" value="<?= (int) $req['AppointmentID'] ?>">
-                  <input type="hidden" name="return_to" value="dashboard">
-                  <button type="submit" name="form_type" value="reject_request" class="sd-decline" onclick="return confirm('Decline this appointment request?');">Decline</button>
-                  <?php if ($req['PhysicianID']): ?>
-                    <button type="submit" name="form_type" value="accept_request" class="btn btn-primary btn-sm">Approve</button>
-                  <?php else: ?>
-                    <a href="<?= HQ_BASE_URL ?>/staff/appointments.php" class="btn btn-primary btn-sm" title="Choose a physician first">Assign</a>
-                  <?php endif; ?>
-                </form>
-              </li>
-            <?php endforeach; ?>
+    <section class="fd-metrics" aria-label="Clinic activity overview">
+      <a href="<?= HQ_BASE_URL ?>/staff/appointments.php"><span class="fd-metric-icon"><?= $fdIcon('requests') ?></span><div><h2>Pending requests</h2><strong><?= (int) $stats['pending'] ?></strong><small><?= (int) $stats['pending_new'] ?> new today</small></div></a>
+      <a href="<?= HQ_BASE_URL ?>/staff/appointments.php"><span class="fd-metric-icon"><?= $fdIcon('calendar') ?></span><div><h2>Today's appointments</h2><strong><?= (int) $stats['today'] ?></strong><small><?= (int) $stats['today_done'] ?> completed</small></div></a>
+      <a href="<?= HQ_BASE_URL ?>/staff/queue.php"><span class="fd-metric-icon"><?= $fdIcon('people') ?></span><div><h2>Waiting</h2><strong><?= count($upNext) ?></strong><small><?= $nowServing ? ($nowServing['Status'] === 'Serving' ? '1 being served' : '1 being called') : 'No active visit' ?></small></div></a>
+      <div><span class="fd-metric-icon"><?= $fdIcon('clock') ?></span><div><h2>Average wait</h2><strong><?= $stats['avg_wait'] !== null ? (int) $stats['avg_wait'] . '<em> min</em>' : '?' ?></strong><small><?= $stats['avg_wait'] !== null ? 'Queue entry to first call' : 'No calls yet today' ?></small></div></div>
+    </section>
+
+    <div class="fd-grid">
+      <section class="fd-panel" aria-labelledby="fdWaitingHeading">
+        <div class="fd-panel-heading"><h2 id="fdWaitingHeading">Waiting queue <span class="fd-count"><?= count($upNext) ?></span></h2></div>
+        <?php if ($upNext): ?>
+          <ul class="fd-queue-list">
+          <?php foreach (array_slice($upNext, 0, 5) as $i => $entry): ?>
+            <li><span class="fd-ticket"><?= $fdTicket($entry) ?></span><div><h3><?= htmlspecialchars($entry['FirstName'] . ' ' . $entry['LastName']) ?></h3><p><?= $fdSource($entry) ?></p></div><span class="fd-estimate">~<?= ($i + 1) * MINUTES_PER_PATIENT ?> min</span></li>
+          <?php endforeach; ?>
           </ul>
-        <?php else: ?>
-          <p class="sd-empty">No requests waiting for approval.</p>
-        <?php endif; ?>
+          <?php if (count($upNext) > 5): ?><a class="fd-text-link fd-more" href="<?= HQ_BASE_URL ?>/staff/queue.php">+<?= count($upNext) - 5 ?> more waiting</a><?php endif; ?>
+          <p class="fd-panel-note">Estimates may change.</p>
+        <?php else: ?><div class="fd-empty"><h3>No patients waiting</h3><p>New queue entries will appear here.</p></div><?php endif; ?>
       </section>
 
-      <section class="sd-card">
-        <div class="sd-card-head">
-          <h2>Physicians</h2>
-          <span class="sd-muted"><?= $availableCount ?> available · <?= $breakCount ?> on break</span>
-        </div>
-        <p class="sd-note">Physicians update their own availability from their dashboard.</p>
-        <?php if ($physicians): ?>
-          <ul class="sd-physicians">
-            <?php foreach ($physicians as $phy): ?>
-              <li>
-                <span class="sd-dot <?= $availabilityDots[$phy['AvailabilityStatus']] ?? 'sd-dot-slate' ?>"></span>
-                <span class="sd-name">Dr. <?= htmlspecialchars($phy['LastName']) ?> <em>· <?= (int) $phy['InQueue'] ?> in queue</em></span>
-                <span class="sd-status <?= $availabilityDots[$phy['AvailabilityStatus']] ?? 'sd-dot-slate' ?>"><?= htmlspecialchars($phy['AvailabilityStatus']) ?></span>
-              </li>
-            <?php endforeach; ?>
+      <section class="fd-panel" aria-labelledby="fdRequestsHeading">
+        <div class="fd-panel-heading"><h2 id="fdRequestsHeading">Needs approval <span class="fd-count"><?= (int) $stats['pending'] ?></span></h2></div>
+        <?php if ($pendingRequests): ?>
+          <ul class="fd-request-list">
+          <?php foreach ($pendingRequests as $req): ?>
+            <li><div class="fd-request-patient"><span class="fd-avatar" aria-hidden="true"><?= $fdInitials($req) ?></span><div><h3><?= htmlspecialchars($req['FirstName'] . ' ' . $req['LastName']) ?></h3><p><?= htmlspecialchars(date('M j', strtotime($req['AppointmentDate']))) ?> ? <?= $req['AppointmentTime'] && $req['AppointmentTime'] !== '00:00:00' ? htmlspecialchars(date('g:i A', strtotime($req['AppointmentTime']))) : 'Queue booking' ?></p></div></div>
+              <form method="post" action="<?= HQ_BASE_URL ?>/staff/appointments.php" class="fd-request-actions"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="appointment_id" value="<?= (int) $req['AppointmentID'] ?>"><input type="hidden" name="return_to" value="dashboard">
+                <?php if ($req['PhysicianID']): ?><button type="submit" name="form_type" value="accept_request" class="btn btn-primary">Approve</button><?php else: ?><a href="<?= HQ_BASE_URL ?>/staff/appointments.php" class="btn btn-outline">Assign physician</a><?php endif; ?>
+                <button type="submit" name="form_type" value="reject_request" class="fd-decline" onclick="return confirm('Decline this appointment request?');">Decline</button>
+              </form>
+            </li>
+          <?php endforeach; ?>
           </ul>
-        <?php else: ?>
-          <p class="sd-empty">No physicians are assigned to this clinic yet.</p>
-        <?php endif; ?>
+          <a class="fd-text-link fd-more" href="<?= HQ_BASE_URL ?>/staff/appointments.php">View all requests<?= $stats['pending'] > count($pendingRequests) ? ' (+' . ($stats['pending'] - count($pendingRequests)) . ' more)' : '' ?></a>
+        <?php else: ?><div class="fd-empty"><h3>All caught up</h3><p>No requests are waiting for approval.</p></div><?php endif; ?>
+      </section>
+
+      <section class="fd-panel" aria-labelledby="fdTeamHeading">
+        <div class="fd-panel-heading"><h2 id="fdTeamHeading">Clinic team</h2><p>Physician availability</p></div>
+        <?php if ($physicians): ?>
+          <ul class="fd-team-list">
+          <?php foreach ($physicians as $phy): ?>
+            <?php $stateClass = ['Available'=>'is-available','On Break'=>'is-break','Unavailable'=>'is-unavailable'][$phy['AvailabilityStatus']] ?? 'is-unavailable'; ?>
+            <li><div><h3>Dr. <?= htmlspecialchars($phy['LastName']) ?></h3><span class="fd-availability <?= $stateClass ?>"><span aria-hidden="true"></span><?= htmlspecialchars($phy['AvailabilityStatus']) ?></span></div><span class="fd-team-queue">Queue: <?= (int) $phy['InQueue'] ?></span></li>
+          <?php endforeach; ?>
+          </ul>
+        <?php else: ?><div class="fd-empty"><h3>No physicians assigned</h3><p>Your clinic's physicians will appear here.</p></div><?php endif; ?>
+        <p class="fd-panel-note">Updated by each physician.</p>
       </section>
     </div>
   </div>
-</div></main>
-
+</main>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -1,0 +1,30 @@
+/* Sign in, sign up, and password recovery: mobile alignment only. */
+@media (max-width: 760px) {
+  .mobile-auth-page { display: flex; flex-direction: column; min-height: 100svh; }
+  .mobile-auth-page .navbar { flex-shrink: 0; }
+  .mobile-auth-page .auth-shell { flex: 1; width: 100%; min-height: 0; align-items: flex-start; padding: 28px 16px 40px; }
+  .mobile-auth-page .auth-card { min-width: 0; width: 100%; max-width: 440px; margin: 0 auto; padding: 28px 22px; border-radius: 20px; }
+  .mobile-auth-page .auth-card-header { margin-bottom: 26px; }
+  .mobile-auth-page .auth-card-header .brand-mark { display: grid; place-items: center; margin: 0 auto 16px; }
+  .mobile-auth-page .auth-card-header h2 { font-size: clamp(21px, 5.7vw, 24px); line-height: 1.35; margin: 0 0 10px; }
+  .mobile-auth-page .auth-card-header p { font-size: 13px; line-height: 1.65; }
+  .mobile-auth-page .auth-card form { width: 100%; min-width: 0; }
+  .mobile-auth-page .auth-card .form-stack { grid-template-columns: minmax(0, 1fr); gap: 18px; margin-bottom: 24px; }
+  .mobile-auth-page .form-stack label { min-width: 0; text-align: left; gap: 8px; }
+  .mobile-auth-page .form-stack :is(input, select, textarea) { min-width: 0; max-width: 100%; min-height: 48px; font-size: 16px; }
+  .mobile-auth-page .signup-email-row { min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .mobile-auth-page .auth-card .btn { width: 100%; min-height: 48px; padding: 12px 16px; white-space: normal; text-align: center; }
+  .mobile-auth-page .signup-email-verified-mark { justify-content: flex-start; min-height: 32px; }
+  .mobile-auth-page .signup-email-verified-mark[hidden], .mobile-auth-page .signup-email-verify[hidden] { display: none; }
+  .mobile-auth-page .auth-meta-row { justify-content: flex-end; margin: -6px 0 18px; }
+  .mobile-auth-page .auth-meta-row > span:empty { display: none; }
+  .mobile-auth-page .auth-meta-row a { display: inline-flex; align-items: center; min-height: 44px; }
+  .mobile-auth-page .auth-footer-note { margin: 22px 0 0; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+  .mobile-auth-page .auth-footer-note a { display: inline-block; margin-inline-start: 4px; }
+  .mobile-auth-page .form-message { overflow-wrap: anywhere; font-size: 13px; }
+  .mobile-auth-page .form-message ul { padding-left: 18px; }
+  .mobile-auth-page .site-footer { padding: 24px 0; }
+  .mobile-auth-page .footer-row { flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+  .mobile-auth-page .footer-links { justify-content: center; flex-wrap: wrap; gap: 12px 18px; }
+  .mobile-auth-page .footer-links a { display: inline-flex; align-items: center; min-height: 44px; font-size: 12px; }
+}

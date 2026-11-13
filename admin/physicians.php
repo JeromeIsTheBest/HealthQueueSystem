@@ -11,7 +11,8 @@ const ROLE_NAME = 'Physician';
 $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
-$flash = '';
+$flash = (string) ($_SESSION['admin_success'][basename(__FILE__)] ?? '');
+unset($_SESSION['admin_success'][basename(__FILE__)]);
 $editId = filter_input(INPUT_GET, 'edit', FILTER_VALIDATE_INT) ?: null;
 $search = trim((string) ($_GET['q'] ?? ''));
 $values = ['first_name' => '', 'last_name' => '', 'email' => '', 'contact_number' => '', 'clinic_id' => ''];
@@ -65,7 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flash = 'Physician account created.';
                 }
                 if (!$errors) {
-                    header('Location: ' . HQ_BASE_URL . '/admin/physicians.php');
+                    $_SESSION['admin_success'][basename(__FILE__)] = $flash !== '' ? $flash : 'Account saved.';
+                header('Location: ' . HQ_BASE_URL . '/admin/physicians.php');
                     exit;
                 }
             } catch (PDOException $e) {

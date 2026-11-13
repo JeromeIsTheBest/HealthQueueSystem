@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/sms.php';
 require_once __DIR__ . '/../includes/email.php';
 require_once __DIR__ . '/../includes/wallet.php';
 
@@ -59,6 +60,8 @@ function callQueueEntry(PDO $pdo, int $queueId, int $clinicId, int $staffId): ?s
     $entry = $row->fetch();
     notifyPatient($pdo, (int) $entry['PatientID'], "You're being called now - please proceed to the counter.", (int) $entry['AppointmentID']);
     $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
+    queuePatientSms($pdo, (int) $entry['PatientID'], (int) $entry['AppointmentID'],
+        'called:' . $queueId, 'called', 'HealthQueue: You are being called now. Please proceed to the clinic counter.');
     sendQueueNearEmail((string) $entry['Email'], (string) $entry['FirstName'], $ticketNumber, (string) $entry['ClinicName']);
     logActivity($pdo, $staffId, $clinicId, 'Updated queue status', "Queue {$ticketNumber} set to Calling");
     return $ticketNumber;
@@ -417,10 +420,24 @@ $minutesLabel = static function (int $minutes): string {
     return $minutes < 60 ? $minutes . ' min' : intdiv($minutes, 60) . ' h ' . ($minutes % 60) . ' min';
 };
 
+$nextPatient = null;
+foreach ($waiting as $candidate) {
+    if (!$candidate['AppointmentTime'] || strtotime($candidate['AppointmentDate'] . ' ' . $candidate['AppointmentTime']) <= time()) {
+        $nextPatient = $candidate;
+        break;
+    }
+}
+
 // Rendered once so the full page and the periodic auto-refresh share markup.
 ob_start();
 ?>
-  <h3 class="qm-section-title">Now serving</h3>
+  <div class="qm-metrics">
+    <div><span class="qm-metric-icon" aria-hidden="true">&#9678;</span><div><span>Waiting</span><strong><?= count($waiting) ?></strong></div></div>
+    <div><span class="qm-metric-icon" aria-hidden="true">&#10010;</span><div><span>In consultation</span><strong><?= count(array_filter($active, static fn($e) => $e['Status'] === 'Serving')) ?></strong></div></div>
+    <div><span class="qm-metric-icon" aria-hidden="true">&#10003;</span><div><span>Completed today</span><strong><?= $finishedCounts['Completed'] ?></strong></div></div>
+  </div>
+  <div class="qm-workspace"><div class="qm-main-column">
+  <section class="qm-current-panel"><h3 class="qm-section-title">Now serving</h3>
   <?php if ($active): ?>
     <?php foreach ($active as $entry): ?>
       <?php $isServing = $entry['Status'] === 'Serving'; ?>
@@ -445,8 +462,7 @@ ob_start();
             <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="confirm_complete"><input type="hidden" name="appointment_id" value="<?= (int) $entry['AppointmentID'] ?>">
               <button class="btn btn-outline btn-sm"<?= (int) $entry['FinalizedCount'] > 0 ? '' : ' disabled title="Waiting for the physician to finalize their notes"' ?>>Mark done</button></form>
           <?php endif; ?>
-          <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="call_next"><?= $filterInput ?>
-            <button class="btn btn-outline btn-sm"<?= $canCallNext ? '' : ' disabled title="A visit is in progress or no eligible patient is waiting"' ?>>Call next &rarr;</button></form>
+
         </div>
         <?php if ($isServing && (int) $entry['FinalizedCount'] === 0): ?><p class="qm-hint">"Mark done" unlocks once the physician finalizes their notes.</p><?php endif; ?>
       </section>
@@ -454,17 +470,19 @@ ob_start();
   <?php else: ?>
     <section class="qm-serving qm-serving-empty">
       <p>No one is being served right now.</p>
-      <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="call_next"><?= $filterInput ?>
-        <button class="btn btn-primary btn-sm"<?= $canCallNext ? '' : ' disabled title="A visit is in progress or no eligible patient is waiting"' ?>>Call next &rarr;</button></form>
+
     </section>
   <?php endif; ?>
 
-  <h3 class="qm-section-title">Waiting · <?= count($waiting) ?></h3>
+  </section>
+  <section class="qm-waiting-panel">
+  <div class="qm-panel-heading"><h3 class="qm-section-title">Waiting queue <span class="qm-count"><?= count($waiting) ?></span></h3><input class="qm-search" type="search" placeholder="Find patient" aria-label="Find patient in waiting queue"></div>
+  <div class="qm-column-labels" aria-hidden="true"><span>Ticket</span><span>Patient / visit</span><span>Waiting</span><span>Queue controls</span></div>
   <?php if ($waiting): ?>
     <div class="qm-list">
       <?php foreach ($waiting as $i => $entry): ?>
         <?php $mins = (int) $entry['WaitingMinutes']; $qid = (int) $entry['QueueID']; ?>
-        <article class="qm-row">
+        <article class="qm-row" data-patient="<?= htmlspecialchars(mb_strtolower($entry['FirstName'] . ' ' . $entry['LastName'])) ?>">
           <span class="qm-num"><?= htmlspecialchars($ticketLabel($entry)) ?></span>
           <div class="qm-row-main">
             <strong><?= htmlspecialchars($entry['FirstName'] . ' ' . $entry['LastName']) ?><?php if ($entry['Priority']): ?> <span class="qm-priority">Priority · <?= htmlspecialchars($entry['Priority']) ?></span><?php endif; ?></strong>
@@ -489,6 +507,8 @@ ob_start();
     <p class="qm-empty">No one is waiting. Register a walk-in or approve a request to add patients.</p>
   <?php endif; ?>
 
+  <p class="qm-search-empty" hidden>No waiting patients match your search.</p>
+  </section>
   <details class="qm-finished">
     <summary>
       <span>Finished today</span>
@@ -508,6 +528,17 @@ ob_start();
       <p class="qm-empty">Nothing finished yet today.</p>
     <?php endif; ?>
   </details>
+  </div>
+  <aside class="qm-side-column">
+    <section class="qm-next-panel"><h3>Next patient</h3>
+      <?php if ($nextPatient): ?>
+      <div class="qm-next-person"><span class="qm-next-avatar"><?= htmlspecialchars(mb_substr($nextPatient['FirstName'],0,1) . mb_substr($nextPatient['LastName'],0,1)) ?></span><div><h2><?= htmlspecialchars($nextPatient['FirstName'] . ' ' . $nextPatient['LastName']) ?></h2><span class="qm-count"><?= htmlspecialchars($ticketLabel($nextPatient)) ?></span><p><?= htmlspecialchars($sourceLabel($nextPatient)) ?></p><p><?= $nextPatient['PhyLastName'] ? 'Dr. ' . htmlspecialchars($nextPatient['PhyLastName']) : 'No physician assigned' ?></p></div></div>
+      <?php else: ?><p class="qm-empty">No patient is ready to be called.</p><?php endif; ?>
+      <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="call_next"><?= $filterInput ?><button class="btn btn-primary qm-next-button"<?= $canCallNext ? '' : ' disabled' ?>>Call next patient</button></form>
+      <?php if (!$canCallNext): ?><p class="qm-next-hint"><?= $active || array_filter($entries, static fn($e) => in_array($e['Status'], ['Calling','Serving'], true)) ? 'A patient is currently being called or seen.' : 'No eligible patient is waiting. Scheduled visits can be called when their time arrives.' ?></p><?php endif; ?>
+    </section>
+    <section class="qm-guide"><h3>Managing the queue</h3><p>Register walk-ins as they arrive.</p><p>Approve online requests in Appointments.</p><a href="appointments.php">Open appointments</a></section>
+  </aside></div>
 <?php
 $queueHtml = ob_get_clean();
 
@@ -519,6 +550,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_SERVER['HTTP_X_REQUESTED_WITH'] ?
 }
 
 $pageTitle = 'Queue Management — HealthQueue';
+$isStaffQueue = true;
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -527,9 +559,9 @@ require __DIR__ . '/../includes/header.php';
     <div>
       <span class="an-eyebrow">Front desk</span>
       <h1>Queue Management</h1>
-      <p>Today's walk-in and confirmed patients, in line order.</p>
+      <p>Keep today's patient queue moving.</p>
     </div>
-    <div class="sd-hero-actions">
+    <div class="sd-hero-actions"><span class="qm-date"><?= htmlspecialchars(date('j F Y')) ?></span>
       <a href="<?= HQ_BASE_URL ?>/staff/display-board.php" class="btn sd-btn-ghost" target="_blank" rel="noopener">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/></svg>
         Display board
@@ -546,7 +578,7 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
 
   <nav class="sa-tabs" aria-label="Filter by physician">
-    <a href="?" class="sa-tab<?= !$physicianFilter ? ' is-active' : '' ?>">All <span class="sa-count"><?= $tabCounts['all'] ?></span></a>
+    <a href="?" class="sa-tab<?= !$physicianFilter ? ' is-active' : '' ?>">All physicians <span class="sa-count"><?= $tabCounts['all'] ?></span></a>
     <?php foreach ($physicians as $physician): ?>
       <?php $pid = (int) $physician['UserID']; ?>
       <a href="?physician=<?= $pid ?>" class="sa-tab<?= $physicianFilter === $pid ? ' is-active' : '' ?>">Dr. <?= htmlspecialchars($physician['LastName']) ?> <span class="sa-count"><?= $tabCounts[$pid] ?? 0 ?></span></a>
@@ -609,7 +641,18 @@ document.addEventListener('DOMContentLoaded', function () {
   // Auto-refresh the queue so staff see new walk-ins and changes made at
   // other desks. Skipped while the "Finished today" list is open.
   var container = document.getElementById('queueListContainer');
+  container.addEventListener('input', function (event) {
+    if (!event.target.matches('.qm-search')) return;
+    var query = event.target.value.trim().toLocaleLowerCase();
+    var matches = 0;
+    container.querySelectorAll('[data-patient]').forEach(function (row) {
+      row.hidden = !row.dataset.patient.includes(query);
+      if (!row.hidden) matches++;
+    });
+    container.querySelector('.qm-search-empty').hidden = !query || matches > 0;
+  });
   setInterval(function () {
+    if (container.contains(document.activeElement) || container.querySelector('.qm-search').value || Array.from(container.querySelectorAll('.qm-remove-reason')).some(function (input) { return input.value.trim(); }) || document.querySelector('.modal-overlay.is-open')) return;
     var finished = container.querySelector('.qm-finished');
     if (finished && finished.open) return;
     fetch(window.location.href, { headers: { 'X-Requested-With': 'fetch' } })

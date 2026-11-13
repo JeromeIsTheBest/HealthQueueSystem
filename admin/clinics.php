@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/clinic-photos.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Admin']);
@@ -9,7 +10,8 @@ requireRole(['Admin']);
 $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
-$flash = '';
+$flash = (string) ($_SESSION['admin_success'][basename(__FILE__)] ?? '');
+unset($_SESSION['admin_success'][basename(__FILE__)]);
 $showArchived = isset($_GET['archived']);
 $editId = filter_input(INPUT_GET, 'edit', FILTER_VALIDATE_INT) ?: null;
 $search = trim((string) ($_GET['q'] ?? ''));
@@ -49,75 +51,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Closing time must be later than opening time.';
         }
 
-        $newPhotoFilename = null;
-        $photoFile = $_FILES['photo'] ?? null;
-        if ($photoFile && $photoFile['error'] !== UPLOAD_ERR_NO_FILE) {
-            $allowedTypes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-            if ($photoFile['error'] !== UPLOAD_ERR_OK || $photoFile['size'] <= 0) {
-                $errors[] = 'We could not read the uploaded photo. Please try again.';
-            } elseif ($photoFile['size'] > 4 * 1024 * 1024) {
-                $errors[] = 'Clinic photo is too large (4 MB limit).';
-            } else {
-                $mime = mime_content_type($photoFile['tmp_name']);
-                if (!isset($allowedTypes[$mime])) {
-                    $errors[] = 'Please upload a JPG, PNG, or WEBP image for the clinic photo.';
-                } else {
-                    $newPhotoFilename = 'clinic_' . bin2hex(random_bytes(8)) . '.' . $allowedTypes[$mime];
-                }
-            }
+        $latitude = trim((string) ($_POST['latitude'] ?? ''));
+        $longitude = trim((string) ($_POST['longitude'] ?? ''));
+        if (($latitude === '') !== ($longitude === '') || ($latitude !== '' && (!is_numeric($latitude) || !is_numeric($longitude) || abs((float) $latitude) > 90 || abs((float) $longitude) > 180))) {
+            $errors[] = 'Enter both map coordinates: latitude -90 to 90 and longitude -180 to 180.';
         }
-
+        $uploads = [];
+        $files = $_FILES['photos'] ?? [];
+        $count = is_array($files['name'] ?? null) ? count($files['name']) : 0;
+        if ($count > 10) $errors[] = 'Select at most 10 photos per upload.';
+        $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        for ($i = 0; $i < min($count, 10); $i++) {
+            $error = $files['error'][$i] ?? UPLOAD_ERR_NO_FILE;
+            if ($error === UPLOAD_ERR_NO_FILE) continue;
+            $tmp = $files['tmp_name'][$i] ?? '';
+            if ($error !== UPLOAD_ERR_OK || !is_uploaded_file($tmp)) {
+                $errors[] = 'A photo could not be uploaded. Please try again.';
+                continue;
+            }
+            if (($files['size'][$i] ?? 0) <= 0 || $files['size'][$i] > 4 * 1024 * 1024) {
+                $errors[] = 'Each clinic photo must be 4 MB or smaller.';
+                continue;
+            }
+            $mime = mime_content_type($tmp);
+            if (!isset($allowed[$mime]) || !getimagesize($tmp)) {
+                $errors[] = 'Clinic photos must be valid JPG, PNG, or WEBP images.';
+                continue;
+            }
+            $uploads[] = ['tmp' => $tmp, 'name' => 'clinic_' . bin2hex(random_bytes(16)) . '.' . $allowed[$mime]];
+        }
         if (!$errors) {
+            $savedPaths = [];
+            $committed = false;
+            $removedPhotos = [];
             try {
-                $uploadDir = __DIR__ . '/../assets/uploads/clinics';
-                if ($newPhotoFilename && !is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-
+                $pdo->beginTransaction();
+                $params = [$values['clinic_name'], $values['address'], $values['contact_number'], (float) $values['base_consultation_fee'], $values['description'] ?: null, $values['specialties'] ?: null, implode(',', $values['open_days']), $values['open_time'], $values['close_time']];
+                $wasEdit = (bool) $clinicId;
                 if ($clinicId) {
-                    $oldPhotoStmt = $pdo->prepare('SELECT PhotoUrl FROM Clinic WHERE ClinicID = ?');
-                    $oldPhotoStmt->execute([$clinicId]);
-                    $oldPhoto = $oldPhotoStmt->fetchColumn();
-
-                    $sql = 'UPDATE Clinic SET ClinicName = ?, Address = ?, ContactNumber = ?, BaseConsultationFee = ?, Description = ?, Specialties = ?, OpenDays = ?, OpenTime = ?, CloseTime = ?';
-                    $params = [$values['clinic_name'], $values['address'], $values['contact_number'], (float) $values['base_consultation_fee'], $values['description'] ?: null, $values['specialties'] ?: null, implode(',', $values['open_days']), $values['open_time'], $values['close_time']];
-                    if ($newPhotoFilename) {
-                        $sql .= ', PhotoUrl = ?';
-                        $params[] = $newPhotoFilename;
+                    $existing = $pdo->prepare('SELECT ClinicID FROM Clinic WHERE ClinicID = ? FOR UPDATE');
+                    $existing->execute([$clinicId]);
+                    if (!$existing->fetchColumn()) throw new RuntimeException('Clinic not found.');
+                    $coverStmt = $pdo->prepare('SELECT ClinicID, PhotoUrl FROM Clinic WHERE ClinicID = ?');
+                    $coverStmt->execute([$clinicId]);
+                    $existingClinic = $coverStmt->fetch();
+                    $requestedRemovals = array_filter((array) ($_POST['remove_photos'] ?? []), 'is_string');
+                    $removedPhotos = array_values(array_intersect(clinicPhotos($pdo, $existingClinic), $requestedRemovals));
+                    foreach ($removedPhotos as $removedPhoto) {
+                        $pdo->prepare('DELETE FROM ClinicPhoto WHERE ClinicID = ? AND Filename = ?')->execute([$clinicId, $removedPhoto]);
                     }
-                    $sql .= ' WHERE ClinicID = ?';
-                    $params[] = $clinicId;
-
-                    if ($newPhotoFilename && !move_uploaded_file($photoFile['tmp_name'], $uploadDir . '/' . $newPhotoFilename)) {
-                        $errors[] = 'We could not save the clinic photo. Please try again.';
-                    } else {
-                        $pdo->prepare($sql)->execute($params);
-                        if ($newPhotoFilename && $oldPhoto && is_file($uploadDir . '/' . basename($oldPhoto))) {
-                            unlink($uploadDir . '/' . basename($oldPhoto));
-                        }
-                        logActivity($pdo, $user['UserID'], $clinicId, 'Updated clinic', $values['clinic_name']);
-                        $flash = 'Clinic updated.';
+                    if (in_array($existingClinic['PhotoUrl'], $removedPhotos, true)) {
+                        $nextCover = $pdo->prepare('SELECT Filename FROM ClinicPhoto WHERE ClinicID = ? ORDER BY PhotoID LIMIT 1');
+                        $nextCover->execute([$clinicId]);
+                        $pdo->prepare('UPDATE Clinic SET PhotoUrl = ? WHERE ClinicID = ?')->execute([$nextCover->fetchColumn() ?: null, $clinicId]);
                     }
+                    $pdo->prepare('UPDATE Clinic SET ClinicName = ?, Address = ?, ContactNumber = ?, BaseConsultationFee = ?, Description = ?, Specialties = ?, OpenDays = ?, OpenTime = ?, CloseTime = ? WHERE ClinicID = ?')->execute(array_merge($params, [$clinicId]));
                 } else {
-                    $stmt = $pdo->prepare('INSERT INTO Clinic (ClinicName, Address, ContactNumber, BaseConsultationFee, Description, Specialties, OpenDays, OpenTime, CloseTime, PhotoUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-                    $stmt->execute([$values['clinic_name'], $values['address'], $values['contact_number'], (float) $values['base_consultation_fee'], $values['description'] ?: null, $values['specialties'] ?: null, implode(',', $values['open_days']), $values['open_time'], $values['close_time'], $newPhotoFilename]);
-                    $newClinicId = (int) $pdo->lastInsertId();
-
-                    if ($newPhotoFilename && !move_uploaded_file($photoFile['tmp_name'], $uploadDir . '/' . $newPhotoFilename)) {
-                        $pdo->prepare('UPDATE Clinic SET PhotoUrl = NULL WHERE ClinicID = ?')->execute([$newClinicId]);
+                    $pdo->prepare('INSERT INTO Clinic (ClinicName, Address, ContactNumber, BaseConsultationFee, Description, Specialties, OpenDays, OpenTime, CloseTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute($params);
+                    $clinicId = (int) $pdo->lastInsertId();
+                }
+                $pdo->prepare('UPDATE Clinic SET Latitude = ?, Longitude = ? WHERE ClinicID = ?')->execute([$latitude === '' ? null : (float) $latitude, $longitude === '' ? null : (float) $longitude, $clinicId]);
+                $uploadDir = __DIR__ . '/../assets/uploads/clinics';
+                if ($uploads && !is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) throw new RuntimeException('Upload directory unavailable.');
+                foreach ($uploads as $upload) {
+                    $path = $uploadDir . '/' . $upload['name'];
+                    if (!move_uploaded_file($upload['tmp'], $path)) throw new RuntimeException('Could not save photo.');
+                    $savedPaths[] = $path;
+                    $pdo->prepare('INSERT INTO ClinicPhoto (ClinicID, Filename) VALUES (?, ?)')->execute([$clinicId, $upload['name']]);
+                    $pdo->prepare("UPDATE Clinic SET PhotoUrl = ? WHERE ClinicID = ? AND (PhotoUrl IS NULL OR PhotoUrl = '')")->execute([$upload['name'], $clinicId]);
+                }
+                saveClinicPhotoOrder($pdo, $clinicId, (array) ($_POST['photo_order'] ?? []));
+                logActivity($pdo, $user['UserID'], $clinicId, $wasEdit ? 'Updated clinic' : 'Created clinic', $values['clinic_name']);
+                $pdo->commit();
+                $committed = true;
+                foreach ($removedPhotos as $removedPhoto) {
+                    $references = $pdo->prepare('SELECT (SELECT COUNT(*) FROM Clinic WHERE PhotoUrl = ?) + (SELECT COUNT(*) FROM ClinicPhoto WHERE Filename = ?)');
+                    $references->execute([$removedPhoto, $removedPhoto]);
+                    $removedPath = $uploadDir . '/' . basename($removedPhoto);
+                    if (!(int) $references->fetchColumn() && is_file($removedPath)) {
+                        if (!unlink($removedPath)) error_log('Could not remove unused clinic photo: ' . $removedPhoto);
                     }
-
-                    logActivity($pdo, $user['UserID'], $newClinicId, 'Created clinic', $values['clinic_name']);
-                    $flash = 'Clinic added.';
                 }
-
-                if (!$errors) {
-                    header('Location: ' . HQ_BASE_URL . '/admin/clinics.php');
-                    exit;
+                $_SESSION['admin_success'][basename(__FILE__)] = $flash !== '' ? $flash : ($wasEdit ? 'Clinic updated.' : 'Clinic created.');
+                header('Location: ' . HQ_BASE_URL . '/admin/clinics.php');
+                exit;
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                if (!$committed) {
+                    foreach ($savedPaths as $path) if (is_file($path)) unlink($path);
                 }
-            } catch (PDOException $e) {
                 error_log('Clinic save failed: ' . $e->getMessage());
-                $errors[] = 'We could not save this clinic.';
+                $errors[] = 'We could not save this clinic and its photos. Please try again.';
             }
         }
     } elseif (($_POST['form_type'] ?? '') === 'update_clinic_status') {
@@ -190,7 +214,7 @@ if ($pdo) {
         $clinics = $stmt->fetchAll();
 
         if ($editId) {
-            $editStmt = $pdo->prepare('SELECT ClinicID, ClinicName, Address, ContactNumber, BaseConsultationFee, Description, Specialties, OpenDays, OpenTime, CloseTime, PhotoUrl FROM Clinic WHERE ClinicID = ?');
+            $editStmt = $pdo->prepare('SELECT ClinicID, ClinicName, Address, ContactNumber, BaseConsultationFee, Description, Specialties, OpenDays, OpenTime, CloseTime, PhotoUrl, Latitude, Longitude FROM Clinic WHERE ClinicID = ?');
             $editStmt->execute([$editId]);
             $editingClinic = $editStmt->fetch();
             if ($editingClinic) {
@@ -252,13 +276,28 @@ require __DIR__ . '/../includes/header.php';
         <label>Opening time<input type="time" name="open_time" value="<?= htmlspecialchars($values['open_time']) ?>" required></label>
         <label>Closing time<input type="time" name="close_time" value="<?= htmlspecialchars($values['close_time']) ?>" required></label>
       </div>
+      <div class="form-stack form-cols-2">
+        <label>Map latitude<input type="number" name="latitude" step="any" min="-90" max="90" value="<?= htmlspecialchars((string) ($_POST['latitude'] ?? $editingClinic['Latitude'] ?? '')) ?>" placeholder="e.g. 10.3157"></label>
+        <label>Map longitude<input type="number" name="longitude" step="any" min="-180" max="180" value="<?= htmlspecialchars((string) ($_POST['longitude'] ?? $editingClinic['Longitude'] ?? '')) ?>" placeholder="e.g. 123.8854"></label>
+      </div>
+      <p style="font-size:12px;color:var(--slate-500);">To show this clinic on the map, right-click its exact location in Google Maps and copy the latitude and longitude. Leave both blank to omit its pin.</p>
       <div class="form-stack">
         <label>Description <span class="optional">(shown on the clinic's public profile)</span><textarea name="description" rows="4" placeholder="A short description of this clinic for patients."><?= htmlspecialchars($values['description']) ?></textarea></label>
-        <label>Clinic photo <span class="optional"><?= $editingClinic ? '(leave blank to keep current photo)' : '(optional, JPG/PNG/WEBP, 4 MB max)' ?></span>
-          <?php if ($editingClinic && !empty($editingClinic['PhotoUrl'])): ?>
-            <img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($editingClinic['PhotoUrl']) ?>" alt="" style="display:block;width:100%;max-width:280px;height:140px;object-fit:cover;border-radius:var(--radius-sm);margin-bottom:8px;">
+        <label>Clinic photos <span class="optional">(up to 10 per upload, JPG/PNG/WEBP, 4 MB each; new photos are added to your gallery)</span>
+          <?php if ($editingClinic): ?>
+            <span class="admin-clinic-photo-previews">
+              <?php foreach (clinicPhotos($pdo, $editingClinic) as $photo): ?>
+                <span class="admin-clinic-photo-item" draggable="true">
+                  <input type="hidden" name="photo_order[]" value="<?= htmlspecialchars($photo) ?>">
+                  <img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= rawurlencode($photo) ?>" alt="Saved clinic photo" width="100" height="76">
+                  <button type="button" class="clinic-photo-remove" data-saved-photo="<?= htmlspecialchars($photo) ?>" aria-label="Remove clinic photo">&times;</button>
+                </span>
+              <?php endforeach; ?>
+            </span>
           <?php endif; ?>
-          <input type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+          <input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple>
+          <span class="admin-clinic-photo-previews" id="newClinicPhotoPreviews"></span>
+          <small>Drag photos to arrange them. The first photo is the cover. Use × to remove a photo, then Save changes to apply.</small>
         </label>
       </div>
       <button type="submit" class="btn btn-primary btn-block"><?= $editingClinic ? 'Save changes' : 'Add clinic' ?></button>
@@ -317,4 +356,5 @@ require __DIR__ . '/../includes/header.php';
   </section>
 </div></main>
 
+<script src="<?= HQ_BASE_URL ?>/assets/js/admin-clinic-photos.js?v=<?= filemtime(__DIR__ . '/../assets/js/admin-clinic-photos.js') ?>" defer></script>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

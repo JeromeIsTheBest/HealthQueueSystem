@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS ClinicPhoto (
+    PhotoID INT AUTO_INCREMENT PRIMARY KEY,
+    ClinicID INT NOT NULL,
+    Filename VARCHAR(255) NOT NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_clinic_photo (ClinicID, PhotoID),
+    CONSTRAINT fk_clinic_photo_clinic FOREIGN KEY (ClinicID) REFERENCES Clinic(ClinicID) ON DELETE CASCADE
+);

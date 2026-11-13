@@ -18,7 +18,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $formType = $_POST['form_type'] ?? '';
 
-        if ($formType === 'mark_all_read') {
+        if ($formType === 'mark_read') {
+            $notificationId = filter_input(INPUT_POST, 'notification_id', FILTER_VALIDATE_INT);
+            if (!$notificationId) {
+                $errors[] = 'Choose a valid notification.';
+            } else {
+                try {
+                    $pdo->prepare('UPDATE PatientNotifications SET IsRead = 1 WHERE PatientID = ? AND NotificationID = ?')->execute([$user['UserID'], $notificationId]);
+                    $flash = 'Notification marked as read.';
+                } catch (PDOException $e) {
+                    error_log('Patient mark notification read failed: ' . $e->getMessage());
+                    $errors[] = 'We could not update this notification.';
+                }
+            }
+        } elseif ($formType === 'mark_all_read') {
             try {
                 $pdo->prepare('UPDATE PatientNotifications SET IsRead = 1 WHERE PatientID = ? AND IsRead = 0')->execute([$user['UserID']]);
                 $flash = 'All notifications marked as read.';
@@ -71,7 +84,7 @@ $pageTitle = 'Notifications — HealthQueue';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="portal-shell"><div class="container">
+<main class="portal-shell patient-notifications-page"><div class="container">
   <section class="portal-hero"><div><span class="eyebrow">Updates</span><h1>Notifications</h1><p>Booking confirmations, queue calls, and record updates.</p></div></section>
 
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
@@ -80,24 +93,30 @@ require __DIR__ . '/../includes/header.php';
 
   <section class="portal-section">
     <?php if ($notifications): ?>
-      <p class="admin-empty" style="text-align:left;margin-bottom:14px;">Tap a notification to read the full message. Tick the ones you want to remove, then press Delete selected.</p>
-      <form method="post">
+      <form method="post" class="notification-selection-form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
         <div class="notif-toolbar">
+          <div class="notif-selection-actions">
           <label class="notif-select-all-wrap"><input type="checkbox" class="notif-select-all"> Select all</label>
-          <button type="submit" name="form_type" value="delete_selected" class="btn btn-outline btn-sm notification-delete-selected ma-danger" disabled>Delete selected (<span class="notification-selection-count">0</span>)</button>
-          <span class="notif-toolbar-spacer"></span>
+          <button type="button" class="btn btn-outline btn-sm" data-selection-cancel hidden>Cancel</button>
+          <button type="submit" name="form_type" value="delete_selected" class="btn btn-outline btn-sm notification-delete-selected ma-danger" disabled><span>Delete selected (<span class="notification-selection-count">0</span>)</span></button>
+          </div>
+          <div class="notif-default-actions">
           <button type="submit" name="form_type" value="mark_all_read" class="btn btn-primary btn-sm">Mark All Read</button>
           <button type="submit" name="form_type" value="delete_all" class="btn btn-outline btn-sm" onclick="return confirm('Delete ALL notifications? This cannot be undone.');">Delete All</button>
+          </div>
         </div>
         <div class="compact-list notification-list">
           <?php foreach ($notifications as $note): ?>
-            <article class="notification-row<?= $note['IsRead'] ? ' is-read' : '' ?>" data-id="<?= (int) $note['NotificationID'] ?>">
+            <article class="notification-row<?= $note['IsRead'] ? ' is-read' : '' ?>" data-id="<?= (int) $note['NotificationID'] ?>" data-read="<?= $note['IsRead'] ? '1' : '0' ?>">
               <label class="notif-check-wrap" aria-label="Select notification"><input type="checkbox" class="notif-check" name="notification_ids[]" value="<?= (int) $note['NotificationID'] ?>"></label>
-              <div style="min-width:0;flex:1;">
-                <strong class="notif-message"><?= htmlspecialchars($note['Message']) ?></strong>
-                <span><?= htmlspecialchars(date('M j, Y g:i A', strtotime($note['CreatedAt']))) ?></span>
-                <div class="notif-row-actions">
+              <div class="notif-content">
+                <button type="button" class="notif-message-toggle" aria-haspopup="dialog" aria-controls="notificationDetailModal">
+                  <strong class="notif-message" id="notification-message-<?= (int) $note['NotificationID'] ?>"><?= htmlspecialchars($note['Message']) ?></strong>
+                  <span class="notif-expand-label">View details</span>
+                </button>
+                <time class="notif-time" datetime="<?= htmlspecialchars(date('c', strtotime($note['CreatedAt']))) ?>"><?= htmlspecialchars(date('M j, Y g:i A', strtotime($note['CreatedAt']))) ?></time>
+                <div class="notif-row-actions" id="notification-actions-<?= (int) $note['NotificationID'] ?>">
                   <button type="button" class="btn btn-outline btn-sm ma-danger" data-delete-id="<?= (int) $note['NotificationID'] ?>">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                     Delete notification
@@ -114,5 +133,25 @@ require __DIR__ . '/../includes/header.php';
     <?php endif; ?>
   </section>
 </div></main>
+
+<div class="modal-overlay" id="notificationDetailModal">
+  <div class="modal-box notification-detail-box" role="dialog" aria-modal="true" aria-labelledby="notificationDetailTitle" aria-describedby="notificationDetailMessage">
+    <button type="button" class="modal-close" data-modal-close aria-label="Close notification">&times;</button>
+    <span class="eyebrow">Updates</span>
+    <div class="notification-detail-heading">
+      <h2 id="notificationDetailTitle">Notification details</h2>
+      <span class="status-badge" id="notificationDetailStatus"></span>
+    </div>
+    <div class="notification-detail-meta"><time id="notificationDetailTime"></time></div>
+    <p id="notificationDetailMessage" class="notification-detail-message"></p>
+    <form method="post" class="notification-detail-actions">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
+      <input type="hidden" name="notification_id" id="notificationDetailId">
+      <input type="hidden" name="notification_ids[]" id="notificationDetailDeleteId">
+      <button type="submit" name="form_type" value="mark_read" class="btn btn-primary" id="notificationDetailMarkRead">Mark as read</button>
+      <button type="submit" name="form_type" value="delete_selected" class="btn btn-outline ma-danger" onclick="return confirm('Delete this notification?');">Delete notification</button>
+    </form>
+  </div>
+</div>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

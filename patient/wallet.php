@@ -109,7 +109,7 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
 
   <section class="portal-section">
-    <div class="portal-heading"><div><span class="section-kicker">History</span><h2>Transaction history</h2></div></div>
+    <div class="portal-heading"><div><h2>Transaction history</h2></div></div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
       <?php foreach (['all' => 'All', 'topup' => 'Top-ups', 'payment' => 'Payments', 'refund' => 'Refunds'] as $key => $label): ?>

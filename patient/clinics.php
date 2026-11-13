@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
+require_once __DIR__ . '/../includes/clinic-photos.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Patient']);
@@ -53,8 +54,7 @@ if ($pdo) {
             $words = preg_split('/\s+/', trim($row['ClinicName']));
             $initials = strtoupper(mb_substr($words[0] ?? '', 0, 1) . mb_substr($words[1] ?? '', 0, 1));
 
-            $photo = !empty($row['PhotoUrl']) && is_file(__DIR__ . '/../assets/uploads/clinics/' . basename($row['PhotoUrl']))
-                ? $row['PhotoUrl'] : null;
+            $photo = clinicCoverPhoto($pdo, $row);
 
             $clinics[] = $row + [
                 'SpecialtyList' => $specialties,

@@ -32,6 +32,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!toggles.length || !sidebar) return;
 
   var mobileQuery = window.matchMedia('(max-width: 980px)');
+  var appPortal = document.body.classList.contains('app-portal');
+  var mobileToggle = document.querySelector('.admin-sidebar-toggle-mobile');
 
   function setAriaExpanded(expanded) {
     toggles.forEach(function (btn) { btn.setAttribute('aria-expanded', String(expanded)); });
@@ -41,6 +43,16 @@ document.addEventListener('DOMContentLoaded', function () {
     sidebar.classList.toggle('is-open', open);
     if (scrim) scrim.classList.toggle('is-open', open);
     setAriaExpanded(open);
+    if (appPortal) {
+      document.body.classList.toggle('is-app-menu-open', open && mobileQuery.matches);
+      sidebar.inert = mobileQuery.matches && !open;
+      if (open) {
+        var firstLink = sidebar.querySelector('.admin-nav-link');
+        if (firstLink) firstLink.focus();
+      } else if (mobileQuery.matches && mobileToggle) {
+        mobileToggle.focus();
+      }
+    }
   }
 
   function setCollapsed(collapsed) {
@@ -72,6 +84,27 @@ document.addEventListener('DOMContentLoaded', function () {
   sidebar.querySelectorAll('a').forEach(function (link) {
     link.addEventListener('click', function () { setOpen(false); });
   });
+
+  if (appPortal) {
+    sidebar.inert = mobileQuery.matches && !sidebar.classList.contains('is-open');
+    document.addEventListener('keydown', function (event) {
+      if (!mobileQuery.matches || !sidebar.classList.contains('is-open')) return;
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
+      if (event.key === 'Tab') {
+        var links = sidebar.querySelectorAll('a[href], button:not([disabled])');
+        var items = Array.from(links).filter(function (item) { return item.getClientRects().length; });
+        var first = items[0], last = items[items.length - 1];
+        if (!first) return;
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    });
+    mobileQuery.addEventListener('change', function () {
+      setOpen(false);
+      sidebar.inert = mobileQuery.matches;
+      if (!mobileQuery.matches) setAriaExpanded(!sidebar.classList.contains('is-collapsed'));
+    });
+  }
 });
 
 // Generic modal open/close: any [data-modal-open="id"] trigger shows the
@@ -89,6 +122,10 @@ window.hqOpenModal = function (modal) {
 
 window.hqCloseModal = function (modal) {
   if (modal) modal.classList.remove('is-open');
+  if (modal && modal.id === 'notificationDetailModal') {
+    document.body.classList.remove('is-notification-modal-open');
+    if (modal.notificationTrigger) modal.notificationTrigger.focus();
+  }
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -269,6 +306,38 @@ document.addEventListener('DOMContentLoaded', function () {
     var selectAll = form.querySelector('.notif-select-all');
     var deleteBtn = form.querySelector('.notification-delete-selected');
     var countEl = form.querySelector('.notification-selection-count');
+    var selectionActions = form.querySelector('.notif-selection-actions');
+    var defaultActions = form.querySelector('.notif-default-actions');
+    var selectionStart = form.querySelector('[data-selection-start]');
+    var selectionCancel = form.querySelector('[data-selection-cancel]');
+    var selectionMode = false;
+    var canSelect = !!selectionActions;
+
+    function setSelectionMode(active) {
+      selectionMode = active;
+      form.classList.toggle('is-selection-mode', active);
+      selectionActions.hidden = !active;
+      defaultActions.hidden = active;
+      if (!active) boxes.forEach(function (box) { box.checked = false; });
+      update();
+    }
+    if (canSelect) {
+      form.classList.add('notification-selection-ready');
+      if (selectionStart) selectionStart.hidden = false;
+      selectionCancel.hidden = false;
+      setSelectionMode(false);
+      function focusSelectionOrigin() {
+        var target = selectionStart || list.querySelector('.notif-message-toggle');
+        if (target) target.focus();
+      }
+      if (selectionStart) selectionStart.addEventListener('click', function () { setSelectionMode(true); selectAll.focus(); });
+      selectionCancel.addEventListener('click', function () { setSelectionMode(false); focusSelectionOrigin(); });
+      form.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && selectionMode) {
+          event.preventDefault(); setSelectionMode(false); focusSelectionOrigin();
+        }
+      });
+    }
 
     function update() {
       var checked = boxes.filter(function (box) { return box.checked; }).length;
@@ -292,11 +361,62 @@ document.addEventListener('DOMContentLoaded', function () {
     // Clicking the row (but not its checkbox or buttons) opens it: the full
     // message plus a "Delete notification" button for just that one.
     list.querySelectorAll('.notification-row').forEach(function (row) {
+      var holdTimer = null;
+      var startX = 0, startY = 0;
+      var suppressClick = false;
+      function cancelHold() { clearTimeout(holdTimer); holdTimer = null; }
+      if (canSelect) {
+        row.addEventListener('pointerdown', function (event) {
+          cancelHold(); suppressClick = false;
+          if (!event.isPrimary || event.button !== 0 || event.target.closest('.notif-check-wrap, .notif-row-actions')) return;
+          startX = event.clientX; startY = event.clientY;
+          holdTimer = setTimeout(function () {
+            setSelectionMode(true);
+            row.querySelector('.notif-check').checked = true;
+            update(); suppressClick = true; holdTimer = null;
+          }, 550);
+        });
+        row.addEventListener('pointermove', function (event) {
+          if (Math.abs(event.clientX - startX) > 10 || Math.abs(event.clientY - startY) > 10) cancelHold();
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (name) { row.addEventListener(name, cancelHold); });
+        window.addEventListener('scroll', cancelHold, { passive: true, capture: true });
+        row.addEventListener('contextmenu', function (event) { event.preventDefault(); });
+      }
       row.addEventListener('click', function (e) {
         if (e.target.closest('.notif-check-wrap, .notif-row-actions')) return;
+        if (suppressClick) { suppressClick = false; e.preventDefault(); return; }
+        if (canSelect && selectionMode) {
+          var box = row.querySelector('.notif-check');
+          box.checked = !box.checked; update(); return;
+        }
+        var detailModal = document.getElementById('notificationDetailModal');
+        if (detailModal && document.body.classList.contains('patient-portal')) {
+          var read = row.getAttribute('data-read') === '1';
+          var time = row.querySelector('.notif-time');
+          document.getElementById('notificationDetailMessage').textContent = row.querySelector('.notif-message').textContent;
+          document.getElementById('notificationDetailTime').textContent = time.textContent;
+          document.getElementById('notificationDetailTime').dateTime = time.dateTime;
+          document.getElementById('notificationDetailStatus').textContent = read ? 'Read' : 'Unread';
+          document.getElementById('notificationDetailId').value = row.getAttribute('data-id');
+          document.getElementById('notificationDetailDeleteId').value = row.getAttribute('data-id');
+          document.getElementById('notificationDetailMarkRead').disabled = read;
+          document.getElementById('notificationDetailMarkRead').textContent = read ? 'Already read' : 'Mark as read';
+          detailModal.notificationTrigger = row.querySelector('.notif-message-toggle');
+          window.hqOpenModal(detailModal);
+          document.body.classList.add('is-notification-modal-open');
+          detailModal.querySelector('.modal-close').focus();
+          return;
+        }
         var open = row.classList.toggle('is-open');
         var msg = row.querySelector('.notif-message');
         if (msg) msg.classList.toggle('expanded', open);
+        var trigger = row.querySelector('.notif-message-toggle');
+        if (trigger) {
+          trigger.setAttribute('aria-expanded', String(open));
+          var label = trigger.querySelector('.notif-expand-label');
+          if (label) label.textContent = open ? 'Hide details' : 'Show details';
+        }
       });
     });
 
@@ -326,6 +446,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     update();
+  });
+  var detailModal = document.getElementById('notificationDetailModal');
+  if (detailModal) detailModal.addEventListener('keydown', function (event) {
+    if (event.key !== 'Tab' || !detailModal.classList.contains('is-open')) return;
+    var buttons = Array.from(detailModal.querySelectorAll('button:not([disabled])')).filter(function (button) { return button.getClientRects().length; });
+    var first = buttons[0], last = buttons[buttons.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   });
 });
 

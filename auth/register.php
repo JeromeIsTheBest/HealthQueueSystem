@@ -7,6 +7,7 @@ define('HQ_BASE_URL', '..');
 requireGuest();
 
 $pageTitle = 'Create Your Account — HealthQueue';
+$isMobileAuthPage = true;
 $pdo = getDbConnection();
 
 $errors = [];

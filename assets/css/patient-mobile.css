@@ -1,0 +1,268 @@
+/* Patient-only phone and tablet layouts. Desktop keeps the existing design. */
+.patient-mobile-brand { display: none; }
+
+/* Medical record tabs still swipe/scroll without a visible scrollbar track. */
+.patient-portal :is(.mr-page, .ma-page) .ma-tabs { scrollbar-width: none; -ms-overflow-style: none; }
+.patient-portal :is(.mr-page, .ma-page) .ma-tabs::-webkit-scrollbar { display: none; }
+
+.patient-notifications-page .notif-help { text-align: left; margin-bottom: 14px; }
+.patient-notifications-page .notif-content { min-width: 0; flex: 1; }
+.patient-notifications-page .notification-row { min-width: 0; }
+.patient-notifications-page .notif-message.expanded { overflow-wrap: anywhere; }
+.patient-notifications-page .notif-message-toggle { display: block; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.patient-notifications-page .notif-message-toggle:focus-visible { outline: 3px solid var(--teal-500); outline-offset: 4px; border-radius: 4px; }
+.patient-notifications-page .notif-expand-label { display: block; margin-top: 6px; color: var(--teal-700); font-size: 12px; font-weight: 700; }
+.patient-notifications-page .notif-time { display: block; margin-top: 6px; color: var(--slate-500); font-size: 12px; }
+.patient-notifications-page .notification-selection-count { display: inline; }
+.patient-notifications-page .notif-selection-actions,
+.patient-notifications-page .notif-default-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%; }
+.patient-notifications-page .notif-toolbar [hidden] { display: none !important; }
+.patient-notifications-page .notification-selection-ready:not(.is-selection-mode) .notif-check-wrap { display: none; }
+.patient-notifications-page .notification-selection-ready .notification-row { -webkit-touch-callout: none; user-select: none; }
+.patient-notifications-page .notification-selection-ready.is-selection-mode .notif-expand-label { display: none; }
+.patient-portal.is-notification-modal-open { overflow: hidden; }
+.patient-portal .notification-detail-box { max-width: 580px; }
+.patient-portal .notification-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-shrink: 0; }
+.patient-portal .notification-detail-heading h2 { min-width: 0; margin: 0; padding: 0; font-size: 22px; line-height: 1.35; }
+.patient-portal .notification-detail-heading > .status-badge { flex-shrink: 0; margin: 0; }
+.patient-portal .notification-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 16px 0; color: var(--slate-500); font-size: 13px; }
+.patient-portal .notification-detail-meta > .status-badge { margin: 0; }
+.patient-portal .notification-detail-message { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--slate-800); line-height: 1.7; padding: 16px 0; border-top: 1px solid var(--slate-100); }
+.patient-portal .notification-detail-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.patient-portal .notification-detail-actions .btn { flex: 1 1 180px; }
+.patient-portal .notification-detail-box { display: flex; flex-direction: column; }
+.patient-portal .notification-detail-message { min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; }
+.patient-portal .notification-detail-actions,
+.patient-portal .notification-detail-meta,
+.patient-portal .notification-detail-box > h2,
+.patient-portal .notification-detail-box > .eyebrow { flex-shrink: 0; }
+.patient-portal .notification-detail-box > .eyebrow { align-self: flex-start; }
+
+@media (max-width: 1100px) {
+  .patient-portal .patient-dash-main-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 980px) {
+  .patient-portal .admin-main { width: 100%; }
+  .patient-portal .admin-topbar { gap: 10px; padding: 0 16px; }
+  .patient-mobile-brand { display: block; min-width: 0; color: var(--teal-700); font-weight: 800; font-size: 17px; }
+  .patient-portal .admin-sidebar { height: 100dvh; max-width: calc(100vw - 48px); }
+  .patient-portal .admin-nav { overscroll-behavior: contain; }
+  .patient-portal .admin-nav-link { min-height: 48px; }
+  .patient-portal.is-patient-menu-open { overflow: hidden; }
+}
+
+@media (max-width: 760px) {
+  .patient-notifications-page .notif-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; }
+  .patient-notifications-page .notif-toolbar-spacer { display: none; }
+  .patient-notifications-page .notif-select-all-wrap,
+  .patient-notifications-page .notification-delete-selected { grid-column: 1 / -1; }
+  .patient-notifications-page .notif-select-all-wrap { min-height: 44px; }
+  .patient-notifications-page .notif-toolbar .btn { width: 100%; min-width: 0; padding: 10px; }
+  .patient-notifications-page .notification-list .notification-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 4px 8px; padding: 14px 12px; }
+  .patient-notifications-page .notif-check-wrap { grid-column: 1; grid-row: 1 / span 2; align-self: start; width: 44px; height: 44px; margin: 0; padding: 0; }
+  .patient-notifications-page .notif-content { grid-column: 2; overflow-wrap: anywhere; }
+  .patient-notifications-page .notif-check,
+  .patient-notifications-page .notif-select-all { width: 22px; height: 22px; flex-shrink: 0; }
+  .patient-notifications-page .notification-row > .status-badge { grid-column: 2; justify-self: start; margin-top: 6px; }
+  .patient-notifications-page .notif-message-toggle { min-height: 44px; }
+  .patient-notifications-page .notif-message { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: normal; overflow: hidden; line-height: 1.6; }
+  .patient-notifications-page .notif-message.expanded { display: block; -webkit-line-clamp: unset; white-space: pre-line; overflow: visible; }
+  .patient-notifications-page .notif-row-actions .btn { width: 100%; }
+  .patient-notifications-page .notif-help { padding: 16px; line-height: 1.6; }
+  .patient-portal .portal-shell { padding: 20px 0 32px; }
+  .patient-portal .container,
+  .patient-portal .patient-profile-page .profile-container { padding-left: 16px; padding-right: 16px; }
+  .patient-portal .portal-hero { padding: 22px; gap: 16px; flex-wrap: wrap; border-radius: 18px; }
+  .patient-portal .portal-hero > div { min-width: 0; flex: 0 1 auto; }
+  .patient-portal .portal-hero h1 { font-size: 28px; overflow-wrap: anywhere; }
+  .patient-portal .portal-hero p { font-size: 14px; }
+  .patient-portal .portal-heading { flex-wrap: wrap; gap: 12px; }
+  .patient-portal .portal-clinics,
+  .patient-portal .booking-layout,
+  .patient-portal .booking-modal-grid,
+  .patient-portal .patient-dash-main-grid { grid-template-columns: minmax(0, 1fr); }
+  .patient-portal .patient-dash-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .patient-portal .pd-stat-queue { grid-column: 1 / -1; }
+  .patient-portal .pd-stat-card { gap: 10px; padding: 16px; }
+  .patient-portal .pd-stat-content strong { font-size: 25px; }
+  .patient-portal .pd-stat-icon { flex-basis: 32px; width: 32px; height: 32px; }
+  .patient-portal .pd-panel-heading { flex-wrap: wrap; }
+  .patient-portal .pd-notification-list strong { white-space: normal; overflow-wrap: anywhere; }
+  .patient-portal .patient-profile-page .info-fields-grid { grid-template-columns: minmax(0, 1fr); }
+  .patient-portal .pp-preference,
+  .patient-portal .pp-security-row { gap: 14px; }
+  .patient-portal .pp-preference > span,
+  .patient-portal .pp-security-row > div { min-width: 0; }
+  .patient-portal .profile-meta-row { flex-wrap: wrap; }
+  .patient-portal .pp-history { min-width: 560px; }
+  .patient-portal .pp-history-wrap { overflow-x: auto; }
+
+  /* Keep each form inside the viewport and avoid iOS input zoom. */
+  .patient-portal input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  .patient-portal select,
+  .patient-portal textarea { max-width: 100%; min-width: 0; font-size: 16px; }
+  .patient-portal .form-cols-2 { grid-template-columns: minmax(0, 1fr); }
+  .patient-portal .btn { min-height: 44px; white-space: normal; text-align: center; }
+  .patient-portal .header-icon-btn,
+  .patient-portal .header-icon-avatar,
+  .patient-portal .admin-sidebar-toggle { min-width: 44px; min-height: 44px; }
+  .patient-portal .ma-tabs { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; overscroll-behavior-x: contain; }
+  .patient-portal .ma-tab { flex-shrink: 0; min-height: 44px; }
+  .patient-portal .ma-resched { flex-wrap: wrap; }
+  .patient-portal .ma-resched input { flex: 1 1 140px; width: 100%; }
+  .patient-portal .ma-live-actions { flex-wrap: wrap; }
+  .patient-portal .mr-title-row { flex-wrap: wrap; gap: 4px; }
+  .patient-portal .mr-date { white-space: normal; }
+  .patient-portal .mr-privacy { align-items: flex-start; }
+  .patient-portal .compact-list article { flex-wrap: wrap; gap: 10px; }
+  .patient-portal .compact-list article > div { min-width: 0; overflow-wrap: anywhere; }
+  .patient-portal .compact-list .money { margin-left: auto; }
+  .patient-portal .lq-actions { flex-wrap: wrap; }
+  .patient-portal .lq-actions form { flex: 1 1 160px; }
+  .patient-portal .lq-actions .btn { width: 100%; }
+  .patient-portal .lq-banner { overflow-wrap: anywhere; }
+
+  /* Drawers fit dynamic browser height; their contents can scroll. */
+  .patient-portal .modal-overlay { padding: 12px; }
+  .patient-portal .modal-box { min-width: 0; max-width: 100%; max-height: calc(100dvh - 24px); padding: 24px 18px; }
+  .patient-portal .modal-overlay.modal-drawer { padding: 0; }
+  .patient-portal .modal-overlay.modal-drawer .modal-box { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .patient-portal .modal-close { min-width: 44px; min-height: 44px; }
+  .patient-portal .modal-box > h2 { padding-right: 42px; }
+  .patient-portal .pay-summary { position: static; }
+}
+
+@media (max-width: 420px) {
+  .patient-portal .container,
+  .patient-portal .patient-profile-page .profile-container { padding-left: 12px; padding-right: 12px; }
+  .patient-portal .admin-topbar { padding: 0 10px; gap: 6px; }
+  .patient-portal .admin-topbar-icons { gap: 4px; }
+  .patient-mobile-brand { font-size: 15px; }
+  .patient-portal .patient-dash-welcome { padding: 18px; }
+  .patient-portal .patient-dash-welcome h1 { font-size: 26px; }
+  .patient-portal .pd-stat-card:not(.pd-stat-queue) { flex-direction: column; }
+  .patient-portal .pd-queue-current { min-width: 90px; padding-left: 10px; }
+  .patient-portal .pd-appointment-body { flex-wrap: wrap; }
+  .patient-portal .pd-appointment-details { flex: 1 1 170px; }
+  .patient-portal .pd-appointment-actions { width: 100%; }
+  .patient-portal .pd-appointment-actions .btn { flex: 1 1 120px; }
+  .patient-portal .pd-clinic-card { grid-template-columns: 88px minmax(0, 1fr); }
+  .patient-portal .pd-booking-art { flex-basis: 86px; height: 124px; }
+  .patient-portal .ma-live-top { flex-wrap: wrap; }
+  .patient-portal .ma-live-number { width: 100%; }
+  .patient-portal .ma-row { gap: 12px; }
+  .patient-portal .ma-info { min-width: 0; flex-basis: calc(100% - 80px); overflow-wrap: anywhere; }
+  .patient-portal .ma-row > .ma-pill { margin-left: 0; }
+  .patient-portal .mr-item { gap: 10px; padding: 14px 12px; }
+  .patient-portal .mr-toolbar > .btn { width: 100%; }
+  .patient-portal .lq-steps { gap: 4px; }
+  .patient-portal .lq-steps li { overflow-wrap: anywhere; }
+  .patient-portal .cd-facts { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Keep notification controls aligned even when messages wrap on phones. */
+@media (max-width: 760px) {
+  .patient-portal .lq-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 10px; }
+  .patient-portal .lq-head-main { align-items: flex-start; gap: 8px; }
+  .patient-portal .lq-head-main > div { min-width: 0; }
+  .patient-portal .lq-head .lq-clinic-mark { width: 36px; height: 36px; border-radius: 10px; font-size: 13px; }
+  .patient-portal .lq-head h2 { font-size: 18px; line-height: 1.35; overflow-wrap: anywhere; }
+  .patient-portal .lq-head p { font-size: 13px; overflow-wrap: anywhere; }
+  .patient-portal .lq-head .lq-live { justify-self: end; align-self: start; margin: 0; padding: 5px 9px; gap: 5px; font-size: 11px; }
+  .patient-portal .patient-profile-page .pp-title { align-items: flex-start; gap: 12px; }
+  .patient-portal .patient-profile-page .pp-title > span { flex: 0 0 44px; }
+  .patient-portal .patient-profile-page .pp-title > div { min-width: 0; }
+  .patient-portal .patient-profile-page .info-card-header { align-items: flex-start; flex-wrap: nowrap; gap: 10px; }
+  .patient-portal .patient-profile-page .info-card-header h2 {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.45;
+  }
+  .patient-portal .patient-profile-page .info-card-header h2 .pp-icon { display: block; width: 22px; height: 22px; margin-top: 2px; }
+  .patient-portal .patient-profile-page .info-card-header .pp-edit { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; min-height: 44px; gap: 6px; padding: 8px 10px; }
+  .patient-portal .patient-profile-page .pp-edit .pp-icon { display: block; width: 16px; height: 16px; margin: 0; }
+  .patient-portal .patient-profile-page .pp-security-row > .pp-icon { display: block; width: 22px; height: 22px; flex: 0 0 22px; }
+  .patient-portal .patient-profile-page .pp-card-art > span { display: grid; place-items: center; }
+  .patient-portal .patient-profile-page .profile-card .btn { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .patient-portal .patient-notifications-page .portal-hero {
+    display: block;
+    padding: 22px 20px;
+    text-align: left;
+  }
+  .patient-portal .patient-notifications-page .portal-hero > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    flex: none;
+  }
+  .patient-portal .patient-notifications-page .portal-hero .eyebrow { margin: 0; }
+  .patient-portal .patient-notifications-page .portal-hero h1 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.2;
+  }
+  .patient-portal .patient-notifications-page .portal-hero p {
+    margin: 0;
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .patient-notifications-page .notification-list .notification-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 16px;
+    justify-content: stretch;
+  }
+  .patient-notifications-page .notif-check-wrap {
+    width: 44px;
+    margin-left: -6px;
+    padding-top: 3px;
+    align-items: start;
+  }
+  .patient-notifications-page .notif-content { grid-row: 1; }
+  .patient-notifications-page .notification-row > .status-badge {
+    grid-row: 2;
+    margin: 0;
+    width: fit-content;
+    text-align: left;
+  }
+  .patient-notifications-page .notif-toolbar .btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+  }
+  .patient-notifications-page .notif-select-all-wrap { padding-left: 4px; }
+  .patient-notifications-page .notif-selection-actions,
+  .patient-notifications-page .notif-default-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .patient-notifications-page .notif-selection-actions .notif-select-all-wrap { grid-column: auto; }
+  .patient-notifications-page .notif-default-actions [data-selection-start] { grid-column: 1 / -1; }
+  .patient-notifications-page .notification-selection-ready:not(.is-selection-mode) .notification-row { grid-template-columns: minmax(0, 1fr); }
+  .patient-notifications-page .notification-selection-ready:not(.is-selection-mode) .notif-content,
+  .patient-notifications-page .notification-selection-ready:not(.is-selection-mode) .notification-row > .status-badge { grid-column: 1; }
+  .patient-portal #notificationDetailModal { padding: 16px; }
+  .patient-portal #notificationDetailModal .notification-detail-box {
+    width: 100%;
+    padding: 22px 18px 18px;
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+    text-align: left;
+  }
+  .patient-portal .notification-detail-heading { gap: 8px; }
+  .patient-portal .notification-detail-heading h2 { font-size: 20px; }
+  .patient-portal .notification-detail-box .modal-close { top: 8px; right: 8px; }
+  .patient-portal .notification-detail-meta { align-items: flex-start; gap: 8px; margin: 14px 0; }
+  .patient-portal .notification-detail-meta time { flex: 1 1 100%; line-height: 1.5; }
+  .patient-portal .notification-detail-message { padding: 14px 0; font-size: 15px; }
+  .patient-portal .notification-detail-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 14px; }
+  .patient-portal .notification-detail-actions .btn { width: 100%; min-width: 0; margin: 0; justify-content: center; }
+}

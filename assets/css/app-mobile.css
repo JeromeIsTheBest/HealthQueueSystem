@@ -1,0 +1,86 @@
+/* Shared responsive shell for authenticated roles. Patient refinements load next. */
+.app-mobile-brand { display: none; }
+
+@media screen and (max-width: 980px) {
+  .app-portal .admin-main { width: 100%; min-width: 0; }
+  .app-portal .admin-topbar { gap: 10px; padding: 0 16px; }
+  .app-portal .app-mobile-brand { display: block; min-width: 0; color: var(--teal-700); font-weight: 800; font-size: 17px; }
+  .app-portal .admin-sidebar { height: 100dvh; max-width: calc(100vw - 48px); }
+  .app-portal .admin-nav { overscroll-behavior: contain; }
+  .app-portal .admin-nav-link { min-height: 48px; }
+  .app-portal.is-app-menu-open { overflow: hidden; }
+  .app-portal .admin-table-wrap { max-width: 100%; min-width: 0; overscroll-behavior-x: contain; }
+  .app-portal :is(.sd-grid, .admin-overview-grid, .cw-grid) { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media screen and (max-width: 760px) {
+  .app-portal :is(.admin-shell, .portal-shell) { padding-top: 20px; padding-bottom: 32px; }
+  .app-portal .container { padding-left: 16px; padding-right: 16px; }
+  .app-portal :is(.admin-hero, .portal-hero, .sd-hero, .sa-hero, .an-hero) {
+    min-width: 0; padding: 22px 20px; border-radius: 18px; gap: 16px; text-align: left;
+  }
+  .app-portal :is(.admin-hero, .portal-hero) { flex-direction: column; align-items: stretch; }
+  .app-portal :is(.admin-hero, .portal-hero) > div { min-width: 0; flex: 0 1 auto; }
+  .app-portal :is(.admin-hero, .portal-hero, .sd-hero, .sa-hero, .an-hero) h1 { font-size: 28px; line-height: 1.25; overflow-wrap: anywhere; }
+  .app-portal :is(.admin-hero, .portal-hero, .sd-hero, .sa-hero, .an-hero) p { overflow-wrap: anywhere; line-height: 1.6; }
+  .app-portal :is(.admin-heading, .portal-heading, .plain-page-header) { flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  .app-portal :is(.admin-overview-grid, .ph-grid, .cb-grid, .profile-grid, .cdp-grid, .booking-layout) { grid-template-columns: minmax(0, 1fr); }
+  .app-portal :is(.admin-overview-grid, .sd-grid, .cw-grid, .profile-grid) > * { min-width: 0; }
+  .app-portal :is(.form-cols-2, .form-grid) { grid-template-columns: minmax(0, 1fr); }
+  .app-portal :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+    min-width: 0; max-width: 100%; font-size: 16px;
+  }
+  .app-portal .btn { min-height: 44px; white-space: normal; text-align: center; }
+  .app-portal :is(.header-icon-btn, .header-icon-avatar, .admin-sidebar-toggle) { min-width: 44px; min-height: 44px; }
+  .app-portal :is(.admin-filters, .sa-filters, .ph-filters, .qm-filters) { flex-wrap: wrap; gap: 10px; min-width: 0; }
+  .app-portal .sa-search { min-width: 0; max-width: none; flex: 1 1 100%; }
+  .app-portal :is(.admin-filters, .sa-filters, .qm-filters) > :is(input, select, label) { min-width: 0; max-width: 100%; flex: 1 1 160px; }
+  .app-portal .sa-filters > .sa-search { flex: 1 1 100%; }
+  .app-portal :is(.sa-tabs, .ma-tabs, .av-tabs) { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+  .app-portal :is(.sa-tab, .ma-tab, .av-tab) { flex-shrink: 0; min-height: 44px; }
+  .app-portal :is(.compact-list article, .sa-row, .sa-head, .cs-row, .ph-card-head, .an-card) { flex-wrap: wrap; gap: 12px; min-width: 0; }
+  .app-portal .compact-list article > div { min-width: 0; overflow-wrap: anywhere; }
+  .app-portal .compact-list article > .status-badge { margin-left: 0; }
+  .app-portal :is(.sa-actions, .qm-actions, .cw-actions, .inquiry-actions) { flex-wrap: wrap; gap: 10px; }
+  .app-portal :is(.sa-actions, .qm-actions, .cw-actions) > .btn { flex: 1 1 140px; min-width: 0; }
+  .app-portal :is(.sa-resched, .sa-row-actions, .ph-card-foot) { flex-wrap: wrap; gap: 10px; }
+  .app-portal .profile-card { position: static; }
+  .app-portal .profile-avatar-edit { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; right: 0; bottom: 0; }
+  .app-portal .profile-avatar-edit svg { display: block; width: 20px; height: 20px; }
+  .app-portal .profile-container { padding-left: 16px; padding-right: 16px; }
+  .app-portal .profile-meta-row { flex-wrap: wrap; gap: 6px 12px; }
+  .app-portal .info-fields-grid { grid-template-columns: minmax(0, 1fr); }
+  .app-portal .info-field-value { overflow-wrap: anywhere; }
+  .app-portal .modal-overlay { padding: 12px; }
+  .app-portal .modal-box { min-width: 0; max-width: 100%; max-height: calc(100dvh - 24px); padding: 24px 18px; }
+  .app-portal .modal-box > h2 { padding-right: 40px; }
+  .app-portal .modal-close { min-width: 44px; min-height: 44px; }
+  .app-portal .modal-overlay.modal-drawer { padding: 0; }
+  .app-portal .modal-overlay.modal-drawer .modal-box { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .app-portal .cw-card-head { flex-wrap: wrap; }
+  .app-portal .cw-col { min-width: 0; }
+  .app-portal .cw-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-portal .cw-med { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .app-portal .cw-med input:first-child { grid-column: 1 / -1; }
+  .app-portal audio { width: 100%; max-width: 100%; }
+  .app-portal .notif-toolbar { gap: 10px; }
+  .app-portal .notification-row { min-width: 0; }
+  .app-portal .notification-row > div { flex-basis: 150px; }
+  .app-portal .notification-list .notification-row { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 8px 12px; padding: 16px; }
+  .app-portal .notification-row .notif-check-wrap { grid-column: 1; grid-row: 1 / span 2; width: 44px; height: 44px; margin: 0 0 0 -6px; padding: 3px 0 0; align-items: start; }
+  .app-portal .notification-row > div { grid-column: 2; grid-row: 1; }
+  .app-portal .notification-row > .status-badge { grid-column: 2; grid-row: 2; justify-self: start; margin: 0; }
+  .app-portal .notification-row .notif-message { white-space: normal; overflow-wrap: anywhere; }
+}
+
+@media screen and (max-width: 420px) {
+  .app-portal .container, .app-portal .profile-container { padding-left: 12px; padding-right: 12px; }
+  .app-portal .admin-topbar { padding: 0 10px; gap: 6px; }
+  .app-portal .app-mobile-brand { font-size: 15px; }
+  .app-portal .admin-topbar-icons { gap: 4px; }
+  .app-portal :is(.sd-stats, .admin-stats) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-portal .admin-stats article { min-width: 0; padding: 14px 12px; overflow-wrap: anywhere; }
+  .app-portal .admin-stats strong { font-size: 24px; }
+  .app-portal .cw-vitals { grid-template-columns: minmax(0, 1fr); }
+  .app-portal :is(.admin-hero, .portal-hero, .sd-hero, .sa-hero, .an-hero) { padding: 20px 16px; }
+}

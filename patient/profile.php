@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/wallet.php';
+require_once __DIR__ . '/../includes/patient-profile-details.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Patient']);
@@ -12,6 +13,9 @@ $pdo = getDbConnection();
 $errors = [];
 $flash = '';
 $profile = ['FirstName' => $user['FirstName'], 'LastName' => $user['LastName'], 'Email' => $user['Email'], 'ContactNumber' => '', 'ProfilePhoto' => null, 'CreatedAt' => null, 'BloodType' => null, 'Allergies' => null, 'EmergencyContactName' => null, 'EmergencyContactNumber' => null];
+$details = [];
+$verified = false;
+$detailsUpdated = null;
 $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 if ($pdo) {
@@ -28,11 +32,27 @@ if ($pdo) {
     }
 }
 
+if ($pdo) {
+    try {
+        $extra = $pdo->prepare('SELECT Details, UpdatedAt FROM PatientProfileDetails WHERE UserID = ?');
+        $extra->execute([$user['UserID']]);
+        if ($row = $extra->fetch()) { $details = json_decode($row['Details'], true) ?: []; $detailsUpdated = $row['UpdatedAt']; }
+        $verify = $pdo->prepare('SELECT EmailVerifiedAt FROM Users WHERE UserID = ?');
+        $verify->execute([$user['UserID']]);
+        $verified = (bool) $verify->fetchColumn();
+    } catch (PDOException $e) { error_log('Profile details load failed: ' . $e->getMessage()); }
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your session expired. Please try again.';
     } elseif (!$pdo) {
         $errors[] = 'The database is temporarily unavailable.';
+    } elseif (($_POST['form_type'] ?? '') === 'notification_preferences') {
+        try {
+            foreach (['email_notifications', 'sms_notifications', 'in_app_notifications'] as $key) $details[$key] = isset($_POST[$key]);
+            savePatientProfileDetails($pdo, (int) $user['UserID'], $details);
+            $flash = 'Notification preferences saved.';
+        } catch (PDOException $e) { $errors[] = 'Could not save preferences.'; }
     } elseif (($_POST['form_type'] ?? '') === 'deactivate_account') {
         try {
             $pdo->beginTransaction();
@@ -56,6 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lastName  = trim((string) ($_POST['last_name'] ?? ''));
         $email     = trim((string) ($_POST['email'] ?? ''));
         $contact   = trim((string) ($_POST['contact_number'] ?? ''));
+        $birth = trim((string) ($_POST['date_of_birth'] ?? ''));
+        $sex = (string) ($_POST['sex'] ?? '');
+        $address = trim((string) ($_POST['address'] ?? ''));
+        if ($birth !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $birth) || !strtotime($birth) || date('Y-m-d', strtotime($birth)) !== $birth || $birth > date('Y-m-d'))) $errors[] = 'Enter a valid date of birth.';
+        if (!in_array($sex, ['', 'Male', 'Female', 'Prefer not to say'], true)) $errors[] = 'Choose a valid sex.';
+        if (mb_strlen($address) > 500) $errors[] = 'Address must be 500 characters or fewer.';
 
         if ($firstName === '' || $lastName === '') $errors[] = 'First and last name are required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
@@ -71,6 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ->execute([$firstName, $lastName, $email, $contact ?: null, $user['UserID']]);
                     loginUser(['UserID' => $user['UserID'], 'ClinicID' => $user['ClinicID'], 'RoleID' => $user['RoleID'], 'RoleName' => $user['RoleName'], 'FirstName' => $firstName, 'LastName' => $lastName, 'Email' => $email]);
                     logActivity($pdo, $user['UserID'], null, 'Updated profile', 'Patient updated their own account details.');
+                    $details = array_merge($details, ['date_of_birth' => $birth, 'sex' => $sex, 'address' => $address]);
+                    savePatientProfileDetails($pdo, (int) $user['UserID'], $details);
                     $flash = 'Profile updated.';
                     $profile['FirstName'] = $firstName;
                     $profile['LastName'] = $lastName;
@@ -99,6 +127,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('UPDATE Users SET BloodType = ?, Allergies = ?, EmergencyContactName = ?, EmergencyContactNumber = ? WHERE UserID = ?')
                     ->execute([$bloodType ?: null, $allergies ?: null, $emergName ?: null, $emergNumber ?: null, $user['UserID']]);
                 logActivity($pdo, $user['UserID'], null, 'Updated medical information', 'Patient updated their own medical information.');
+                foreach (['medical_conditions', 'current_medications'] as $key) $details[$key] = mb_substr(trim((string) ($_POST[$key] ?? '')), 0, 1000);
+                savePatientProfileDetails($pdo, (int) $user['UserID'], $details);
+                $detailsUpdated = date('Y-m-d H:i:s');
                 $flash = 'Medical information updated.';
                 $profile['BloodType'] = $bloodType ?: null;
                 $profile['Allergies'] = $allergies ?: null;
@@ -229,16 +260,30 @@ $formValue = function (string $postKey, ?string $current) use ($old): string {
     return htmlspecialchars((string) ($old[$postKey] ?? $current ?? ''));
 };
 
+$profileIcon = static function (string $name): string {
+    $paths = [
+        'person' => '<circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2z"/>',
+        'medical' => '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/><path d="M3 12h5l2-4 4 8 2-4h5"/>',
+        'records' => '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v4H9zM9 11h6M9 16h6"/>',
+        'bell' => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4"/>',
+        'shield' => '<path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6zM8 12l3 3 5-6"/>',
+        'edit' => '<path d="m16 3 5 5-12 12-6 1 1-6zM14 5l5 5"/>',
+    ];
+    return '<svg class="pp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$name] ?? $paths['person']) . '</svg>';
+};
+$completionValues = [$profile['FirstName'], $profile['LastName'], $profile['Email'], $profile['ContactNumber'], $profile['ProfilePhoto'], $profile['BloodType'], $profile['EmergencyContactName'], $details['date_of_birth'] ?? '', $details['sex'] ?? '', $details['address'] ?? ''];
+$completion = (int) round(count(array_filter($completionValues)) / count($completionValues) * 100);
+$displayDetail = static fn(string $key): string => !empty($details[$key]) ? htmlspecialchars($details[$key]) : '<span class="info-empty">Not provided</span>';
 $pageTitle = 'My Profile';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="portal-shell"><div class="profile-container">
+<main class="portal-shell patient-profile-page"><div class="profile-container">
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
   <?php if ($errors && !$reopenModal): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
   <div class="profile-grid">
-    <aside class="profile-card">
+    <div class="pp-left-column"><aside class="profile-card">
       <div class="profile-banner"></div>
       <div class="profile-avatar-wrap">
         <?php if (!empty($profile['ProfilePhoto'])): ?>
@@ -253,20 +298,22 @@ require __DIR__ . '/../includes/header.php';
       <h3 class="profile-name"><?= htmlspecialchars($profile['FirstName'] . ' ' . $profile['LastName']) ?></h3>
       <p class="profile-email"><?= htmlspecialchars($profile['Email']) ?></p>
 
+      <div class="pp-verification <?= $verified ? 'is-verified' : '' ?>"><?= $verified ? '&#10003; Email Verified' : 'Email not verified' ?></div>
       <dl class="profile-meta-list">
-        <div class="profile-meta-row"><dt>ID Number</dt><dd><?= !empty($profile['IDNumber']) ? htmlspecialchars($profile['IDNumber']) : '<span class="info-empty">Not assigned</span>' ?></dd></div>
+        <div class="profile-meta-row"><dt>Patient ID</dt><dd><?= !empty($profile['IDNumber']) ? htmlspecialchars($profile['IDNumber']) : '<span class="info-empty">Not assigned</span>' ?></dd></div>
         <div class="profile-meta-row"><dt>Contact Number</dt><dd><?= $profile['ContactNumber'] ? htmlspecialchars($profile['ContactNumber']) : '<span class="info-empty">Not provided</span>' ?></dd></div>
         <div class="profile-meta-row"><dt>Member Since</dt><dd><?= $profile['CreatedAt'] ? htmlspecialchars(date('M Y', strtotime($profile['CreatedAt']))) : '<span class="info-empty">Not provided</span>' ?></dd></div>
       </dl>
 
-      <button type="button" class="btn btn-outline btn-block" data-modal-open="changePasswordModal" style="margin-top:22px;">Change Password</button>
-    </aside>
+      <div class="pp-completion"><div><strong>Profile Completion</strong><strong><?= $completion ?>%</strong></div><progress max="100" value="<?= $completion ?>"><?= $completion ?>%</progress><p>Complete your profile to get the best HealthQueue experience.</p></div>
+      <button type="button" class="btn btn-outline btn-block" data-modal-open="personalInfoModal"><?= $profileIcon('edit') ?> Complete Profile</button>
+    </aside><article class="pp-medical-card"><div class="pp-card-art"><?= $profileIcon('records') ?><span><?= $profileIcon('shield') ?></span></div><h2>My Medical Card</h2><p>A quick view of your important<br>medical information.</p><button type="button" class="btn btn-primary" data-modal-open="medicalCardModal">View Medical Card</button></article></div>
 
     <div class="profile-info-column">
       <div class="info-card">
         <div class="info-card-header">
-          <h2>Personal Information</h2>
-          <button type="button" class="text-link" data-modal-open="personalInfoModal">Edit</button>
+          <h2><?= $profileIcon('person') ?> Personal Information</h2>
+          <button type="button" class="text-link pp-edit" data-modal-open="personalInfoModal"><?= $profileIcon('edit') ?> Edit</button>
         </div>
         <div class="info-fields-grid">
           <div class="info-field">
@@ -285,13 +332,16 @@ require __DIR__ . '/../includes/header.php';
             <span class="info-field-label">Contact number</span>
             <p class="info-field-value"><?= $profile['ContactNumber'] ? htmlspecialchars($profile['ContactNumber']) : '<span class="info-empty">Not provided</span>' ?></p>
           </div>
+          <div class="info-field"><span class="info-field-label">Date of Birth</span><p class="info-field-value"><?= !empty($details['date_of_birth']) ? htmlspecialchars(date('M j, Y', strtotime($details['date_of_birth']))) : '<span class="info-empty">Not provided</span>' ?></p></div>
+          <div class="info-field"><span class="info-field-label">Sex</span><p class="info-field-value"><?= $displayDetail('sex') ?></p></div>
+          <div class="info-field pp-address"><span class="info-field-label">Address / Location</span><p class="info-field-value"><?= $displayDetail('address') ?></p></div>
         </div>
       </div>
 
       <div class="info-card">
         <div class="info-card-header">
-          <h2>Medical Information</h2>
-          <button type="button" class="text-link" data-modal-open="medicalInfoModal">Edit</button>
+          <h2><?= $profileIcon('medical') ?> Medical Information</h2>
+          <button type="button" class="text-link pp-edit" data-modal-open="medicalInfoModal"><?= $profileIcon('edit') ?> Edit</button>
         </div>
         <div class="info-fields-grid">
           <div class="info-field">
@@ -310,51 +360,38 @@ require __DIR__ . '/../includes/header.php';
             ?></p>
           </div>
         </div>
+        <div class="pp-medical-extra"><div><span>Medical Conditions</span><strong><?= $displayDetail('medical_conditions') ?></strong></div><div><span>Current Medications</span><strong><?= $displayDetail('current_medications') ?></strong></div></div>
         <a href="<?= HQ_BASE_URL ?>/patient/medical-records.php" class="text-link" style="display:inline-block;margin-top:14px;">Manage medical records <span>&rarr;</span></a>
       </div>
 
       <div class="info-card">
         <div class="info-card-header">
-          <h2>Consultation History<?php if ($consultationTotal): ?> <span style="color:var(--slate-400);font-weight:600;font-size:.8em;">(<?= $consultationTotal ?>)</span><?php endif; ?></h2>
-          <?php if ($consultationTotal > count($recentConsultations)): ?>
-            <a href="<?= HQ_BASE_URL ?>/patient/medical-records.php" class="text-link">View all <span>&rarr;</span></a>
-          <?php endif; ?>
+          <h2><?= $profileIcon('records') ?> Consultation History<?php if ($consultationTotal): ?> <span style="color:var(--slate-400);font-weight:600;font-size:.8em;">(<?= $consultationTotal ?>)</span><?php endif; ?></h2>
+
+            <a href="<?= HQ_BASE_URL ?>/patient/medical-records.php" class="text-link">View All Records <span>&rarr;</span></a>
+
         </div>
-        <?php if ($recentConsultations): ?>
-          <div class="compact-list">
-            <?php foreach ($recentConsultations as $item): ?>
-              <?php
-              $notes = trim(preg_replace('/\s+/', ' ', (string) $item['LatestNotes']));
-              if (mb_strlen($notes) > 110) $notes = mb_substr($notes, 0, 110) . '…';
-              ?>
-              <article>
-                <div>
-                  <strong><?= htmlspecialchars($item['ClinicName']) ?></strong>
-                  <span>Dr. <?= htmlspecialchars($item['FirstName'] . ' ' . $item['LastName']) ?> &middot; <?= htmlspecialchars(date('M j, Y', strtotime($item['AppointmentDate']))) ?></span>
-                  <?php if ($notes !== ''): ?><span><?= htmlspecialchars($notes) ?></span><?php endif; ?>
-                </div>
-                <button type="button" class="text-link" data-view-record="<?= (int) $item['AppointmentID'] ?>">View <span>&rarr;</span></button>
-              </article>
-            <?php endforeach; ?>
-          </div>
-        <?php else: ?>
-          <p class="admin-empty">No consultations yet.</p>
-          <a href="<?= HQ_BASE_URL ?>/patient/clinics.php" class="btn btn-primary btn-sm" style="margin-top:12px;">Book an appointment</a>
-        <?php endif; ?>
+        <?php if ($recentConsultations): ?><div class="pp-history-wrap"><table class="pp-history"><thead><tr><th>Date</th><th>Physician</th><th>Clinic</th><th>Status</th><th>Action</th></tr></thead><tbody><?php foreach ($recentConsultations as $item): ?><tr><td><?= htmlspecialchars(date('M j, Y', strtotime($item['AppointmentDate']))) ?></td><td>Dr. <?= htmlspecialchars($item['FirstName'] . ' ' . $item['LastName']) ?></td><td><?= htmlspecialchars($item['ClinicName']) ?></td><td><span class="pp-done">&#10003; Done</span></td><td><button type="button" class="pp-edit text-link" data-view-record="<?= (int) $item['AppointmentID'] ?>">View Details</button></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><p class="pp-empty">No completed consultations yet. Your consultation history will appear here.</p><?php endif; ?>
       </div>
+      <div class="pp-bottom-grid"><section class="info-card pp-preferences"><div class="info-card-header"><h2><?= $profileIcon('bell') ?> Notification Preferences</h2></div><p class="pp-subtitle">Choose how you want to receive updates and reminders.</p><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="notification_preferences">
+      <?php foreach (['email_notifications' => ['Email Notifications', 'Appointment, queue, and clinic updates'], 'sms_notifications' => ['SMS Notifications', 'Queue and appointment reminders'], 'in_app_notifications' => ['In-App Notifications', 'Real-time updates inside HealthQueue']] as $key => $labels): ?><label class="pp-preference"><span><strong><?= $labels[0] ?></strong><small><?= $labels[1] ?></small></span><input type="checkbox" name="<?= $key ?>" value="1" role="switch"<?= ($details[$key] ?? true) ? ' checked' : '' ?>></label><?php endforeach; ?><p class="pp-note">Preferences are saved for your account. Delivery depends on the available notification services.</p><button class="text-link" type="submit">Save preferences</button></form></section>
       <div class="info-card">
-        <h2>Deactivate account</h2>
+        <div class="info-card-header"><h2><?= $profileIcon('shield') ?> Account &amp; Security</h2></div>
+        <button class="pp-security-row" type="button" data-modal-open="changePasswordModal"><span><strong>Change Password</strong><small>Update your account password</small></span><span>&rsaquo;</span></button>
+        <div class="pp-security-row"><span><strong>Email Verification</strong><small><?= $verified ? 'Your email is verified' : 'Your email is not verified' ?></small></span><span class="pp-verification <?= $verified ? 'is-verified' : '' ?>"><?= $verified ? 'Verified' : 'Unverified' ?></span></div>
+        <div class="pp-security-row"><span><strong>Current Session</strong><small>You are signed in on this browser</small></span><?= $profileIcon('shield') ?></div>
         <p>Deactivation signs you out and prevents future sign-ins. Active bookings will be cancelled and eligible booking fees refunded.</p>
         <form method="post" onsubmit="return confirm('Deactivate your patient account? Active bookings will be cancelled.');">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
           <input type="hidden" name="form_type" value="deactivate_account">
-          <button type="submit" class="btn btn-outline ma-danger">Deactivate my account</button>
+          <button type="submit" class="btn btn-outline ma-danger">Deactivate Account &rsaquo;</button>
         </form>
-      </div>
+      </div></div>
     </div>
   </div>
 </div></main>
 
+<div class="modal-overlay" id="medicalCardModal"><div class="modal-box pp-card-modal"><button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button><h2><?= $profileIcon('shield') ?> My Medical Card</h2><h3><?= htmlspecialchars($profile['FirstName'] . ' ' . $profile['LastName']) ?></h3><p>Patient ID: <?= htmlspecialchars($profile['IDNumber'] ?? 'Not assigned') ?></p><dl><dt>Blood type</dt><dd><?= htmlspecialchars($profile['BloodType'] ?: 'Not provided') ?></dd><dt>Allergies</dt><dd><?= htmlspecialchars($profile['Allergies'] ?: 'Not provided') ?></dd><dt>Medical conditions</dt><dd><?= $displayDetail('medical_conditions') ?></dd><dt>Current medications</dt><dd><?= $displayDetail('current_medications') ?></dd><dt>Emergency contact</dt><dd><?= htmlspecialchars(trim(($profile['EmergencyContactName'] ?? '') . ' ' . ($profile['EmergencyContactNumber'] ?? '')) ?: 'Not provided') ?></dd></dl><p class="pp-note">Patient-provided information. Confirm details with your physician.</p></div></div>
 <div class="modal-overlay" id="personalInfoModal">
   <div class="modal-box">
     <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
@@ -368,6 +405,9 @@ require __DIR__ . '/../includes/header.php';
         <label>Last name<input type="text" name="last_name" value="<?= $formValue('last_name', $profile['LastName']) ?>" required></label>
         <label>Email address<input type="email" name="email" value="<?= $formValue('email', $profile['Email']) ?>" required></label>
         <label>Contact number<input type="tel" name="contact_number" value="<?= $formValue('contact_number', $profile['ContactNumber']) ?>"></label>
+        <label>Date of birth<input type="date" name="date_of_birth" max="<?= date('Y-m-d') ?>" value="<?= $formValue('date_of_birth', $details['date_of_birth'] ?? '') ?>"></label>
+        <label>Sex<select name="sex"><?php foreach (['' => 'Not specified', 'Male' => 'Male', 'Female' => 'Female', 'Prefer not to say' => 'Prefer not to say'] as $value => $label): ?><option value="<?= $value ?>"<?= ($old['sex'] ?? $details['sex'] ?? '') === $value ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></label>
+        <label>Address / Location<textarea name="address" maxlength="500"><?= $formValue('address', $details['address'] ?? '') ?></textarea></label>
       </div>
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:14px;">Save Changes</button>
     </form>
@@ -382,6 +422,8 @@ require __DIR__ . '/../includes/header.php';
     <form method="post">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
       <input type="hidden" name="form_type" value="update_medical">
+      <label>Medical conditions<textarea name="medical_conditions" maxlength="1000"><?= $formValue('medical_conditions', $details['medical_conditions'] ?? '') ?></textarea></label>
+      <label>Current medications<textarea name="current_medications" maxlength="1000"><?= $formValue('current_medications', $details['current_medications'] ?? '') ?></textarea></label>
       <?php $selectedBlood = $old['blood_type'] ?? $profile['BloodType'] ?? ''; ?>
       <div class="form-stack">
         <label>Blood type
