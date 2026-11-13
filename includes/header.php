@@ -14,7 +14,7 @@ $hqAppRole = $hqUser && in_array($hqUser['RoleName'], ['Admin', 'Staff', 'Physic
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="HealthQueue lets patients book appointments, track clinic queues in real time, and access secure digital consultation records for outpatient clinics in Cebu City.">
 <title><?= htmlspecialchars($pageTitle) ?></title>
-<link rel="icon" type="image/png" href="<?= HQ_BASE_URL ?>/assets/img/logo.png">
+<link rel="icon" type="image/png" href="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -52,6 +52,7 @@ $hqAppRole = $hqUser && in_array($hqUser['RoleName'], ['Admin', 'Staff', 'Physic
 <?php if (!empty($isStaffQueue)): ?>
 <link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/staff-queue.css?v=<?= filemtime(__DIR__ . '/../assets/css/staff-queue.css') ?>">
 <?php endif; ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/brand.css?v=<?= filemtime(__DIR__ . '/../assets/css/brand.css') ?>">
 </head>
 <body class="<?= $hqAppRole ? 'app-portal' . ($hqUser['RoleName'] === 'Patient' ? ' patient-portal' : '') : '' ?><?= !empty($isLandingPage) ? ' landing-home' : '' ?><?= !empty($isMobileAuthPage) ? ' mobile-auth-page' : '' ?>">
 
@@ -192,7 +193,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
     <div class="admin-sidebar-brand-row">
       <a href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/dashboard.php" class="admin-sidebar-brand" title="HealthQueue">
         <span class="brand-mark">
-          <img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt="">
+          <img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt="">
         </span>
         <span class="admin-sidebar-brand-text">HealthQueue</span>
       </a>
@@ -236,7 +237,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
       <button type="button" class="admin-sidebar-toggle admin-sidebar-toggle-mobile" aria-label="Toggle menu" aria-expanded="false" aria-controls="adminSidebar">
         <span></span><span></span><span></span>
       </button>
-      <a class="app-mobile-brand<?= $hqUser['RoleName'] === 'Patient' ? ' patient-mobile-brand' : '' ?>" href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/dashboard.php">HealthQueue</a>
+      <a class="app-mobile-brand<?= $hqUser['RoleName'] === 'Patient' ? ' patient-mobile-brand' : '' ?>" href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/dashboard.php"><img class="hq-mobile-mark" src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt="">HealthQueue</a>
       <div class="admin-topbar-icons">
         <?php if (in_array('notifications.php', array_column($hqSidebarNav, 'file'), true)): ?>
           <a href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/notifications.php" class="header-icon-btn" aria-label="Notifications">
@@ -259,7 +260,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
   <div class="container">
     <a href="<?= HQ_BASE_URL ?>/index.php" class="brand">
       <span class="brand-mark">
-        <img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt="">
+        <img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt="">
       </span>
       HealthQueue
     </a>

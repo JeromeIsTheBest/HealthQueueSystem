@@ -6,7 +6,7 @@
   <div class="container">
     <div class="footer-row">
       <?php if (!empty($isLandingPage)): ?>
-      <a class="landing-footer-brand" href="<?= HQ_BASE_URL ?>/index.php"><span aria-hidden="true">+</span>HealthQueue</a>
+      <a class="landing-footer-brand" href="<?= HQ_BASE_URL ?>/index.php"><img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt="">HealthQueue</a>
       <ul class="footer-links">
         <li><a href="#services">Services</a></li>
         <li><a href="#how-it-works">How it works</a></li>

@@ -39,7 +39,7 @@ $signupUrl = HQ_BASE_URL . '/auth/register.php?email_verified_token=' . urlencod
 require __DIR__ . '/../includes/header.php';
 ?>
 <section class="auth-shell"><div class="auth-card">
-  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt=""></span><h2><?= $verified ? 'Email verified' : 'Email verification' ?></h2></div>
+  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt=""></span><h2><?= $verified ? 'Email verified' : 'Email verification' ?></h2></div>
   <?php if ($verified): ?>
     <div class="form-message success" role="status">Your email was verified successfully. Return to the signup form to see the check mark and finish creating your account.</div>
     <a href="<?= htmlspecialchars($signupUrl) ?>" class="btn btn-primary btn-block">Return to signup</a>

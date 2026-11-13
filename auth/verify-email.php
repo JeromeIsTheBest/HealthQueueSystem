@@ -43,7 +43,7 @@ if ($token !== '' && $pdo) {
 require __DIR__ . '/../includes/header.php';
 ?>
 <section class="auth-shell"><div class="auth-card">
-  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt=""></span><h2>Verify your email</h2></div>
+  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt=""></span><h2>Verify your email</h2></div>
   <?php if ($verified): ?>
     <div class="form-message success" role="status">Your email is verified. You can now sign in.</div>
     <a href="<?= HQ_BASE_URL ?>/auth/login.php" class="btn btn-primary btn-block">Sign in</a>

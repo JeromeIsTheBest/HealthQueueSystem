@@ -158,7 +158,7 @@ require __DIR__ . '/../includes/header.php';
   <div class="auth-card">
     <div class="auth-card-header">
       <span class="brand-mark">
-        <img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt="">
+        <img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt="">
       </span>
       <h2>Create your account</h2>
       <p>Book appointments and track your queue position online.</p>

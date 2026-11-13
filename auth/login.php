@@ -70,11 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<section class="auth-shell">
+<section class="auth-shell sign-in-page">
   <div class="auth-card">
     <div class="auth-card-header">
       <span class="brand-mark">
-        <img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt="">
+        <img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt="">
       </span>
       <h2>Sign in to HealthQueue</h2>
     </div>

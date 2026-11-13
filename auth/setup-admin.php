@@ -75,7 +75,7 @@ require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="auth-shell"><div class="auth-card">
-  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt=""></span><span class="eyebrow">Initial system setup</span><h2>Create the first administrator</h2><p>This account can review clinic registrations and set up staff and physician accounts.</p></div>
+  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt=""></span><span class="eyebrow">Initial system setup</span><h2>Create the first administrator</h2><p>This account can review clinic registrations and set up staff and physician accounts.</p></div>
   <?php if ($adminExists): ?><div class="form-message success" role="status">An administrator account already exists. <a href="<?= HQ_BASE_URL ?>/auth/login.php">Sign in</a> to continue.</div>
   <?php else: ?>
     <?php if ($errors): ?><div class="form-message error" role="alert"><strong>Please check the following:</strong><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>

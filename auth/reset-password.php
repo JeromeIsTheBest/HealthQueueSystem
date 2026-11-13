@@ -64,7 +64,7 @@ require __DIR__ . '/../includes/header.php';
   <div class="auth-card">
     <div class="auth-card-header">
       <span class="brand-mark">
-        <img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt="">
+        <img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt="">
       </span>
       <h2>Set a new password</h2>
       <?php if ($reset && !$success): ?>

@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require __DIR__ . '/../includes/header.php';
 ?>
 <section class="auth-shell"><div class="auth-card">
-  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/logo.png" alt=""></span><h2>Resend verification email</h2><p>Enter the address used to create your account.</p></div>
+  <div class="auth-card-header"><span class="brand-mark"><img src="<?= HQ_BASE_URL ?>/assets/img/brand/hq-soft-mark.png" alt=""></span><h2>Resend verification email</h2><p>Enter the address used to create your account.</p></div>
   <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
   <?php if ($submitted): ?>
     <div class="form-message success" role="status">If that address belongs to an unverified HealthQueue patient account, a verification link will be sent when eligible. Check your inbox and spam folder.</div>
