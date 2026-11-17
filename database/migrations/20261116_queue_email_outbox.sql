@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS QueueEmailOutbox (
+    EmailID INT AUTO_INCREMENT PRIMARY KEY,
+    QueueID INT NOT NULL,
+    PatientID INT NOT NULL,
+    AppointmentID INT NOT NULL,
+    EventType VARCHAR(20) NOT NULL,
+    Status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    Attempts INT NOT NULL DEFAULT 0,
+    LastError VARCHAR(200) NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_queue_email_event (QueueID, EventType),
+    INDEX idx_queue_email_pending (Status, UpdatedAt),
+    FOREIGN KEY (QueueID) REFERENCES Queue(QueueID) ON DELETE CASCADE,
+    FOREIGN KEY (PatientID) REFERENCES Users(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID) ON DELETE CASCADE
+);

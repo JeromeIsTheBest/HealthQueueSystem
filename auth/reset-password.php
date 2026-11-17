@@ -46,10 +46,8 @@ if ($reset && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors) {
         try {
-            $update = $pdo->prepare('UPDATE Users SET PasswordHash = ? WHERE UserID = ?');
-            $update->execute([password_hash($password, PASSWORD_DEFAULT), $reset['UserID']]);
-            consumePasswordResetToken($pdo, (int) $reset['ResetID']);
-            $success = true;
+            $success = resetPasswordOnce($pdo, $token, $password);
+            if (!$success) $errors[] = 'This reset link has already been used or expired. Please request a new one.';
         } catch (PDOException $e) {
             error_log('Password reset failed: ' . $e->getMessage());
             $errors[] = 'We could not reset your password right now. Please try again later.';

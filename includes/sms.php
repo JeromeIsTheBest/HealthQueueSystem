@@ -1,10 +1,9 @@
 <?php
-/** Semaphore SMS outbox. No network calls are made by web requests. */
+/** textbee SMS outbox. No network calls are made by web requests. */
 function smsEnabled(): bool
 {
     return getenv('HQ_SMS_ENABLED') === '1'
-        && (string) getenv('HQ_SEMAPHORE_API_KEY') !== ''
-        && (string) getenv('HQ_SMS_SENDER_NAME') !== '';
+        && trim((string) getenv('HQ_TEXTBEE_API_KEY')) !== '';
 }
 
 function normalizeSmsNumber(string $number): ?string
@@ -37,33 +36,47 @@ function queuePatientSms(PDO $pdo, int $patientId, int $appointmentId, string $e
     }
 }
 
-/** Return provider acceptance, not a claim of handset delivery. */
-function semaphoreSend(string $number, string $message): array
+/** Build the textbee request separately so it can be verified without sending SMS. */
+function textbeePayload(string $number, string $message): array
 {
-    $ch = curl_init('https://api.semaphore.co/api/v4/messages');
+    $normalized = normalizeSmsNumber($number);
+    if (!$normalized) throw new InvalidArgumentException('Invalid Philippine mobile number.');
+    $payload = ['recipients' => ['+' . $normalized], 'message' => $message];
+    $deviceId = trim((string) getenv('HQ_TEXTBEE_DEVICE_ID'));
+    if ($deviceId !== '') $payload['deviceId'] = $deviceId;
+    return $payload;
+}
+
+/** API acceptance is not confirmed handset delivery. No automatic provider fallback. */
+function textbeeSend(string $number, string $message): array
+{
+    $apiKey = trim((string) getenv('HQ_TEXTBEE_API_KEY'));
+    if ($apiKey === '' || preg_match('/[\r\n]/', $apiKey)) {
+        return ['status' => 'failed', 'id' => null, 'detail' => 'textbee API key missing or invalid'];
+    }
+    $ch = curl_init('https://api.textbee.dev/api/v1/gateway/send-sms');
     curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 25,
-        CURLOPT_POSTFIELDS => http_build_query(['apikey' => getenv('HQ_SEMAPHORE_API_KEY'),
-            'sendername' => getenv('HQ_SMS_SENDER_NAME'), 'number' => $number, 'message' => $message])]);
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'x-api-key: ' . $apiKey],
+        CURLOPT_POSTFIELDS => json_encode(textbeePayload($number, $message), JSON_THROW_ON_ERROR)]);
     $body = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    return semaphoreResponse($code, $body);
+    return textbeeResponse($code, $body);
 }
 
-function semaphoreResponse(int $code, $body): array
+function textbeeResponse(int $code, $body): array
 {
     $data = is_string($body) ? json_decode($body, true) : null;
-    $item = $data[0] ?? [];
-    if ($code >= 200 && $code < 300 && !empty($item['message_id'])) {
-        $providerStatus = (string) ($item['status'] ?? 'Queued');
-        if (in_array(strtolower($providerStatus), ['failed', 'refunded'], true)) {
-            return ['status' => 'failed', 'id' => (string) $item['message_id'], 'detail' => $providerStatus];
-        }
-        return ['status' => 'accepted', 'id' => (string) $item['message_id'], 'detail' => $providerStatus];
+    $batch = is_array($data['data'] ?? null) ? $data['data'] : [];
+    if ($code >= 200 && $code < 300 && ($batch['success'] ?? false) === true
+        && is_string($batch['smsBatchId'] ?? null) && $batch['smsBatchId'] !== '') {
+        return ['status' => 'accepted', 'id' => $batch['smsBatchId'], 'detail' => 'textbee: queued for phone; delivery not confirmed'];
     }
-    // Only an explicit rate limit can be retried safely. A timeout may have
-    // occurred after acceptance, so automatically resending could charge twice.
+    $details = [400 => 'Check verified email, enabled phone and device ID',
+        401 => 'API key rejected', 403 => 'Access denied', 404 => 'Device or endpoint not found',
+        429 => 'Message limit reached; retry later'];
+    // Do not retry uncertain outcomes automatically: the phone may already have received the request.
     return ['status' => $code === 429 ? 'pending' : ($code >= 400 && $code < 500 ? 'failed' : 'unknown'),
-        'id' => null, 'detail' => 'HTTP ' . $code];
+        'id' => null, 'detail' => 'textbee HTTP ' . $code . (isset($details[$code]) ? ': ' . $details[$code] : '')];
 }

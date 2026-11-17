@@ -1,9 +1,13 @@
 /vendor/
 /storage/
-/assets/uploads/
+/assets/uploads/*
+!/assets/uploads/.htaccess
 .env
 .env.*
 !.env.example
 
 /.venv-whisper/
 __pycache__/
+
+# Private recovery data
+/storage/backups/

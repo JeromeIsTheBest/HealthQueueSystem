@@ -1,9 +1,8 @@
 <?php
 /**
  * Shared "Pay booking fee" UI, used by the booking modal's pay step and by
- * patient/checkout.php. Payments are simulated: GCash, Maya and card are demo
- * methods that mark the fee paid without charging anything; the wallet
- * really deducts from the patient's (simulated) HealthQueue balance.
+ * patient/checkout.php. Wallet payments deduct the simulated HealthQueue
+ * balance. External methods stay disabled until a payment provider is connected.
  *
  * Behaviour (method selection, card fields, hold countdown) is in main.js.
  */
@@ -42,12 +41,13 @@ function renderPaymentMethods(string $inputName, ?float $walletBalance, ?float $
         'maya'   => '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
         'card'   => '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
     ];
-    $default = $walletOk ? 'wallet' : 'card';
+    $default = $walletOk ? 'wallet' : '';
     ?>
     <div class="pay-methods" data-pay-methods>
       <p class="pay-methods-title">Payment method</p>
+      <p class="pay-demo-note">Pay with your HealthQueue wallet. Add funds if your balance is insufficient. GCash, Maya and card payments are not connected.</p>
       <?php foreach (PAYMENT_METHODS as $key => $label): ?>
-        <?php $disabled = $key === 'wallet' && $walletBalance !== null && !$walletOk; ?>
+        <?php $disabled = $key !== 'wallet' || ($walletBalance !== null && !$walletOk); ?>
         <label class="pay-method pay-method-<?= $key ?><?= $key === $default ? ' is-selected' : '' ?><?= $disabled ? ' is-disabled' : '' ?>" data-method="<?= $key ?>">
           <input type="radio" name="<?= htmlspecialchars($inputName) ?>" value="<?= $key ?>"<?= $key === $default ? ' checked' : '' ?><?= $disabled ? ' disabled' : '' ?>>
           <span class="pay-radio"></span>
@@ -61,7 +61,7 @@ function renderPaymentMethods(string $inputName, ?float $walletBalance, ?float $
           <?php if ($key === 'wallet'): ?>
             <a href="<?= htmlspecialchars($topUpUrl) ?>" class="pay-topup">Top up</a>
           <?php else: ?>
-            <span class="pay-demo">Demo</span>
+            <span class="pay-demo">Not connected</span>
           <?php endif; ?>
         </label>
       <?php endforeach; ?>

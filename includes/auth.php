@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/rate-limits.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_strict_mode', '1');
@@ -20,7 +21,24 @@ if (session_status() === PHP_SESSION_NONE) {
 /** Returns the signed-in user's session data, or null if no one is signed in. */
 function currentUser(): ?array
 {
-    return $_SESSION['user'] ?? null;
+    $cached = $_SESSION['user'] ?? null;
+    if (!$cached) return null;
+    static $validatedKey = null;
+    $key = $cached['UserID'] . ':' . ($_SESSION['auth_stamp'] ?? '');
+    if ($validatedKey === $key) return $_SESSION['user'];
+    try {
+        $pdo = getDbConnection();
+        if (!$pdo) throw new RuntimeException('Account verification unavailable.');
+        $stmt = $pdo->prepare('SELECT u.UserID,u.ClinicID,u.RoleID,u.FirstName,u.LastName,u.Email,u.PasswordHash,u.Status,u.DeletedAt,r.RoleName FROM Users u JOIN Roles r ON r.RoleID=u.RoleID WHERE u.UserID=?');
+        $stmt->execute([$cached['UserID']]);$fresh=$stmt->fetch();
+        if (!$fresh || $fresh['Status'] !== 'Active' || $fresh['DeletedAt'] !== null
+            || empty($_SESSION['auth_stamp']) || !hash_equals($_SESSION['auth_stamp'],hash('sha256',$fresh['PasswordHash'].'|'.strtolower($fresh['Email'])))
+            || (int)$fresh['RoleID'] !== (int)$cached['RoleID'] || (int)$fresh['ClinicID'] !== (int)$cached['ClinicID']) {
+            unset($_SESSION['user'],$_SESSION['auth_stamp']);return null;
+        }
+        unset($fresh['PasswordHash'],$fresh['Status'],$fresh['DeletedAt']);
+        $_SESSION['user']=$fresh;$validatedKey=$key;return $fresh;
+    } catch(Throwable $e) { error_log('Account session could not be verified.');unset($_SESSION['user'],$_SESSION['auth_stamp']);return null; }
 }
 
 /** True if a user is currently signed in. */
@@ -32,7 +50,11 @@ function isLoggedIn(): bool
 /** Stores a user's session data after successful login/registration. */
 function loginUser(array $user): void
 {
+    $stmt=getDbConnection()->prepare('SELECT PasswordHash,Email FROM Users WHERE UserID=?');
+    $stmt->execute([$user['UserID']]);$identity=$stmt->fetch();
+    if(!$identity)throw new RuntimeException('Account unavailable.');
     session_regenerate_id(true);
+    $_SESSION['auth_stamp']=hash('sha256',$identity['PasswordHash'].'|'.strtolower($identity['Email']));
     $_SESSION['user'] = [
         'UserID'    => (int) $user['UserID'],
         'ClinicID'  => $user['ClinicID'] !== null ? (int) $user['ClinicID'] : null,
@@ -266,4 +288,19 @@ function assignUserIdNumber(PDO $pdo, int $userId): ?string
         }
     }
     throw new RuntimeException('Could not assign an ID number to user ' . $userId);
+}
+
+/** Lock the reset token while changing the password and consuming all reset links. */
+function resetPasswordOnce(PDO $pdo, string $rawToken, string $password): bool
+{
+    if(strlen($password)<8)throw new InvalidArgumentException('Password must be at least 8 characters long.');
+    $pdo->beginTransaction();
+    try {
+        $stmt=$pdo->prepare("SELECT pr.ResetID,pr.UserID FROM PasswordResets pr JOIN Users u ON u.UserID=pr.UserID WHERE pr.TokenHash=? AND pr.UsedAt IS NULL AND pr.ExpiresAt>NOW() AND u.Status='Active' AND u.DeletedAt IS NULL FOR UPDATE");
+        $stmt->execute([hash('sha256',$rawToken)]);$row=$stmt->fetch();
+        if(!$row){$pdo->rollBack();return false;}
+        $pdo->prepare('UPDATE Users SET PasswordHash=? WHERE UserID=?')->execute([password_hash($password,PASSWORD_DEFAULT),$row['UserID']]);
+        $pdo->prepare('UPDATE PasswordResets SET UsedAt=NOW() WHERE UserID=? AND UsedAt IS NULL')->execute([$row['UserID']]);
+        $pdo->commit();return true;
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }

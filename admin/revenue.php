@@ -2,103 +2,57 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
-
-define('HQ_BASE_URL', '..');
-requireRole(['Admin']);
-
-$user = currentUser();
-$pdo = getDbConnection();
-$errors = [];
-$flash = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
-        $errors[] = 'Your session expired. Please try again.';
-    } elseif (!$pdo) {
-        $errors[] = 'The database is temporarily unavailable.';
-    } elseif (($_POST['form_type'] ?? '') === 'record_payment') {
-        $appointmentId = filter_input(INPUT_POST, 'appointment_id', FILTER_VALIDATE_INT);
-        if (!$appointmentId) {
-            $errors[] = 'Invalid appointment.';
-        } else {
-            try {
-                $pdo->beginTransaction();
-                $stmt = $pdo->prepare("SELECT a.AppointmentID, a.PhysicianID, a.Status, c.BaseConsultationFee, p.PaymentID FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID LEFT JOIN AppointmentPayments p ON p.AppointmentID = a.AppointmentID WHERE a.AppointmentID = ? FOR UPDATE");
-                $stmt->execute([$appointmentId]);
-                $appointment = $stmt->fetch();
-                if (!$appointment) {
-                    $errors[] = 'The appointment could not be found.';
-                } elseif ($appointment['PaymentID']) {
-                    $errors[] = 'A payment has already been recorded for this appointment.';
-                } elseif (!$appointment['PhysicianID']) {
-                    $errors[] = 'Assign a physician before recording payment and revenue.';
-                } elseif ($appointment['Status'] === 'Cancelled') {
-                    $errors[] = 'Cancelled appointments cannot receive a payment.';
-                } elseif ($appointment['Status'] === 'NoShow') {
-                    $errors[] = 'No-show appointments cannot receive a payment.';
-                } elseif ($appointment['Status'] !== 'Completed') {
-                    $errors[] = 'The physician must mark this consultation complete before payment can be recorded.';
-                } elseif ((float) $appointment['BaseConsultationFee'] <= 0) {
-                    $errors[] = 'This clinic needs a consultation fee before payment can be recorded.';
-                } else {
-                    $gross = round((float) $appointment['BaseConsultationFee'], 2);
-                    $physicianRevenue = round($gross * 0.90, 2);
-                    $commission = round($gross - $physicianRevenue, 2);
-                    $insert = $pdo->prepare("INSERT INTO AppointmentPayments (AppointmentID, GrossAmount, PhysicianRevenue, PlatformCommission, PaymentStatus) VALUES (?, ?, ?, ?, 'Paid')");
-                    $insert->execute([$appointmentId, $gross, $physicianRevenue, $commission]);
-                    logActivity($pdo, $user['UserID'], null, 'Recorded payment', "Appointment #{$appointmentId}: PHP {$gross} gross, PHP {$commission} commission.");
-                    $flash = 'Payment recorded: physician receives PHP ' . number_format($physicianRevenue, 2) . '; HealthQueue commission is PHP ' . number_format($commission, 2) . '.';
-                }
-                if ($errors) $pdo->rollBack(); else $pdo->commit();
-            } catch (PDOException $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                error_log('Payment recording failed: ' . $e->getMessage());
-                $errors[] = 'We could not record this payment.';
-            }
-        }
-    }
+require_once __DIR__ . '/../includes/demo-revenue.php';
+require_once __DIR__ . '/../includes/physician-withdrawals.php';
+define('HQ_BASE_URL','..');requireRole(['Admin']);
+$user=currentUser();$pdo=getDbConnection();$errors=[];
+$flash=(string)($_SESSION['demo_settlement_success']??'');unset($_SESSION['demo_settlement_success']);
+if($_SERVER['REQUEST_METHOD']==='POST'){
+ if(!verifyCsrfToken($_POST['csrf_token']??null))$errors[]='Your session expired. Please try again.';
+ elseif(!$pdo)$errors[]='The database is temporarily unavailable.';
+ elseif(($_POST['form_type']??'')==='simulate_settlement'){
+  try{
+   $result=simulateDemoSettlement($pdo,(int)$user['UserID'],(string)($_POST['request_key']??''));
+   logActivity($pdo,(int)$user['UserID'],null,'Simulated demo settlement',$result['Reference'].' - PHP '.$result['GrossAmount'].'; no real money transferred.');
+   $_SESSION['demo_settlement_success']='Demo settlement recorded. No real money was transferred.';
+   unset($_SESSION['demo_settlement_key']);header('Location: '.HQ_BASE_URL.'/admin/revenue.php',true,303);exit;
+  }catch(PDOException $e){error_log('Demo settlement failed: '.$e->getMessage());$errors[]='We could not record this simulation. Refresh and try again.';}
+  catch(RuntimeException $e){$errors[]=$e->getMessage();}
+ }
 }
-
-$totals = ['gross' => 0, 'physician' => 0, 'commission' => 0, 'payments' => 0];
-$commissionByPeriod = ['week_commission' => 0, 'week_count' => 0, 'month_commission' => 0, 'month_count' => 0, 'year_commission' => 0, 'year_count' => 0];
-$physicianRevenue = [];
-$paymentQueue = [];
-$recentPayments = [];
-if ($pdo) {
-    try {
-        $totals = $pdo->query("SELECT COALESCE(SUM(GrossAmount), 0) AS gross, COALESCE(SUM(PhysicianRevenue), 0) AS physician, COALESCE(SUM(PlatformCommission), 0) AS commission, COUNT(*) AS payments FROM AppointmentPayments WHERE PaymentStatus = 'Paid'")->fetch();
-        // YEARWEEK(..., 1) uses Monday-start, ISO-8601-style weeks so "this week" lines up with a normal calendar week.
-        $commissionByPeriod = $pdo->query(
-            "SELECT
-                COALESCE(SUM(CASE WHEN YEARWEEK(PaidAt, 1) = YEARWEEK(CURDATE(), 1) THEN PlatformCommission ELSE 0 END), 0) AS week_commission,
-                COUNT(CASE WHEN YEARWEEK(PaidAt, 1) = YEARWEEK(CURDATE(), 1) THEN 1 END) AS week_count,
-                COALESCE(SUM(CASE WHEN YEAR(PaidAt) = YEAR(CURDATE()) AND MONTH(PaidAt) = MONTH(CURDATE()) THEN PlatformCommission ELSE 0 END), 0) AS month_commission,
-                COUNT(CASE WHEN YEAR(PaidAt) = YEAR(CURDATE()) AND MONTH(PaidAt) = MONTH(CURDATE()) THEN 1 END) AS month_count,
-                COALESCE(SUM(CASE WHEN YEAR(PaidAt) = YEAR(CURDATE()) THEN PlatformCommission ELSE 0 END), 0) AS year_commission,
-                COUNT(CASE WHEN YEAR(PaidAt) = YEAR(CURDATE()) THEN 1 END) AS year_count
-             FROM AppointmentPayments
-             WHERE PaymentStatus = 'Paid'"
-        )->fetch();
-        $physicianRevenue = $pdo->query("SELECT u.FirstName, u.LastName, c.ClinicName, COUNT(p.PaymentID) AS paid_appointments, COALESCE(SUM(p.PhysicianRevenue), 0) AS revenue FROM AppointmentPayments p JOIN Appointments a ON a.AppointmentID = p.AppointmentID JOIN Users u ON u.UserID = a.PhysicianID JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE p.PaymentStatus = 'Paid' GROUP BY u.UserID, c.ClinicID ORDER BY revenue DESC")->fetchAll();
-        $paymentQueue = $pdo->query("SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Status, c.ClinicName, c.BaseConsultationFee, patient.FirstName AS PatientFirstName, patient.LastName AS PatientLastName, physician.FirstName AS PhysicianFirstName, physician.LastName AS PhysicianLastName, p.PaymentID FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID JOIN Users patient ON patient.UserID = a.PatientID LEFT JOIN Users physician ON physician.UserID = a.PhysicianID LEFT JOIN AppointmentPayments p ON p.AppointmentID = a.AppointmentID WHERE p.PaymentID IS NULL ORDER BY a.CreatedAt DESC LIMIT 20")->fetchAll();
-        $recentPayments = $pdo->query("SELECT p.GrossAmount, p.PhysicianRevenue, p.PlatformCommission, p.PaidAt, c.ClinicName, u.FirstName, u.LastName FROM AppointmentPayments p JOIN Appointments a ON a.AppointmentID = p.AppointmentID JOIN Clinic c ON c.ClinicID = a.ClinicID JOIN Users u ON u.UserID = a.PhysicianID WHERE p.PaymentStatus = 'Paid' ORDER BY p.PaidAt DESC LIMIT 8")->fetchAll();
-    } catch (PDOException $e) {
-        error_log('Revenue dashboard failed: ' . $e->getMessage());
-        $errors[] = 'Revenue information is temporarily unavailable.';
-    }
-}
-
-$pageTitle = 'Revenue & Commission — HealthQueue';
-require __DIR__ . '/../includes/header.php';
+$_SESSION['demo_settlement_key']=$_SESSION['demo_settlement_key']??bin2hex(random_bytes(32));
+$totals=['gross'=>0,'pending'=>0,'settled'=>0,'commission'=>0,'physician'=>0,'payments'=>0];$settlements=[];$reconciliationCount=0;$physicianPaid=0;$ready=false;
+if($pdo){try{$totals=demoRevenueSummary($pdo);$reconciliationCount=(int)$pdo->query("SELECT COUNT(*) FROM (SELECT RelatedAppointmentID FROM WalletTransactions GROUP BY RelatedAppointmentID HAVING SUM(CASE WHEN Type='Refund' THEN Amount ELSE 0 END)>0 AND ABS(SUM(CASE WHEN Type='BookingPayment' THEN Amount ELSE 0 END)-SUM(CASE WHEN Type='Refund' THEN Amount ELSE 0 END))>0.005) x")->fetchColumn();$physicianPaid=(float)$pdo->query("SELECT COALESCE(SUM(Amount),0) FROM PhysicianWithdrawals WHERE Status='PaidSimulated'")->fetchColumn();$totals['physician']=max(0,(float)$totals['physician']-$physicianPaid);$settlements=$pdo->query('SELECT Reference,GrossAmount,CreatedAt FROM DemoSettlements ORDER BY SettlementID DESC LIMIT 30')->fetchAll();$ready=true;}
+catch(PDOException $e){error_log('Demo revenue read failed: '.$e->getMessage());$errors[]='Demo revenue is temporarily unavailable. Check that the demo settlement migration has been applied.';}}
+$isAdminRevenue=true;$pageTitle='Revenue & Commission - HealthQueue';require __DIR__ . '/../includes/header.php';
+$paths=['wallet'=>'<rect x="3" y="6" width="18" height="15" rx="2"/><path d="m5 6 11-4v4M21 11h-6v5h6"/>','clock'=>'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 3"/>','layers'=>'<path d="m12 3 10 5-10 5L2 8l10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5"/>','percent'=>'<path d="m5 19 14-14"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/>','person'=>'<circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>','bank'=>'<path d="m2 8 10-6 10 6H2Zm2 3v8m5-8v8m6-8v8m5-8v8M2 22h20"/>','info'=>'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>','flask'=>'<path d="M9 2h6M10 2v7L4 19a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3L14 9V2M8 15h8"/>'];
+$icon=static fn($key)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$paths[$key].'</svg>';
 ?>
-
-<main class="admin-shell"><div class="container"><section class="admin-hero revenue-hero"><div><span class="eyebrow">Revenue management</span><h1>Payments and commission</h1><p>Each successful payment allocates 90% to the physician and 10% to HealthQueue.</p></div><div style="display:flex;gap:10px;flex-wrap:wrap;"><a href="<?= HQ_BASE_URL ?>/admin/export.php?type=payments" class="btn btn-outline">Export CSV</a><a href="#payment-queue" class="btn btn-primary">Record a payment</a></div></section>
-<?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?><?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-<section class="admin-stats revenue-stats"><article><span>Total paid bookings</span><strong><?= (int) $totals['payments'] ?></strong></article><article><span>Gross booking revenue</span><strong>PHP <?= number_format((float) $totals['gross'], 2) ?></strong></article><article><span>Physician earnings (90%)</span><strong>PHP <?= number_format((float) $totals['physician'], 2) ?></strong></article><article><span>HealthQueue commission (10%)</span><strong>PHP <?= number_format((float) $totals['commission'], 2) ?></strong></article></section>
-
-<section class="admin-section"><div class="portal-heading"><div><span class="section-kicker">Commission by period</span><h2>How much HealthQueue has earned</h2></div></div><section class="period-stats"><article><span>This week</span><strong>PHP <?= number_format((float) $commissionByPeriod['week_commission'], 2) ?></strong><span class="unassigned"><?= (int) $commissionByPeriod['week_count'] ?> paid booking(s)</span></article><article><span>This month</span><strong>PHP <?= number_format((float) $commissionByPeriod['month_commission'], 2) ?></strong><span class="unassigned"><?= (int) $commissionByPeriod['month_count'] ?> paid booking(s)</span></article><article><span>This year</span><strong>PHP <?= number_format((float) $commissionByPeriod['year_commission'], 2) ?></strong><span class="unassigned"><?= (int) $commissionByPeriod['year_count'] ?> paid booking(s)</span></article></section></section>
-<section class="admin-section" id="payment-queue"><div class="portal-heading"><div><span class="section-kicker">Payment queue</span><h2>Unpaid appointment requests</h2></div></div><div class="admin-table-wrap"><table class="admin-table financial-table"><thead><tr><th>Patient</th><th>Clinic</th><th>Physician</th><th>Schedule</th><th>Status</th><th>Fee</th><th>Action</th></tr></thead><tbody><?php foreach ($paymentQueue as $appointment): ?><tr><td><strong><?= htmlspecialchars($appointment['PatientFirstName'] . ' ' . $appointment['PatientLastName']) ?></strong></td><td><?= htmlspecialchars($appointment['ClinicName']) ?></td><td><?= $appointment['PhysicianFirstName'] ? htmlspecialchars('Dr. ' . $appointment['PhysicianFirstName'] . ' ' . $appointment['PhysicianLastName']) : '<span class="unassigned">Not assigned</span>' ?></td><td><?= htmlspecialchars(date('M j, Y g:i A', strtotime($appointment['AppointmentDate'] . ' ' . $appointment['AppointmentTime']))) ?></td><td><span class="status-badge status-<?= strtolower(htmlspecialchars($appointment['Status'])) ?>"><?= htmlspecialchars($appointment['Status']) ?></span></td><td>PHP <?= number_format((float) $appointment['BaseConsultationFee'], 2) ?></td><td><?php if ($appointment['PhysicianFirstName'] && (float) $appointment['BaseConsultationFee'] > 0 && $appointment['Status'] === 'Completed'): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="record_payment"><input type="hidden" name="appointment_id" value="<?= (int) $appointment['AppointmentID'] ?>"><button class="btn btn-primary btn-sm" type="submit" onclick="return confirm('Record this as a successful payment? Revenue will be split 90% to the physician and 10% to HealthQueue.');">Mark paid</button></form><?php elseif (!$appointment['PhysicianFirstName'] || (float) $appointment['BaseConsultationFee'] <= 0): ?><span class="unassigned">Assign physician / set fee first</span><?php elseif ($appointment['Status'] === 'Cancelled'): ?><span class="unassigned">Cancelled</span><?php elseif ($appointment['Status'] === 'NoShow'): ?><span class="unassigned">No-show — not billable</span><?php else: ?><span class="unassigned">Awaiting staff to confirm consultation complete</span><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div></section>
-<section class="admin-section admin-overview-grid"><div><div class="portal-heading"><div><span class="section-kicker">Physician earnings</span><h2>Revenue by physician</h2></div></div><div class="compact-list"><?php if ($physicianRevenue): ?><?php foreach ($physicianRevenue as $row): ?><article><div><strong>Dr. <?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong><span><?= htmlspecialchars($row['ClinicName']) ?> · <?= (int) $row['paid_appointments'] ?> paid booking(s)</span></div><strong class="money">PHP <?= number_format((float) $row['revenue'], 2) ?></strong></article><?php endforeach; ?><?php else: ?><p class="admin-empty">No physician earnings have been recorded yet.</p><?php endif; ?></div></div><div><div class="portal-heading"><div><span class="section-kicker">Latest payments</span><h2>Commission activity</h2></div></div><div class="compact-list"><?php if ($recentPayments): ?><?php foreach ($recentPayments as $payment): ?><article><div><strong><?= htmlspecialchars($payment['ClinicName']) ?></strong><span>Dr. <?= htmlspecialchars($payment['FirstName'] . ' ' . $payment['LastName']) ?> · <?= htmlspecialchars(date('M j, Y', strtotime($payment['PaidAt']))) ?></span></div><strong class="money">PHP <?= number_format((float) $payment['PlatformCommission'], 2) ?></strong></article><?php endforeach; ?><?php else: ?><p class="admin-empty">No commission has been recorded yet.</p><?php endif; ?></div></div></section>
+<main class="admin-shell rv-page"><div class="container rv-container">
+<p class="rv-breadcrumb">Administration <span>/</span> Revenue</p>
+<header class="rv-heading"><div><h1>Revenue &amp; Commission</h1><p>Track demo payments, commission, and simulated settlements.</p></div><div class="rv-heading-actions"><a class="btn btn-primary" href="physician-withdrawals.php">Physician withdrawals</a><a class="btn btn-outline" href="revenue-export.php">Export report</a></div></header>
+<?php if($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
+<?php if($errors): ?><div class="form-message error" role="alert"><?php foreach($errors as $error): ?><p><?= htmlspecialchars($error) ?></p><?php endforeach; ?></div><?php endif; ?>
+<div class="rv-demo-banner"><?= $icon('flask') ?><strong>DEMO MODE &mdash; No real money transferred</strong></div>
+<?php if($reconciliationCount): ?><p class="form-message warning"><?= $reconciliationCount ?> historical refund record(s) need reconciliation. <a href="reconciliation.php">Review exceptions</a>.</p><?php endif; ?>
+<section class="rv-metrics" aria-label="Demo revenue totals">
+<?php foreach([['gross','Demo payments','wallet'],['pending','Pending settlement','clock'],['settled','Simulated settled funds','layers'],['commission','Platform commission (10%)','percent'],['physician','Physician payable (90%)','person']] as [$key,$label,$symbol]): ?>
+<article class="rv-metric rv-metric-<?= $key ?>"><span class="rv-icon"><?= $icon($symbol) ?></span><div><h2><?= $label ?></h2><strong>PHP <?= number_format((float)$totals[$key],2) ?></strong><?php if($key==='physician'): ?><p>Outstanding demo earnings</p><?php endif; ?></div></article>
+<?php endforeach; ?></section>
+<p class="rv-info"><?= $icon('info') ?><span>Commission is recorded after a paid consultation is confirmed complete. Only completed visits backed by demo wallet payments are included.</span></p>
+<div class="rv-columns">
+<section class="rv-panel"><h2>Simulated settlement history</h2>
+<div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>Reference</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+<?php foreach($settlements as $settlement): ?><tr><td><strong><?= htmlspecialchars($settlement['Reference']) ?></strong></td><td><?= htmlspecialchars(date('j M Y',strtotime($settlement['CreatedAt']))) ?></td><td>PHP <?= number_format((float)$settlement['GrossAmount'],2) ?></td><td><span class="rv-status">Simulated settled</span></td></tr><?php endforeach; ?>
+<?php if(!$settlements): ?><tr><td colspan="4" class="rv-empty">No simulated settlements yet.</td></tr><?php endif; ?></tbody></table></div>
+<p class="rv-history-note">Demo records only. Settlement does not release physician earnings.</p>
+</section>
+<section class="rv-panel"><h2>Demo settlement destination</h2>
+<div class="rv-destination"><span class="rv-icon"><?= $icon('bank') ?></span><div><h3>Demo Bank</h3><p>Account ending 1234</p></div><span class="rv-simulated">Simulated</span></div>
+<div class="rv-available"><span>Available to simulate</span><strong>PHP <?= number_format((float)$totals['pending'],2) ?></strong></div>
+<form method="post" class="rv-settlement-form"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="simulate_settlement"><input type="hidden" name="request_key" value="<?= htmlspecialchars($_SESSION['demo_settlement_key']) ?>"><button type="submit" class="btn btn-primary btn-block" <?= !$ready || (float)$totals['pending']<=0?'disabled':'' ?>>Simulate settlement</button></form>
+<p class="rv-destination-note">Demonstrates a gateway payout. No bank connection.</p>
+</section></div>
+<p class="rv-footnote">School demonstration ? Demo wallet records only ? No actual bank transfers</p>
 </div></main>
-
 <?php require __DIR__ . '/../includes/footer.php'; ?>

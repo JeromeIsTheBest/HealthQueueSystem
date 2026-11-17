@@ -26,7 +26,7 @@ if ($pdo && $clinicId) {
         for ($d = 1; $d <= 7; $d++) $weekDates[$d] = $weekStart->modify('+' . ($d - 1) . ' days')->format('Y-m-d');
 
         $stmt = $pdo->prepare(
-            "SELECT u.UserID, u.FirstName, u.LastName, u.AvailabilityStatus,
+            "SELECT u.UserID, u.FirstName, u.LastName, u.ProfilePhoto, u.AvailabilityStatus,
                     (SELECT MAX(q.QueueNumber) FROM Queue q WHERE q.PhysicianID = u.UserID AND DATE(q.CreatedAt) = CURDATE() AND q.Status IN ('Calling', 'Serving')) AS NowServing,
                     (SELECT COUNT(*) FROM Queue q WHERE q.PhysicianID = u.UserID AND DATE(q.CreatedAt) = CURDATE() AND q.Status = 'Serving') AS ServingCount,
                     (SELECT COUNT(*) FROM Queue q WHERE q.PhysicianID = u.UserID AND DATE(q.CreatedAt) = CURDATE() AND q.Status = 'Waiting') AS Waiting
@@ -129,7 +129,14 @@ require __DIR__ . '/../includes/header.php';
         ?>
         <article class="ph-card" data-status="<?= $style['key'] ?>" data-name="<?= htmlspecialchars(mb_strtolower($fullName)) ?>">
           <div class="ph-card-head">
-            <span class="ph-avatar <?= $tints[$i % 5] ?>"><?= htmlspecialchars(strtoupper(mb_substr($phy['FirstName'], 0, 1) . mb_substr($phy['LastName'], 0, 1))) ?></span>
+            <span class="ph-avatar <?= $tints[$i % 5] ?>">
+              <?php $avatarFile = basename((string) ($phy['ProfilePhoto'] ?? '')); ?>
+              <?php if ($avatarFile !== '' && is_file(__DIR__ . '/../assets/uploads/avatars/' . $avatarFile)): ?>
+                <img src="<?= HQ_BASE_URL ?>/assets/uploads/avatars/<?= htmlspecialchars(rawurlencode($avatarFile)) ?>" alt="<?= htmlspecialchars($fullName) ?> profile photo" loading="lazy" width="80" height="80">
+              <?php else: ?>
+                <?= htmlspecialchars(strtoupper(mb_substr($phy['FirstName'], 0, 1) . mb_substr($phy['LastName'], 0, 1))) ?>
+              <?php endif; ?>
+            </span>
             <div class="ph-name">
               <strong><?= htmlspecialchars($fullName) ?></strong>
               <span>Physician</span>

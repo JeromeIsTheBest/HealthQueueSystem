@@ -1,5 +1,7 @@
 <?php
+require_once __DIR__ . '/includes/input-validation.php';
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/clinic-photos.php';
 
 // The project is served from localhost/healthqueue in XAMPP, so asset and
@@ -14,13 +16,16 @@ $isLandingPage = true;
 $clinics = [];
 $pdo = getDbConnection();
 $registrationErrors = [];
-$registrationSuccess = false;
+$registrationSuccess = !empty($_SESSION['clinic_registration_success']);
+unset($_SESSION['clinic_registration_success']);
 $registrationValues = [
     'clinic_name' => '', 'contact_name' => '', 'email' => '',
     'phone' => '', 'city' => '', 'physicians_count' => '',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'clinic_registration') {
+    if(!verifyCsrfToken($_POST['csrf_token']??null))$registrationErrors[]='Your session expired. Please try again.';
+    if(!$registrationErrors && $pdo) {try{if(!consumeRequestLimit($pdo,'clinic-inquiry',requestClientAddress(),5))$registrationErrors[]='Too many inquiries. Please try again in 15 minutes.';}catch(PDOException $e){$registrationErrors[]='Registration is temporarily unavailable.';}}
     foreach ($registrationValues as $field => $value) {
         $registrationValues[$field] = trim((string) ($_POST[$field] ?? ''));
     }
@@ -30,6 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'cl
             $registrationErrors[] = $label . ' is required.';
         }
     }
+
+    $registrationValues['contact_name'] = hqCapitalizeName($registrationValues['contact_name']);
+    if (!hqValidMobile($registrationValues['phone'])) $registrationErrors[] = 'Enter a valid mobile number';
 
     if ($registrationValues['email'] !== '' && !filter_var($registrationValues['email'], FILTER_VALIDATE_EMAIL)) {
         $registrationErrors[] = 'Please enter a valid email address.';
@@ -50,8 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'cl
                 $registrationValues['city'],
                 $registrationValues['physicians_count'] !== '' ? (int) $registrationValues['physicians_count'] : null,
             ]);
-            $registrationSuccess = true;
-            $registrationValues = array_fill_keys(array_keys($registrationValues), '');
+            $_SESSION['clinic_registration_success'] = true;
+            header('Location: ' . HQ_BASE_URL . '/index.php#clinic-inquiry', true, 303);
+            exit;
         } catch (PDOException $e) {
             error_log('Clinic registration inquiry failed: ' . $e->getMessage());
             $registrationErrors[] = 'We could not save your inquiry right now. Please email hello@healthqueue.app.';
@@ -282,6 +291,7 @@ require __DIR__ . '/includes/header.php';
         </div>
         <form class="registration-form" method="post" action="#clinic-registration">
           <input type="hidden" name="form_type" value="clinic_registration">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
           <h3>Clinic registration inquiry</h3>
           <p>Tell us a little about your clinic.</p>
           <?php if ($registrationSuccess): ?>
@@ -294,7 +304,7 @@ require __DIR__ . '/includes/header.php';
             <label>Clinic name<input name="clinic_name" value="<?= htmlspecialchars($registrationValues['clinic_name']) ?>" required></label>
             <label>Contact person<input name="contact_name" value="<?= htmlspecialchars($registrationValues['contact_name']) ?>" required></label>
             <label>Email address<input type="email" name="email" value="<?= htmlspecialchars($registrationValues['email']) ?>" required></label>
-            <label>Phone number<input type="tel" name="phone" value="<?= htmlspecialchars($registrationValues['phone']) ?>" required></label>
+            <label>Phone number<input type="tel" name="phone" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= htmlspecialchars($registrationValues['phone']) ?>" required></label>
             <label>City / location<input name="city" value="<?= htmlspecialchars($registrationValues['city']) ?>" required></label>
             <label>Number of physicians<input type="number" name="physicians_count" min="1" value="<?= htmlspecialchars($registrationValues['physicians_count']) ?>"></label>
           </div>
@@ -323,12 +333,7 @@ require __DIR__ . '/includes/header.php';
   </div>
 </section>
 
-<section class="landing-contact" id="contact" aria-label="Contact HealthQueue">
-  <div class="container">
-    <p>Need help bringing your clinic online?</p>
-    <a href="mailto:hello@healthqueue.app?subject=Clinic%20Registration%20Inquiry">hello@healthqueue.app <span aria-hidden="true">&rarr;</span></a>
-  </div>
-</section>
+
 
 </main>
 <script src="<?= HQ_BASE_URL ?>/assets/js/landing.js?v=<?= filemtime(__DIR__ . '/assets/js/landing.js') ?>" defer></script>

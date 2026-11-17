@@ -206,3 +206,22 @@
   .landing-home .btn,.landing-home .service-card,.landing-home .clinic-card { transition:none; }
   .landing-page .faq-list details,.landing-page .faq-list summary::after { transition:none; }
 }
+
+/* Landing footer: brand, contact column, and a separate copyright row. */
+.landing-home .site-footer {padding:40px 0 24px;}
+.landing-home .site-footer .footer-row {display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,320px);align-items:start;justify-content:stretch;gap:32px 48px;}
+.landing-home .landing-footer-identity {min-width:0;display:flex;align-items:center;min-height:34px;}
+.landing-home .landing-footer-social {display:flex;flex-direction:column;align-items:flex-start;gap:14px;min-width:0;}
+.landing-footer-contact-title {display:flex;align-items:center;min-height:34px;margin:0 0 4px;color:#fff;font-size:12px;line-height:1.5;letter-spacing:.16em;text-transform:uppercase;font-weight:700;}
+.landing-footer-social .landing-social-row {display:flex;align-items:center;gap:14px;min-height:40px;color:#fff;font-size:14px;line-height:1.5;text-decoration:none;max-width:100%;}
+.landing-footer-social svg {box-sizing:border-box;width:38px;height:38px;padding:8px;border:1px solid #ffffff80;border-radius:10px;flex-shrink:0;}
+.landing-social-row span {min-width:0;overflow-wrap:anywhere;}
+.landing-footer-social a {transition:color .2s;}
+.landing-footer-social a:hover {color:#50d4c7;}
+.landing-footer-social a:focus-visible {outline:2px solid #50d4c7;outline-offset:5px;border-radius:4px;}
+.landing-home .landing-footer-copyright {grid-column:1 / -1;justify-self:stretch;box-sizing:border-box;display:block;width:100%;padding-top:20px;border-top:1px solid #ffffff30;text-align:right;margin:0;}
+@media (max-width:768px) {
+ .landing-home .site-footer {padding:32px 0 24px;}
+ .landing-home .site-footer .footer-row {grid-template-columns:minmax(0,1fr);gap:28px;align-items:start;}
+ .landing-home .landing-footer-copyright {text-align:left;padding-top:20px;}
+}

@@ -1,0 +1,133 @@
+/* Shared inbox layout based on the patient notification design. */
+.notifications-page .notif-help { text-align: left; margin-bottom: 14px; }
+.notifications-page .notif-content { min-width: 0; flex: 1; }
+.notifications-page .notification-row { min-width: 0; }
+.notifications-page .notif-message.expanded { overflow-wrap: anywhere; }
+.notifications-page .notif-message-toggle { display: block; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.notifications-page .notif-message-toggle:focus-visible { outline: 3px solid var(--teal-500); outline-offset: 4px; border-radius: 4px; }
+.notifications-page .notif-expand-label { display: block; margin-top: 6px; color: var(--teal-700); font-size: 12px; font-weight: 700; }
+.notifications-page .notif-time { display: block; margin-top: 6px; color: var(--slate-500); font-size: 12px; }
+.notifications-page .notification-selection-count { display: inline; }
+.notifications-page .notif-selection-actions,
+.notifications-page .notif-default-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%; }
+.notifications-page .notif-toolbar [hidden] { display: none !important; }
+.notifications-page .notification-selection-ready:not(.is-selection-mode) .notif-check-wrap { display: none; }
+.notifications-page .notification-selection-ready .notification-row { -webkit-touch-callout: none; user-select: none; }
+.notifications-page .notification-selection-ready.is-selection-mode .notif-expand-label { display: none; }
+.app-portal.is-notification-modal-open { overflow: hidden; }
+.app-portal .notification-detail-box { max-width: 580px; }
+.app-portal .notification-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-shrink: 0; }
+.app-portal .notification-detail-heading h2 { min-width: 0; margin: 0; padding: 0; font-size: 22px; line-height: 1.35; }
+.app-portal .notification-detail-heading > .status-badge { flex-shrink: 0; margin: 0; }
+.app-portal .notification-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 16px 0; color: var(--slate-500); font-size: 13px; }
+.app-portal .notification-detail-meta > .status-badge { margin: 0; }
+.app-portal .notification-detail-message { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--slate-800); line-height: 1.7; padding: 16px 0; border-top: 1px solid var(--slate-100); }
+.app-portal .notification-detail-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.app-portal .notification-detail-actions .btn { flex: 1 1 180px; }
+.app-portal .notification-detail-box { display: flex; flex-direction: column; }
+.app-portal .notification-detail-message { min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; }
+.app-portal .notification-detail-actions,
+.app-portal .notification-detail-meta,
+.app-portal .notification-detail-box > h2,
+.app-portal .notification-detail-box > .eyebrow { flex-shrink: 0; }
+.app-portal .notification-detail-box > .eyebrow { align-self: flex-start; }
+@media (max-width: 760px) {
+.notifications-page .notif-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; }
+.notifications-page .notif-toolbar-spacer { display: none; }
+.notifications-page .notif-select-all-wrap,
+  .notifications-page .notification-delete-selected { grid-column: 1 / -1; }
+.notifications-page .notif-select-all-wrap { min-height: 44px; }
+.notifications-page .notif-toolbar .btn { width: 100%; min-width: 0; padding: 10px; }
+.notifications-page .notification-list .notification-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 4px 8px; padding: 14px 12px; }
+.notifications-page .notif-check-wrap { grid-column: 1; grid-row: 1 / span 2; align-self: start; width: 44px; height: 44px; margin: 0; padding: 0; }
+.notifications-page .notif-content { grid-column: 2; overflow-wrap: anywhere; }
+.notifications-page .notif-check,
+  .notifications-page .notif-select-all { width: 22px; height: 22px; flex-shrink: 0; }
+.notifications-page .notification-row > .status-badge { grid-column: 2; justify-self: start; margin-top: 6px; }
+.notifications-page .notif-message-toggle { min-height: 44px; }
+.notifications-page .notif-message { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; white-space: normal; overflow: hidden; line-height: 1.6; }
+.notifications-page .notif-message.expanded { display: block; -webkit-line-clamp: unset; white-space: pre-line; overflow: visible; }
+.notifications-page .notif-row-actions .btn { width: 100%; }
+.notifications-page .notif-help { padding: 16px; line-height: 1.6; }
+.app-portal .pd-notification-list strong { white-space: normal; overflow-wrap: anywhere; }
+}
+@media (max-width: 760px) {
+.app-portal .notifications-page .portal-hero {
+    display: block;
+    padding: 22px 20px;
+    text-align: left;
+  }
+.app-portal .notifications-page .portal-hero > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    flex: none;
+  }
+.app-portal .notifications-page .portal-hero .eyebrow { margin: 0; }
+.app-portal .notifications-page .portal-hero h1 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.2;
+  }
+.app-portal .notifications-page .portal-hero p {
+    margin: 0;
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+.notifications-page .notification-list .notification-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 16px;
+    justify-content: stretch;
+  }
+.notifications-page .notif-check-wrap {
+    width: 44px;
+    margin-left: -6px;
+    padding-top: 3px;
+    align-items: start;
+  }
+.notifications-page .notif-content { grid-row: 1; }
+.notifications-page .notification-row > .status-badge {
+    grid-row: 2;
+    margin: 0;
+    width: fit-content;
+    text-align: left;
+  }
+.notifications-page .notif-toolbar .btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+  }
+.notifications-page .notif-select-all-wrap { padding-left: 4px; }
+.notifications-page .notif-selection-actions,
+  .notifications-page .notif-default-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.notifications-page .notif-selection-actions .notif-select-all-wrap { grid-column: auto; }
+.notifications-page .notif-default-actions [data-selection-start] { grid-column: 1 / -1; }
+.notifications-page .notification-selection-ready:not(.is-selection-mode) .notification-row { grid-template-columns: minmax(0, 1fr); }
+.notifications-page .notification-selection-ready:not(.is-selection-mode) .notif-content,
+  .notifications-page .notification-selection-ready:not(.is-selection-mode) .notification-row > .status-badge { grid-column: 1; }
+.app-portal #notificationDetailModal { padding: 16px; }
+.app-portal #notificationDetailModal .notification-detail-box {
+    width: 100%;
+    padding: 22px 18px 18px;
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+    text-align: left;
+  }
+.app-portal .notification-detail-heading { gap: 8px; }
+.app-portal .notification-detail-heading h2 { font-size: 20px; }
+.app-portal .notification-detail-box .modal-close { top: 8px; right: 8px; }
+.app-portal .notification-detail-meta { align-items: flex-start; gap: 8px; margin: 14px 0; }
+.app-portal .notification-detail-meta time { flex: 1 1 100%; line-height: 1.5; }
+.app-portal .notification-detail-message { padding: 14px 0; font-size: 15px; }
+.app-portal .notification-detail-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 14px; }
+.app-portal .notification-detail-actions .btn { width: 100%; min-width: 0; margin: 0; justify-content: center; }
+}
+
+.notification-detail-actions .btn[hidden] {display:none!important;}

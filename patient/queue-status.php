@@ -3,7 +3,6 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
-require_once __DIR__ . '/../includes/email.php';
 require_once __DIR__ . '/../includes/wallet.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
 require_once __DIR__ . '/../includes/appointment-rules.php';
@@ -116,9 +115,6 @@ if ($pdo) {
                 $notice = "Your queue number {$ticketNumber} at {$entry['ClinicName']} is coming up soon.";
                 $noticeStmt = $pdo->prepare('INSERT INTO PatientNotifications (PatientID, Message, RelatedAppointmentID) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM PatientNotifications WHERE PatientID = ? AND RelatedAppointmentID = ? AND Message = ?)');
                 $noticeStmt->execute([(int) $user['UserID'], $notice, (int) $entry['AppointmentID'], (int) $user['UserID'], (int) $entry['AppointmentID'], $notice]);
-                if ($noticeStmt->rowCount() > 0) {
-                    sendQueueNearEmail((string) $entry['PatientEmail'], (string) $entry['PatientFirstName'], $ticketNumber, (string) $entry['ClinicName']);
-                }
             }
         }
         unset($entry);

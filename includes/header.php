@@ -53,6 +53,24 @@ $hqAppRole = $hqUser && in_array($hqUser['RoleName'], ['Admin', 'Staff', 'Physic
 <link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/staff-queue.css?v=<?= filemtime(__DIR__ . '/../assets/css/staff-queue.css') ?>">
 <?php endif; ?>
 <link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/brand.css?v=<?= filemtime(__DIR__ . '/../assets/css/brand.css') ?>">
+<?php if (!empty($isAdminDashboard)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/admin-dashboard.css?v=<?= filemtime(__DIR__ . '/../assets/css/admin-dashboard.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isAdminDirectory)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/admin-directory.css?v=<?= filemtime(__DIR__ . '/../assets/css/admin-directory.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isAdminAnnouncements)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/admin-announcements.css?v=<?= filemtime(__DIR__ . '/../assets/css/admin-announcements.css') ?>">
+<?php endif; ?>
+<?php if ($hqAppRole): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/notifications.css?v=<?= filemtime(__DIR__ . '/../assets/css/notifications.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isAdminRevenue)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/admin-revenue.css?v=<?= filemtime(__DIR__ . '/../assets/css/admin-revenue.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isWithdrawalPage)): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/physician-withdrawals.css?v=<?= filemtime(__DIR__ . '/../assets/css/physician-withdrawals.css') ?>">
+<?php endif; ?>
 </head>
 <body class="<?= $hqAppRole ? 'app-portal' . ($hqUser['RoleName'] === 'Patient' ? ' patient-portal' : '') : '' ?><?= !empty($isLandingPage) ? ' landing-home' : '' ?><?= !empty($isMobileAuthPage) ? ' mobile-auth-page' : '' ?>">
 
@@ -64,6 +82,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
 ?>
 <?php if ($hqIsAdminLayout):
   $hqCurrentFile = basename($_SERVER['SCRIPT_NAME']);
+  $hqActiveFile = $hqUser['RoleName'] === 'Admin' && $hqCurrentFile === 'physician-withdrawals.php' ? 'revenue.php' : $hqCurrentFile;
   $hqRoleFolder = match ($hqUser['RoleName']) {
       'Admin'     => 'admin',
       'Physician' => 'physician',
@@ -92,6 +111,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
           ['file' => 'consultations.php',  'label' => 'Consultations',  'icon' => '<path d="M4.8 2.3 3 4l1.8 1.7M8 2v3M3 8h3"/><path d="M6 6c0 4 3 9 8 10 2 0 4-2 4-4l-3-3-2 2c-1-1-3-3-3-5l2-2-3-3C7 1 6 3 6 6Z"/>'],
           ['file' => 'availability.php',   'label' => 'My Availability','icon' => $hqIconCalendar],
           ['file' => 'history.php',        'label' => 'Consultation History', 'icon' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>'],
+          ['file' => 'withdrawals.php', 'label' => 'Earnings & Withdrawals', 'icon' => '<rect x="3" y="6" width="18" height="15" rx="2"/><path d="m5 6 11-4v4M21 11h-6v5h6"/>'],
           ['file' => 'profile.php',        'label' => 'Profile',        'icon' => $hqIconProfile],
       ],
       'Staff' => [
@@ -204,7 +224,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
     <nav class="admin-nav">
       <?php foreach ($hqSidebarNav as $item): ?>
         <?php $hqBadgeCount = $hqSidebarBadges[$item['file']] ?? 0; ?>
-        <a href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/<?= $item['file'] ?>" class="admin-nav-link<?= $hqCurrentFile === $item['file'] ? ' active' : '' ?>"<?= $hqCurrentFile === $item['file'] ? ' aria-current="page"' : '' ?> title="<?= htmlspecialchars($item['label']) ?><?= $hqBadgeCount > 0 ? ' (' . $hqBadgeCount . ')' : '' ?>">
+        <a href="<?= HQ_BASE_URL ?>/<?= $hqRoleFolder ?>/<?= $item['file'] ?>" class="admin-nav-link<?= $hqActiveFile === $item['file'] ? ' active' : '' ?>"<?= $hqActiveFile === $item['file'] ? ' aria-current="page"' : '' ?> title="<?= htmlspecialchars($item['label']) ?><?= $hqBadgeCount > 0 ? ' (' . $hqBadgeCount . ')' : '' ?>">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><?= $item['icon'] ?></svg>
           <span class="admin-nav-label"><?= $item['label'] ?></span>
           <?php if ($hqBadgeCount > 0): ?><span class="admin-nav-badge"><?= $hqBadgeCount > 99 ? '99+' : $hqBadgeCount ?></span><?php endif; ?>
@@ -275,10 +295,8 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
           <li><a href="<?= HQ_BASE_URL ?>/index.php#services">Services</a></li>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#how-it-works">How It Works</a></li>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#clinics">Clinics</a></li>
-          <?php if (empty($isLandingPage)): ?>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#faq">FAQ</a></li>
           <li><a href="<?= HQ_BASE_URL ?>/index.php#contact">Contact</a></li>
-          <?php endif; ?>
           <?php if (!empty($isLandingPage) && !$hqUser): ?>
           <li class="landing-mobile-auth"><a href="<?= HQ_BASE_URL ?>/auth/login.php">Sign in</a></li>
           <li class="landing-mobile-auth"><a href="<?= HQ_BASE_URL ?>/auth/register.php">Create a patient account</a></li>

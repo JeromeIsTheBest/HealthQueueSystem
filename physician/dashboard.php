@@ -339,7 +339,7 @@ $pdMetrics = [
 
       <aside class="pd-side-column" aria-label="Earnings and availability">
         <section class="pd-panel" aria-labelledby="pdEarningsHeading">
-          <div class="pd-panel-heading"><div><h2 id="pdEarningsHeading">Recent earnings</h2><p>Physician share from paid bookings</p></div></div>
+          <div class="pd-panel-heading"><div><h2 id="pdEarningsHeading">Recent earnings</h2><p>Physician share from paid bookings</p></div><a class="text-link" href="<?= HQ_BASE_URL ?>/physician/withdrawals.php">View withdrawals</a></div>
           <?php if ($recentEarnings): ?>
             <ul class="pd-earnings-list">
             <?php foreach ($recentEarnings as $earning): ?>

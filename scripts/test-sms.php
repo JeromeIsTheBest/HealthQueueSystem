@@ -11,13 +11,23 @@ foreach (['09171234567', '+63 917 123 4567', '639171234567', '(0917) 123-4567'] 
 foreach (['', '0917123456', '091712345678', '+12025550123', '0917abc4567'] as $number) {
     checkSms(normalizeSmsNumber($number), null, 'Reject invalid number');
 }
-checkSms(semaphoreResponse(200, '[{"message_id":123,"status":"Queued"}]')['status'], 'accepted', 'Provider acceptance');
-checkSms(semaphoreResponse(200, '[{"message_id":123,"status":"Failed"}]')['status'], 'failed', 'Provider rejection');
-checkSms(semaphoreResponse(429, '{}')['status'], 'pending', 'Rate limit retry');
-checkSms(semaphoreResponse(401, '{}')['status'], 'failed', 'Bad credentials');
-checkSms(semaphoreResponse(0, false)['status'], 'unknown', 'Timeout must not resend');
-checkSms(semaphoreResponse(500, '{}')['status'], 'unknown', 'Server error must not resend');
-checkSms(semaphoreResponse(200, '<html>Error</html>')['status'], 'unknown', 'Malformed response must not resend');
+putenv('HQ_TEXTBEE_DEVICE_ID=device-preview');
+checkSms(textbeePayload('09171234567', 'Example'), ['recipients'=>['+639171234567'], 'message'=>'Example', 'deviceId'=>'device-preview'], 'textbee payload and international number');
+putenv('HQ_TEXTBEE_DEVICE_ID');
+checkSms(isset(textbeePayload('09171234567', 'Example')['deviceId']), false, 'Default device supported');
+checkSms(textbeeResponse(200, '{"data":{"success":true,"smsBatchId":"batch-test"}}')['status'], 'accepted', 'textbee acceptance');
+checkSms(textbeeResponse(200, '{"data":{"success":false}}')['status'], 'unknown', 'No acceptance without success and batch ID');
+checkSms(textbeeResponse(429, '{}')['status'], 'pending', 'Rate limit retry');
+checkSms(textbeeResponse(401, '{}')['status'], 'failed', 'Bad credentials');
+checkSms(textbeeResponse(400, '{}')['status'], 'failed', 'Invalid device or unverified email');
+checkSms(textbeeResponse(0, false)['status'], 'unknown', 'Timeout must not resend');
+checkSms(textbeeResponse(500, '{}')['status'], 'unknown', 'Server error must not resend');
+checkSms(textbeeResponse(200, '<html>Error</html>')['status'], 'unknown', 'Malformed response must not resend');
+putenv('HQ_SMS_ENABLED=1');putenv('HQ_TEXTBEE_API_KEY');
+checkSms(smsEnabled(), false, 'Missing textbee key disables sending');
+putenv('HQ_TEXTBEE_API_KEY=non-network-test');
+checkSms(smsEnabled(), true, 'textbee needs no branded sender');
+
 echo "SMS number and provider-response checks passed. No SMS sent.\n";
 
 if (!in_array('--database', $argv, true)) exit;
@@ -35,8 +45,7 @@ $pdo->exec("INSERT INTO PatientProfileDetails VALUES (1, '{\"sms_notifications\"
 checkSms(smsRecipient($pdo, 1), null, 'Opt out');
 $pdo->exec("UPDATE PatientProfileDetails SET Details = '{\"sms_notifications\":true}'");
 putenv('HQ_SMS_ENABLED=1');
-putenv('HQ_SEMAPHORE_API_KEY=non-network-test');
-putenv('HQ_SMS_SENDER_NAME=HealthQueue');
+putenv('HQ_TEXTBEE_API_KEY=non-network-test');
 queuePatientSms($pdo, 1, 100, 'confirmed:100', 'confirmed', 'HealthQueue: Appointment confirmed.');
 queuePatientSms($pdo, 1, 100, 'confirmed:100', 'confirmed', 'HealthQueue: Appointment confirmed.');
 checkSms((int) $pdo->query('SELECT COUNT(*) FROM SmsOutbox')->fetchColumn(), 1, 'Duplicate event suppressed');

@@ -1,0 +1,998 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3890" height="4036" viewBox="0 0 3890 4036"><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9" fill="none" stroke="#7694a7"/></marker></defs><rect width="100%" height="100%" fill="#f8fafc"/>
+<text x="80" y="65" font-family="Arial" font-size="35" font-weight="bold" fill="#023047">HealthQueue | Entity?Relationship Diagram</text>
+<text x="80" y="104" font-family="Arial" font-size="20" fill="#526879">Complete database | 28 tables | 47 declared foreign keys | November 16, 2026</text>
+<text x="80" y="140" font-family="Arial" font-size="18" fill="#526879">PK = primary key   |   FK = foreign key   |   Arrows point from FK to referenced key   |   User roles share Users</text>
+<path d="M2030,1963 C1960,1963 1280,1937 1210,1937" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M730,3643 C646,3643 644,3617 560,3617" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,3617 C1308,3617 1308,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M560,3669 C672,3669 1268,257 1380,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M560,3643 C686,3643 604,257 730,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2680,1123 C2610,1123 1280,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2030,1123 C1946,1123 1294,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2030,1175 C1932,1175 1958,257 1860,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2030,1149 C1918,1149 1322,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2030,1305 C1904,1305 1336,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,1149 C1280,1149 1310,257 1380,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,1123 C1294,1123 1294,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,1175 C1308,1175 1308,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1860,3643 C1972,3643 1972,257 1860,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1380,3669 C1254,3669 1336,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,1123 C3260,1123 1930,257 1860,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,1989 C1294,1989 1294,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,1963 C1308,1963 1282,257 1380,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,2041 C1322,2041 1322,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,2015 C1336,2015 1336,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1380,1963 C1310,1963 1280,1937 1210,1937" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1380,1989 C1296,1989 1294,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,2803 C1308,2803 1308,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,1963 C3218,1963 1322,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,2015 C3204,2015 1986,257 1860,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,1989 C3260,1989 1280,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,2041 C3246,2041 1294,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M560,1963 C658,1963 632,257 730,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2680,2855 C2568,2855 1322,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2680,2803 C2554,2803 1986,257 1860,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M560,2803 C630,2803 660,257 730,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2030,2855 C1946,2855 1294,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2030,2803 C1932,2803 1308,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M560,1097 C672,1097 618,257 730,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2030,283 C1904,283 1336,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2680,283 C2610,283 1280,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1380,1149 C1296,1149 1294,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1860,1123 C1958,1123 1958,257 1860,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1380,1175 C1268,1175 1322,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1380,1357 C1254,1357 1336,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,2803 C3260,2803 1930,1097 1860,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,2829 C3246,2829 1294,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M3330,2855 C3232,2855 1308,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1210,309 C1322,309 1268,257 1380,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M730,335 C604,335 686,257 560,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2680,2067 C2610,2067 1280,1097 1210,1097" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M2680,1963 C2596,1963 1294,257 1210,257" fill="none" stroke="#91a8b7" stroke-width="1.6" marker-end="url(#arrow)"/>
+<rect x="80" y="180" width="480" height="116" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="80" y="180" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="96" y="215" font-family="Arial" font-size="22" font-weight="bold" fill="white">roles</text>
+<rect x="81" y="244" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="262" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="147" y="262" font-family="Arial" font-size="16" fill="#183b50">RoleID</text>
+<text x="548" y="262" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="90" y="288" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="288" font-family="Arial" font-size="16" fill="#183b50">RoleName</text>
+<text x="548" y="288" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(50)</text>
+<rect x="730" y="180" width="480" height="636" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="730" y="180" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="746" y="215" font-family="Arial" font-size="22" font-weight="bold" fill="white">users</text>
+<rect x="731" y="244" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="262" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="797" y="262" font-family="Arial" font-size="16" fill="#183b50">UserID</text>
+<text x="1198" y="262" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="288" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="288" font-family="Arial" font-size="16" fill="#183b50">IDNumber</text>
+<text x="1198" y="288" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">char(10)</text>
+<rect x="731" y="296" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="314" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="314" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="1198" y="314" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="340" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="340" font-family="Arial" font-size="16" fill="#183b50">RoleID</text>
+<text x="1198" y="340" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="731" y="348" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="366" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="366" font-family="Arial" font-size="16" fill="#183b50">FirstName</text>
+<text x="1198" y="366" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(50)</text>
+<text x="740" y="392" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="392" font-family="Arial" font-size="16" fill="#183b50">LastName</text>
+<text x="1198" y="392" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(50)</text>
+<rect x="731" y="400" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="418" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="418" font-family="Arial" font-size="16" fill="#183b50">Email</text>
+<text x="1198" y="418" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(100)</text>
+<text x="740" y="444" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="444" font-family="Arial" font-size="16" fill="#183b50">EmailVerifiedAt</text>
+<text x="1198" y="444" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="731" y="452" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="470" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="470" font-family="Arial" font-size="16" fill="#183b50">ContactNumber</text>
+<text x="1198" y="470" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="740" y="496" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="496" font-family="Arial" font-size="16" fill="#183b50">PasswordHash</text>
+<text x="1198" y="496" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<rect x="731" y="504" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="522" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="522" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="1198" y="522" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="740" y="548" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="548" font-family="Arial" font-size="16" fill="#183b50">DeletedAt</text>
+<text x="1198" y="548" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="731" y="556" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="574" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="574" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="1198" y="574" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="740" y="600" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="600" font-family="Arial" font-size="16" fill="#183b50">Archived</text>
+<text x="1198" y="600" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="731" y="608" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="626" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="626" font-family="Arial" font-size="16" fill="#183b50">AvailabilityStatus</text>
+<text x="1198" y="626" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="740" y="652" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="652" font-family="Arial" font-size="16" fill="#183b50">ProfilePhoto</text>
+<text x="1198" y="652" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<rect x="731" y="660" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="678" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="678" font-family="Arial" font-size="16" fill="#183b50">WalletBalance</text>
+<text x="1198" y="678" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,2)</text>
+<text x="740" y="704" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="704" font-family="Arial" font-size="16" fill="#183b50">BloodType</text>
+<text x="1198" y="704" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(5)</text>
+<rect x="731" y="712" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="730" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="730" font-family="Arial" font-size="16" fill="#183b50">Allergies</text>
+<text x="1198" y="730" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(500)</text>
+<text x="740" y="756" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="756" font-family="Arial" font-size="16" fill="#183b50">EmergencyContactName</text>
+<text x="1198" y="756" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(100)</text>
+<rect x="731" y="764" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="782" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="782" font-family="Arial" font-size="16" fill="#183b50">EmergencyContactNumber</text>
+<text x="1198" y="782" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="740" y="808" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="808" font-family="Arial" font-size="16" fill="#183b50">AnnouncementsSeenAt</text>
+<text x="1198" y="808" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1380" y="180" width="480" height="506" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="1380" y="180" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="1396" y="215" font-family="Arial" font-size="22" font-weight="bold" fill="white">clinic</text>
+<rect x="1381" y="244" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="262" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="1447" y="262" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="1848" y="262" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="288" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="288" font-family="Arial" font-size="16" fill="#183b50">ClinicName</text>
+<text x="1848" y="288" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<rect x="1381" y="296" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="314" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="314" font-family="Arial" font-size="16" fill="#183b50">Address</text>
+<text x="1848" y="314" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="1390" y="340" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="340" font-family="Arial" font-size="16" fill="#183b50">ContactNumber</text>
+<text x="1848" y="340" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="1381" y="348" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="366" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="366" font-family="Arial" font-size="16" fill="#183b50">BaseConsultationFee</text>
+<text x="1848" y="366" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,2)</text>
+<text x="1390" y="392" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="392" font-family="Arial" font-size="16" fill="#183b50">PhotoUrl</text>
+<text x="1848" y="392" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<rect x="1381" y="400" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="418" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="418" font-family="Arial" font-size="16" fill="#183b50">Description</text>
+<text x="1848" y="418" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<text x="1390" y="444" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="444" font-family="Arial" font-size="16" fill="#183b50">Specialties</text>
+<text x="1848" y="444" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<rect x="1381" y="452" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="470" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="470" font-family="Arial" font-size="16" fill="#183b50">OpenDays</text>
+<text x="1848" y="470" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="1390" y="496" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="496" font-family="Arial" font-size="16" fill="#183b50">OpenTime</text>
+<text x="1848" y="496" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<rect x="1381" y="504" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="522" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="522" font-family="Arial" font-size="16" fill="#183b50">CloseTime</text>
+<text x="1848" y="522" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<text x="1390" y="548" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="548" font-family="Arial" font-size="16" fill="#183b50">RegistrationDate</text>
+<text x="1848" y="548" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1381" y="556" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="574" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="574" font-family="Arial" font-size="16" fill="#183b50">DeletedAt</text>
+<text x="1848" y="574" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="1390" y="600" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="600" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="1848" y="600" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="1381" y="608" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="626" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="626" font-family="Arial" font-size="16" fill="#183b50">archived</text>
+<text x="1848" y="626" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<text x="1390" y="652" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="652" font-family="Arial" font-size="16" fill="#183b50">Latitude</text>
+<text x="1848" y="652" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,7)</text>
+<rect x="1381" y="660" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="678" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="678" font-family="Arial" font-size="16" fill="#183b50">Longitude</text>
+<text x="1848" y="678" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,7)</text>
+<rect x="2030" y="180" width="480" height="246" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2030" y="180" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2046" y="215" font-family="Arial" font-size="22" font-weight="bold" fill="white">physicianavailability</text>
+<rect x="2031" y="244" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="262" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2097" y="262" font-family="Arial" font-size="16" fill="#183b50">AvailabilityID</text>
+<text x="2498" y="262" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="288" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="288" font-family="Arial" font-size="16" fill="#183b50">PhysicianID</text>
+<text x="2498" y="288" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="296" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="314" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="314" font-family="Arial" font-size="16" fill="#183b50">DayOfWeek</text>
+<text x="2498" y="314" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<text x="2040" y="340" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="340" font-family="Arial" font-size="16" fill="#183b50">StartTime</text>
+<text x="2498" y="340" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<rect x="2031" y="348" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="366" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="366" font-family="Arial" font-size="16" fill="#183b50">EndTime</text>
+<text x="2498" y="366" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<text x="2040" y="392" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="392" font-family="Arial" font-size="16" fill="#183b50">PatientsPerHour</text>
+<text x="2498" y="392" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="2031" y="400" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="418" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="418" font-family="Arial" font-size="16" fill="#183b50">Active</text>
+<text x="2498" y="418" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="2680" y="180" width="480" height="272" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2680" y="180" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2696" y="215" font-family="Arial" font-size="22" font-weight="bold" fill="white">physiciandateavailability</text>
+<rect x="2681" y="244" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="262" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2747" y="262" font-family="Arial" font-size="16" fill="#183b50">SlotID</text>
+<text x="3148" y="262" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2690" y="288" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2747" y="288" font-family="Arial" font-size="16" fill="#183b50">PhysicianID</text>
+<text x="3148" y="288" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2681" y="296" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="314" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="314" font-family="Arial" font-size="16" fill="#183b50">AvailDate</text>
+<text x="3148" y="314" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">date</text>
+<text x="2690" y="340" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="340" font-family="Arial" font-size="16" fill="#183b50">StartTime</text>
+<text x="3148" y="340" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<rect x="2681" y="348" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="366" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="366" font-family="Arial" font-size="16" fill="#183b50">EndTime</text>
+<text x="3148" y="366" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<text x="2690" y="392" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="392" font-family="Arial" font-size="16" fill="#183b50">PatientsPerHour</text>
+<text x="3148" y="392" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="2681" y="400" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="418" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="418" font-family="Arial" font-size="16" fill="#183b50">IsDayOff</text>
+<text x="3148" y="418" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<text x="2690" y="444" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="444" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="3148" y="444" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="3330" y="180" width="480" height="298" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="3330" y="180" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="3346" y="215" font-family="Arial" font-size="22" font-weight="bold" fill="white">clinicregistrationinquiry</text>
+<rect x="3331" y="244" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="262" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="3397" y="262" font-family="Arial" font-size="16" fill="#183b50">InquiryID</text>
+<text x="3798" y="262" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="288" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="288" font-family="Arial" font-size="16" fill="#183b50">ClinicName</text>
+<text x="3798" y="288" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<rect x="3331" y="296" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="314" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="314" font-family="Arial" font-size="16" fill="#183b50">ContactName</text>
+<text x="3798" y="314" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<text x="3340" y="340" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="340" font-family="Arial" font-size="16" fill="#183b50">Email</text>
+<text x="3798" y="340" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<rect x="3331" y="348" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="366" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="366" font-family="Arial" font-size="16" fill="#183b50">Phone</text>
+<text x="3798" y="366" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(30)</text>
+<text x="3340" y="392" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="392" font-family="Arial" font-size="16" fill="#183b50">City</text>
+<text x="3798" y="392" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<rect x="3331" y="400" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="418" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="418" font-family="Arial" font-size="16" fill="#183b50">PhysiciansCount</text>
+<text x="3798" y="418" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="444" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="444" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="3798" y="444" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="3331" y="452" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="470" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="470" font-family="Arial" font-size="16" fill="#183b50">SubmittedAt</text>
+<text x="3798" y="470" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="80" y="1020" width="480" height="142" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="80" y="1020" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="96" y="1055" font-family="Arial" font-size="22" font-weight="bold" fill="white">patientprofiledetails</text>
+<rect x="81" y="1084" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="1102" font-family="Arial" font-size="12" fill="#0077b3">PK / FK</text>
+<text x="147" y="1102" font-family="Arial" font-size="16" fill="#183b50">UserID</text>
+<text x="548" y="1102" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="90" y="1128" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="1128" font-family="Arial" font-size="16" fill="#183b50">Details</text>
+<text x="548" y="1128" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<rect x="81" y="1136" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="1154" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="1154" font-family="Arial" font-size="16" fill="#183b50">UpdatedAt</text>
+<text x="548" y="1154" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">timestamp</text>
+<rect x="730" y="1020" width="480" height="454" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="730" y="1020" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="746" y="1055" font-family="Arial" font-size="22" font-weight="bold" fill="white">appointments</text>
+<rect x="731" y="1084" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1102" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="797" y="1102" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="1198" y="1102" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="1128" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="1128" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="1198" y="1128" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="731" y="1136" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1154" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="1154" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="1198" y="1154" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="1180" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="1180" font-family="Arial" font-size="16" fill="#183b50">PhysicianID</text>
+<text x="1198" y="1180" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="731" y="1188" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1206" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1206" font-family="Arial" font-size="16" fill="#183b50">AppointmentDate</text>
+<text x="1198" y="1206" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">date</text>
+<text x="740" y="1232" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1232" font-family="Arial" font-size="16" fill="#183b50">AppointmentTime</text>
+<text x="1198" y="1232" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<rect x="731" y="1240" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1258" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1258" font-family="Arial" font-size="16" fill="#183b50">Concern</text>
+<text x="1198" y="1258" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<text x="740" y="1284" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1284" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="1198" y="1284" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="731" y="1292" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1310" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1310" font-family="Arial" font-size="16" fill="#183b50">BookingFeePaid</text>
+<text x="1198" y="1310" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<text x="740" y="1336" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1336" font-family="Arial" font-size="16" fill="#183b50">BookingFeePaidAt</text>
+<text x="1198" y="1336" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="731" y="1344" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1362" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1362" font-family="Arial" font-size="16" fill="#183b50">BookingPaymentMethod</text>
+<text x="1198" y="1362" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="740" y="1388" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1388" font-family="Arial" font-size="16" fill="#183b50">CancellationReason</text>
+<text x="1198" y="1388" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<rect x="731" y="1396" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1414" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1414" font-family="Arial" font-size="16" fill="#183b50">DeclineReason</text>
+<text x="1198" y="1414" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="740" y="1440" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1440" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="1198" y="1440" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="731" y="1448" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1466" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="1466" font-family="Arial" font-size="16" fill="#183b50">UpdatedAt</text>
+<text x="1198" y="1466" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1380" y="1020" width="480" height="428" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="1380" y="1020" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="1396" y="1055" font-family="Arial" font-size="22" font-weight="bold" fill="white">queue</text>
+<rect x="1381" y="1084" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1102" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="1447" y="1102" font-family="Arial" font-size="16" fill="#183b50">QueueID</text>
+<text x="1848" y="1102" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="1128" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="1128" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="1848" y="1128" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="1381" y="1136" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1154" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="1154" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="1848" y="1154" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="1180" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="1180" font-family="Arial" font-size="16" fill="#183b50">PhysicianID</text>
+<text x="1848" y="1180" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="1381" y="1188" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1206" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1206" font-family="Arial" font-size="16" fill="#183b50">QueueNumber</text>
+<text x="1848" y="1206" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="1232" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1232" font-family="Arial" font-size="16" fill="#183b50">Position</text>
+<text x="1848" y="1232" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="1381" y="1240" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1258" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1258" font-family="Arial" font-size="16" fill="#183b50">Priority</text>
+<text x="1848" y="1258" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="1390" y="1284" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1284" font-family="Arial" font-size="16" fill="#183b50">ScheduledNumber</text>
+<text x="1848" y="1284" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="1381" y="1292" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1310" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1310" font-family="Arial" font-size="16" fill="#183b50">RegularNumber</text>
+<text x="1848" y="1310" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="1336" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1336" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="1848" y="1336" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="1381" y="1344" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1362" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="1362" font-family="Arial" font-size="16" fill="#183b50">CreatedByStaffID</text>
+<text x="1848" y="1362" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="1388" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1388" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="1848" y="1388" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1381" y="1396" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1414" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1414" font-family="Arial" font-size="16" fill="#183b50">CalledAt</text>
+<text x="1848" y="1414" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="1390" y="1440" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="1440" font-family="Arial" font-size="16" fill="#183b50">ServedAt</text>
+<text x="1848" y="1440" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="2030" y="1020" width="480" height="324" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2030" y="1020" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2046" y="1055" font-family="Arial" font-size="22" font-weight="bold" fill="white">appointmentreschedulerequests</text>
+<rect x="2031" y="1084" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="1102" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2097" y="1102" font-family="Arial" font-size="16" fill="#183b50">RequestID</text>
+<text x="2498" y="1102" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="1128" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="1128" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="2498" y="1128" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="1136" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="1154" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="1154" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="2498" y="1154" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="1180" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="1180" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="2498" y="1180" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="1188" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="1206" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="1206" font-family="Arial" font-size="16" fill="#183b50">RequestedDate</text>
+<text x="2498" y="1206" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">date</text>
+<text x="2040" y="1232" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="1232" font-family="Arial" font-size="16" fill="#183b50">RequestedTime</text>
+<text x="2498" y="1232" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">time</text>
+<rect x="2031" y="1240" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="1258" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="1258" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="2498" y="1258" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="2040" y="1284" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="1284" font-family="Arial" font-size="16" fill="#183b50">RequestedAt</text>
+<text x="2498" y="1284" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="2031" y="1292" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="1310" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="1310" font-family="Arial" font-size="16" fill="#183b50">ReviewedBy</text>
+<text x="2498" y="1310" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="1336" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="1336" font-family="Arial" font-size="16" fill="#183b50">ReviewedAt</text>
+<text x="2498" y="1336" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="2680" y="1020" width="480" height="272" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2680" y="1020" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2696" y="1055" font-family="Arial" font-size="22" font-weight="bold" fill="white">appointmentpayments</text>
+<rect x="2681" y="1084" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="1102" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2747" y="1102" font-family="Arial" font-size="16" fill="#183b50">PaymentID</text>
+<text x="3148" y="1102" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2690" y="1128" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2747" y="1128" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="3148" y="1128" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2681" y="1136" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="1154" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="1154" font-family="Arial" font-size="16" fill="#183b50">GrossAmount</text>
+<text x="3148" y="1154" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,2)</text>
+<text x="2690" y="1180" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="1180" font-family="Arial" font-size="16" fill="#183b50">PhysicianRevenue</text>
+<text x="3148" y="1180" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,2)</text>
+<rect x="2681" y="1188" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="1206" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="1206" font-family="Arial" font-size="16" fill="#183b50">PlatformCommission</text>
+<text x="3148" y="1206" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,2)</text>
+<text x="2690" y="1232" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="1232" font-family="Arial" font-size="16" fill="#183b50">PaymentStatus</text>
+<text x="3148" y="1232" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="2681" y="1240" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="1258" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="1258" font-family="Arial" font-size="16" fill="#183b50">PaidAt</text>
+<text x="3148" y="1258" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="2690" y="1284" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="1284" font-family="Arial" font-size="16" fill="#183b50">RefundedAt</text>
+<text x="3148" y="1284" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="3330" y="1020" width="480" height="194" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="3330" y="1020" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="3346" y="1055" font-family="Arial" font-size="22" font-weight="bold" fill="white">clinicphoto</text>
+<rect x="3331" y="1084" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="1102" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="3397" y="1102" font-family="Arial" font-size="16" fill="#183b50">PhotoID</text>
+<text x="3798" y="1102" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="1128" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="1128" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="3798" y="1128" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="3331" y="1136" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="1154" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="1154" font-family="Arial" font-size="16" fill="#183b50">Filename</text>
+<text x="3798" y="1154" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="3340" y="1180" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="1180" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="3798" y="1180" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="3331" y="1188" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="1206" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="1206" font-family="Arial" font-size="16" fill="#183b50">SortOrder</text>
+<text x="3798" y="1206" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="80" y="1860" width="480" height="272" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="80" y="1860" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="96" y="1895" font-family="Arial" font-size="22" font-weight="bold" fill="white">medicalrecords</text>
+<rect x="81" y="1924" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="1942" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="147" y="1942" font-family="Arial" font-size="16" fill="#183b50">RecordID</text>
+<text x="548" y="1942" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="90" y="1968" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="147" y="1968" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="548" y="1968" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="81" y="1976" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="1994" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="1994" font-family="Arial" font-size="16" fill="#183b50">Title</text>
+<text x="548" y="1994" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<text x="90" y="2020" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2020" font-family="Arial" font-size="16" fill="#183b50">Category</text>
+<text x="548" y="2020" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(30)</text>
+<rect x="81" y="2028" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="2046" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2046" font-family="Arial" font-size="16" fill="#183b50">Description</text>
+<text x="548" y="2046" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<text x="90" y="2072" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2072" font-family="Arial" font-size="16" fill="#183b50">FilePath</text>
+<text x="548" y="2072" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<rect x="81" y="2080" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="2098" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2098" font-family="Arial" font-size="16" fill="#183b50">FileType</text>
+<text x="548" y="2098" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(50)</text>
+<text x="90" y="2124" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2124" font-family="Arial" font-size="16" fill="#183b50">UploadedAt</text>
+<text x="548" y="2124" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="730" y="1860" width="480" height="376" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="730" y="1860" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="746" y="1895" font-family="Arial" font-size="22" font-weight="bold" fill="white">consultations</text>
+<rect x="731" y="1924" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1942" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="797" y="1942" font-family="Arial" font-size="16" fill="#183b50">ConsultationID</text>
+<text x="1198" y="1942" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="1968" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="1968" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="1198" y="1968" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="731" y="1976" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="1994" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="1994" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="1198" y="1994" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="2020" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="2020" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="1198" y="2020" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="731" y="2028" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="2046" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="2046" font-family="Arial" font-size="16" fill="#183b50">DoctorID</text>
+<text x="1198" y="2046" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="2072" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2072" font-family="Arial" font-size="16" fill="#183b50">AudioFilePath</text>
+<text x="1198" y="2072" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<rect x="731" y="2080" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="2098" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2098" font-family="Arial" font-size="16" fill="#183b50">AudioDurationSeconds</text>
+<text x="1198" y="2098" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="2124" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2124" font-family="Arial" font-size="16" fill="#183b50">RecordingConsent</text>
+<text x="1198" y="2124" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="731" y="2132" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="2150" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2150" font-family="Arial" font-size="16" fill="#183b50">CompletedAt</text>
+<text x="1198" y="2150" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="740" y="2176" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2176" font-family="Arial" font-size="16" fill="#183b50">DeletedAt</text>
+<text x="1198" y="2176" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="731" y="2184" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="2202" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2202" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="1198" y="2202" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="740" y="2228" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2228" font-family="Arial" font-size="16" fill="#183b50">Archived</text>
+<text x="1198" y="2228" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="1380" y="1860" width="480" height="350" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="1380" y="1860" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="1396" y="1895" font-family="Arial" font-size="22" font-weight="bold" fill="white">consultationversions</text>
+<rect x="1381" y="1924" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1942" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="1447" y="1942" font-family="Arial" font-size="16" fill="#183b50">VersionID</text>
+<text x="1848" y="1942" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="1968" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="1968" font-family="Arial" font-size="16" fill="#183b50">ConsultationID</text>
+<text x="1848" y="1968" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="1381" y="1976" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="1994" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="1994" font-family="Arial" font-size="16" fill="#183b50">EditedByPhysicianID</text>
+<text x="1848" y="1994" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="2020" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2020" font-family="Arial" font-size="16" fill="#183b50">RevisionNumber</text>
+<text x="1848" y="2020" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="1381" y="2028" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2046" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2046" font-family="Arial" font-size="16" fill="#183b50">ClinicalNotes</text>
+<text x="1848" y="2046" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<text x="1390" y="2072" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2072" font-family="Arial" font-size="16" fill="#183b50">PrescriptionText</text>
+<text x="1848" y="2072" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<rect x="1381" y="2080" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2098" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2098" font-family="Arial" font-size="16" fill="#183b50">NotesJson</text>
+<text x="1848" y="2098" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<text x="1390" y="2124" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2124" font-family="Arial" font-size="16" fill="#183b50">UpdatedAt</text>
+<text x="1848" y="2124" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1381" y="2132" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2150" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2150" font-family="Arial" font-size="16" fill="#183b50">DeletedAt</text>
+<text x="1848" y="2150" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="1390" y="2176" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2176" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="1848" y="2176" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="1381" y="2184" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2202" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2202" font-family="Arial" font-size="16" fill="#183b50">Archived</text>
+<text x="1848" y="2202" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="2030" y="1860" width="480" height="220" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2030" y="1860" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2046" y="1895" font-family="Arial" font-size="22" font-weight="bold" fill="white">aitranscriptversions</text>
+<rect x="2031" y="1924" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="1942" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2097" y="1942" font-family="Arial" font-size="16" fill="#183b50">TranscriptVersionID</text>
+<text x="2498" y="1942" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="1968" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="1968" font-family="Arial" font-size="16" fill="#183b50">ConsultationID</text>
+<text x="2498" y="1968" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="1976" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="1994" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="1994" font-family="Arial" font-size="16" fill="#183b50">TranscriptType</text>
+<text x="2498" y="1994" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(30)</text>
+<text x="2040" y="2020" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="2020" font-family="Arial" font-size="16" fill="#183b50">TranscriptText</text>
+<text x="2498" y="2020" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<rect x="2031" y="2028" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="2046" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="2046" font-family="Arial" font-size="16" fill="#183b50">WordErrorRate</text>
+<text x="2498" y="2046" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(5,2)</text>
+<text x="2040" y="2072" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="2072" font-family="Arial" font-size="16" fill="#183b50">GeneratedAt</text>
+<text x="2498" y="2072" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="2680" y="1860" width="480" height="272" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2680" y="1860" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2696" y="1895" font-family="Arial" font-size="22" font-weight="bold" fill="white">wallettransactions</text>
+<rect x="2681" y="1924" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="1942" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2747" y="1942" font-family="Arial" font-size="16" fill="#183b50">TransactionID</text>
+<text x="3148" y="1942" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2690" y="1968" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2747" y="1968" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="3148" y="1968" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2681" y="1976" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="1994" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="1994" font-family="Arial" font-size="16" fill="#183b50">Type</text>
+<text x="3148" y="1994" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="2690" y="2020" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="2020" font-family="Arial" font-size="16" fill="#183b50">Amount</text>
+<text x="3148" y="2020" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,2)</text>
+<rect x="2681" y="2028" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="2046" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="2046" font-family="Arial" font-size="16" fill="#183b50">BalanceAfter</text>
+<text x="3148" y="2046" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">decimal(10,2)</text>
+<text x="2690" y="2072" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2747" y="2072" font-family="Arial" font-size="16" fill="#183b50">RelatedAppointmentID</text>
+<text x="3148" y="2072" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2681" y="2080" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="2098" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="2098" font-family="Arial" font-size="16" fill="#183b50">Description</text>
+<text x="3148" y="2098" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="2690" y="2124" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="2124" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="3148" y="2124" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="3330" y="1860" width="480" height="272" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="3330" y="1860" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="3346" y="1895" font-family="Arial" font-size="22" font-weight="bold" fill="white">feedback</text>
+<rect x="3331" y="1924" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="1942" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="3397" y="1942" font-family="Arial" font-size="16" fill="#183b50">FeedbackID</text>
+<text x="3798" y="1942" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="1968" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="1968" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="3798" y="1968" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="3331" y="1976" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="1994" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="1994" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="3798" y="1994" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="2020" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="2020" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="3798" y="2020" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="3331" y="2028" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="2046" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="2046" font-family="Arial" font-size="16" fill="#183b50">PhysicianID</text>
+<text x="3798" y="2046" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="2072" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2072" font-family="Arial" font-size="16" fill="#183b50">Rating</text>
+<text x="3798" y="2072" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<rect x="3331" y="2080" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="2098" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2098" font-family="Arial" font-size="16" fill="#183b50">Comment</text>
+<text x="3798" y="2098" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<text x="3340" y="2124" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2124" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="3798" y="2124" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="80" y="2700" width="480" height="220" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="80" y="2700" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="96" y="2735" font-family="Arial" font-size="22" font-weight="bold" fill="white">passwordresets</text>
+<rect x="81" y="2764" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="2782" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="147" y="2782" font-family="Arial" font-size="16" fill="#183b50">ResetID</text>
+<text x="548" y="2782" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="90" y="2808" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="147" y="2808" font-family="Arial" font-size="16" fill="#183b50">UserID</text>
+<text x="548" y="2808" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="81" y="2816" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="2834" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2834" font-family="Arial" font-size="16" fill="#183b50">TokenHash</text>
+<text x="548" y="2834" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">char(64)</text>
+<text x="90" y="2860" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2860" font-family="Arial" font-size="16" fill="#183b50">ExpiresAt</text>
+<text x="548" y="2860" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="81" y="2868" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="2886" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2886" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="548" y="2886" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="90" y="2912" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="2912" font-family="Arial" font-size="16" fill="#183b50">UsedAt</text>
+<text x="548" y="2912" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="730" y="2700" width="480" height="220" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="730" y="2700" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="746" y="2735" font-family="Arial" font-size="22" font-weight="bold" fill="white">emailverificationtokens</text>
+<rect x="731" y="2764" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="2782" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="797" y="2782" font-family="Arial" font-size="16" fill="#183b50">VerificationID</text>
+<text x="1198" y="2782" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="2808" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="797" y="2808" font-family="Arial" font-size="16" fill="#183b50">UserID</text>
+<text x="1198" y="2808" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="731" y="2816" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="2834" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2834" font-family="Arial" font-size="16" fill="#183b50">TokenHash</text>
+<text x="1198" y="2834" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">char(64)</text>
+<text x="740" y="2860" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2860" font-family="Arial" font-size="16" fill="#183b50">ExpiresAt</text>
+<text x="1198" y="2860" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="731" y="2868" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="2886" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2886" font-family="Arial" font-size="16" fill="#183b50">UsedAt</text>
+<text x="1198" y="2886" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="740" y="2912" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="2912" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="1198" y="2912" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1380" y="2700" width="480" height="246" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="1380" y="2700" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="1396" y="2735" font-family="Arial" font-size="22" font-weight="bold" fill="white">signupemailverifications</text>
+<rect x="1381" y="2764" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2782" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="1447" y="2782" font-family="Arial" font-size="16" fill="#183b50">SignupVerificationID</text>
+<text x="1848" y="2782" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="2808" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2808" font-family="Arial" font-size="16" fill="#183b50">Email</text>
+<text x="1848" y="2808" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(100)</text>
+<rect x="1381" y="2816" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2834" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2834" font-family="Arial" font-size="16" fill="#183b50">TokenHash</text>
+<text x="1848" y="2834" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">char(64)</text>
+<text x="1390" y="2860" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2860" font-family="Arial" font-size="16" fill="#183b50">ExpiresAt</text>
+<text x="1848" y="2860" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1381" y="2868" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2886" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2886" font-family="Arial" font-size="16" fill="#183b50">VerifiedAt</text>
+<text x="1848" y="2886" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="1390" y="2912" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2912" font-family="Arial" font-size="16" fill="#183b50">UsedAt</text>
+<text x="1848" y="2912" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1381" y="2920" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="2938" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="2938" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="1848" y="2938" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="2030" y="2700" width="480" height="220" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2030" y="2700" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2046" y="2735" font-family="Arial" font-size="22" font-weight="bold" fill="white">patientnotifications</text>
+<rect x="2031" y="2764" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="2782" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2097" y="2782" font-family="Arial" font-size="16" fill="#183b50">NotificationID</text>
+<text x="2498" y="2782" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="2808" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="2808" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="2498" y="2808" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="2816" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="2834" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="2834" font-family="Arial" font-size="16" fill="#183b50">Message</text>
+<text x="2498" y="2834" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="2040" y="2860" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2097" y="2860" font-family="Arial" font-size="16" fill="#183b50">RelatedAppointmentID</text>
+<text x="2498" y="2860" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="2868" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="2886" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="2886" font-family="Arial" font-size="16" fill="#183b50">IsRead</text>
+<text x="2498" y="2886" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<text x="2040" y="2912" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="2912" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="2498" y="2912" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="2680" y="2700" width="480" height="220" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2680" y="2700" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2696" y="2735" font-family="Arial" font-size="22" font-weight="bold" fill="white">notifications</text>
+<rect x="2681" y="2764" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="2782" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2747" y="2782" font-family="Arial" font-size="16" fill="#183b50">NotificationID</text>
+<text x="3148" y="2782" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2690" y="2808" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2747" y="2808" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="3148" y="2808" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2681" y="2816" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="2834" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="2834" font-family="Arial" font-size="16" fill="#183b50">Message</text>
+<text x="3148" y="2834" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="2690" y="2860" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="2747" y="2860" font-family="Arial" font-size="16" fill="#183b50">RelatedAppointmentID</text>
+<text x="3148" y="2860" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2681" y="2868" width="478" height="26" fill="#f1f7fb"/>
+<text x="2690" y="2886" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="2886" font-family="Arial" font-size="16" fill="#183b50">IsRead</text>
+<text x="3148" y="2886" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">tinyint(4)</text>
+<text x="2690" y="2912" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2747" y="2912" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="3148" y="2912" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="3330" y="2700" width="480" height="324" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="3330" y="2700" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="3346" y="2735" font-family="Arial" font-size="22" font-weight="bold" fill="white">queueemailoutbox</text>
+<rect x="3331" y="2764" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="2782" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="3397" y="2782" font-family="Arial" font-size="16" fill="#183b50">EmailID</text>
+<text x="3798" y="2782" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="2808" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="2808" font-family="Arial" font-size="16" fill="#183b50">QueueID</text>
+<text x="3798" y="2808" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="3331" y="2816" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="2834" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="2834" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="3798" y="2834" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="2860" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="3397" y="2860" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="3798" y="2860" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="3331" y="2868" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="2886" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2886" font-family="Arial" font-size="16" fill="#183b50">EventType</text>
+<text x="3798" y="2886" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="3340" y="2912" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2912" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="3798" y="2912" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="3331" y="2920" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="2938" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2938" font-family="Arial" font-size="16" fill="#183b50">Attempts</text>
+<text x="3798" y="2938" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="3340" y="2964" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2964" font-family="Arial" font-size="16" fill="#183b50">LastError</text>
+<text x="3798" y="2964" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(200)</text>
+<rect x="3331" y="2972" width="478" height="26" fill="#f1f7fb"/>
+<text x="3340" y="2990" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="2990" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="3798" y="2990" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="3340" y="3016" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="3397" y="3016" font-family="Arial" font-size="16" fill="#183b50">UpdatedAt</text>
+<text x="3798" y="3016" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="80" y="3540" width="480" height="324" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="80" y="3540" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="96" y="3575" font-family="Arial" font-size="22" font-weight="bold" fill="white">announcements</text>
+<rect x="81" y="3604" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="3622" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="147" y="3622" font-family="Arial" font-size="16" fill="#183b50">AnnouncementID</text>
+<text x="548" y="3622" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="90" y="3648" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="147" y="3648" font-family="Arial" font-size="16" fill="#183b50">PostedByUserID</text>
+<text x="548" y="3648" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="81" y="3656" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="3674" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="147" y="3674" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="548" y="3674" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="90" y="3700" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="3700" font-family="Arial" font-size="16" fill="#183b50">Title</text>
+<text x="548" y="3700" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<rect x="81" y="3708" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="3726" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="3726" font-family="Arial" font-size="16" fill="#183b50">Category</text>
+<text x="548" y="3726" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(30)</text>
+<text x="90" y="3752" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="3752" font-family="Arial" font-size="16" fill="#183b50">Message</text>
+<text x="548" y="3752" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">text</text>
+<rect x="81" y="3760" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="3778" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="3778" font-family="Arial" font-size="16" fill="#183b50">PhotoPath</text>
+<text x="548" y="3778" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="90" y="3804" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="3804" font-family="Arial" font-size="16" fill="#183b50">Audience</text>
+<text x="548" y="3804" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<rect x="81" y="3812" width="478" height="26" fill="#f1f7fb"/>
+<text x="90" y="3830" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="3830" font-family="Arial" font-size="16" fill="#183b50">AffectsDate</text>
+<text x="548" y="3830" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">date</text>
+<text x="90" y="3856" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="147" y="3856" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="548" y="3856" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="730" y="3540" width="480" height="142" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="730" y="3540" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="746" y="3575" font-family="Arial" font-size="22" font-weight="bold" fill="white">announcementdismissals</text>
+<rect x="731" y="3604" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="3622" font-family="Arial" font-size="12" fill="#0077b3">PK / FK</text>
+<text x="797" y="3622" font-family="Arial" font-size="16" fill="#183b50">UserID</text>
+<text x="1198" y="3622" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="740" y="3648" font-family="Arial" font-size="12" fill="#0077b3">PK / FK</text>
+<text x="797" y="3648" font-family="Arial" font-size="16" fill="#183b50">AnnouncementID</text>
+<text x="1198" y="3648" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="731" y="3656" width="478" height="26" fill="#f1f7fb"/>
+<text x="740" y="3674" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="797" y="3674" font-family="Arial" font-size="16" fill="#183b50">DismissedAt</text>
+<text x="1198" y="3674" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="1380" y="3540" width="480" height="220" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="1380" y="3540" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="1396" y="3575" font-family="Arial" font-size="22" font-weight="bold" fill="white">auditlogs</text>
+<rect x="1381" y="3604" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="3622" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="1447" y="3622" font-family="Arial" font-size="16" fill="#183b50">LogID</text>
+<text x="1848" y="3622" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="3648" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="3648" font-family="Arial" font-size="16" fill="#183b50">ClinicID</text>
+<text x="1848" y="3648" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="1381" y="3656" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="3674" font-family="Arial" font-size="12" fill="#0077b3">FK</text>
+<text x="1447" y="3674" font-family="Arial" font-size="16" fill="#183b50">UserID</text>
+<text x="1848" y="3674" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="1390" y="3700" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="3700" font-family="Arial" font-size="16" fill="#183b50">ActionExecuted</text>
+<text x="1848" y="3700" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(150)</text>
+<rect x="1381" y="3708" width="478" height="26" fill="#f1f7fb"/>
+<text x="1390" y="3726" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="3726" font-family="Arial" font-size="16" fill="#183b50">Description</text>
+<text x="1848" y="3726" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(255)</text>
+<text x="1390" y="3752" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="1447" y="3752" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="1848" y="3752" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<rect x="2030" y="3540" width="480" height="376" rx="8" fill="white" stroke="#b8cbd8"/>
+<rect x="2030" y="3540" width="480" height="54" rx="8" fill="#0077b3"/>
+<text x="2046" y="3575" font-family="Arial" font-size="22" font-weight="bold" fill="white">smsoutbox</text>
+<rect x="2031" y="3604" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="3622" font-family="Arial" font-size="12" fill="#0077b3">PK</text>
+<text x="2097" y="3622" font-family="Arial" font-size="16" fill="#183b50">SmsID</text>
+<text x="2498" y="3622" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="3648" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3648" font-family="Arial" font-size="16" fill="#183b50">PatientID</text>
+<text x="2498" y="3648" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="3656" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="3674" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3674" font-family="Arial" font-size="16" fill="#183b50">AppointmentID</text>
+<text x="2498" y="3674" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<text x="2040" y="3700" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3700" font-family="Arial" font-size="16" fill="#183b50">EventKey</text>
+<text x="2498" y="3700" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(120)</text>
+<rect x="2031" y="3708" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="3726" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3726" font-family="Arial" font-size="16" fill="#183b50">EventType</text>
+<text x="2498" y="3726" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(30)</text>
+<text x="2040" y="3752" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3752" font-family="Arial" font-size="16" fill="#183b50">Message</text>
+<text x="2498" y="3752" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(320)</text>
+<rect x="2031" y="3760" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="3778" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3778" font-family="Arial" font-size="16" fill="#183b50">Status</text>
+<text x="2498" y="3778" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(20)</text>
+<text x="2040" y="3804" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3804" font-family="Arial" font-size="16" fill="#183b50">Attempts</text>
+<text x="2498" y="3804" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">int(11)</text>
+<rect x="2031" y="3812" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="3830" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3830" font-family="Arial" font-size="16" fill="#183b50">ProviderMessageID</text>
+<text x="2498" y="3830" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(80)</text>
+<text x="2040" y="3856" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3856" font-family="Arial" font-size="16" fill="#183b50">ProviderStatus</text>
+<text x="2498" y="3856" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">varchar(80)</text>
+<rect x="2031" y="3864" width="478" height="26" fill="#f1f7fb"/>
+<text x="2040" y="3882" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3882" font-family="Arial" font-size="16" fill="#183b50">CreatedAt</text>
+<text x="2498" y="3882" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+<text x="2040" y="3908" font-family="Arial" font-size="12" fill="#0077b3"></text>
+<text x="2097" y="3908" font-family="Arial" font-size="16" fill="#183b50">UpdatedAt</text>
+<text x="2498" y="3908" text-anchor="end" font-family="Arial" font-size="12" fill="#667b8c">datetime</text>
+</svg>

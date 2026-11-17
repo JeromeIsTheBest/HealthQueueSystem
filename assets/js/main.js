@@ -360,6 +360,43 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Clicking the row (but not its checkbox or buttons) opens it: the full
     // message plus a "Delete notification" button for just that one.
+    function markOpenedNotificationRead(row, modal) {
+      var id = row.getAttribute('data-id');
+      var button = document.getElementById('notificationDetailMarkRead');
+      var error = document.getElementById('notificationReadError');
+      if (error) { error.hidden = true; error.textContent = ''; }
+      if (row.getAttribute('data-read') === '1') return;
+      button.hidden = true;
+      button.disabled = true;
+      button.textContent = 'Marking as read...';
+      if (row.readRequest) return;
+      var body = new URLSearchParams();
+      body.set('form_type', 'auto_mark_read');
+      body.set('notification_id', id);
+      body.set('csrf_token', form.querySelector('[name="csrf_token"]').value);
+      row.readRequest = fetch(window.location.href, { method: 'POST', body: body, credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (response) { return response.json().then(function (data) { if (!response.ok || !data.ok) throw new Error(data.message || 'We could not mark this notification as read. Please try again.'); return data; }); })
+        .then(function (data) {
+          row.setAttribute('data-read', '1');
+          row.classList.add('is-read');
+          var badge = row.querySelector(':scope > .status-badge');
+          if (badge) badge.remove();
+          document.querySelectorAll('.admin-nav-link[href$="/notifications.php"] .admin-nav-badge').forEach(function (badge) {
+            if (data.unread > 0) badge.textContent = String(data.unread); else badge.remove();
+          });
+          if (data.unread === 0) document.querySelectorAll('.header-icon-btn[href$="/notifications.php"] .header-icon-badge').forEach(function (badge) { badge.remove(); });
+          if (document.getElementById('notificationDetailId').value === id) {
+            document.getElementById('notificationDetailStatus').textContent = 'Read';
+            button.hidden = true; button.disabled = true; button.textContent = 'Already read';
+          }
+        })
+        .catch(function (failure) {
+          if (document.getElementById('notificationDetailId').value !== id) return;
+          button.hidden = false; button.disabled = false; button.textContent = 'Mark as read';
+          if (error) { error.textContent = failure.message || 'We could not mark this notification as read. Please try again.'; error.hidden = false; }
+        })
+        .finally(function () { row.readRequest = null; });
+    }
     list.querySelectorAll('.notification-row').forEach(function (row) {
       var holdTimer = null;
       var startX = 0, startY = 0;
@@ -391,7 +428,7 @@ document.addEventListener('DOMContentLoaded', function () {
           box.checked = !box.checked; update(); return;
         }
         var detailModal = document.getElementById('notificationDetailModal');
-        if (detailModal && document.body.classList.contains('patient-portal')) {
+        if (detailModal) {
           var read = row.getAttribute('data-read') === '1';
           var time = row.querySelector('.notif-time');
           document.getElementById('notificationDetailMessage').textContent = row.querySelector('.notif-message').textContent;
@@ -400,12 +437,14 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('notificationDetailStatus').textContent = read ? 'Read' : 'Unread';
           document.getElementById('notificationDetailId').value = row.getAttribute('data-id');
           document.getElementById('notificationDetailDeleteId').value = row.getAttribute('data-id');
+          document.getElementById('notificationDetailMarkRead').hidden = true;
           document.getElementById('notificationDetailMarkRead').disabled = read;
           document.getElementById('notificationDetailMarkRead').textContent = read ? 'Already read' : 'Mark as read';
           detailModal.notificationTrigger = row.querySelector('.notif-message-toggle');
           window.hqOpenModal(detailModal);
           document.body.classList.add('is-notification-modal-open');
           detailModal.querySelector('.modal-close').focus();
+          markOpenedNotificationRead(row, detailModal);
           return;
         }
         var open = row.classList.toggle('is-open');
@@ -490,8 +529,7 @@ window.hqSetWallet = function (container, balanceText, canPay) {
     note.textContent = '₱' + balanceText + ' balance' + (canPay ? '' : ' · not enough');
     note.classList.toggle('is-short', !canPay);
   }
-  var pick = container.querySelector('input[value="' + (canPay ? 'wallet' : 'card') + '"]');
-  if (pick) pick.checked = true;
+  container.querySelectorAll('input[type="radio"]').forEach(function (option) { option.checked = canPay && option.value === 'wallet'; });
   hqSyncPayMethods(container);
 };
 
@@ -519,5 +557,52 @@ window.hqStartHold = function (el, seconds) {
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-hold-seconds]').forEach(function (el) {
     if (el.getAttribute('data-hold-seconds') !== '') window.hqStartHold(el, el.getAttribute('data-hold-seconds'));
+  });
+});
+
+// Shared mobile-number input rules for every role and public form.
+document.addEventListener('DOMContentLoaded', function () {
+  var selector = 'input[name="contact_number"], input[name="emergency_contact_number"], input[name="phone"]';
+  document.querySelectorAll(selector).forEach(function (input) {
+    input.setAttribute('inputmode', 'numeric');
+    input.setAttribute('maxlength', '11');
+    input.setAttribute('pattern', '09[0-9]{9}');
+    var message = 'Enter a valid mobile number';
+    var error = document.createElement('span');
+    error.className = 'hq-mobile-error';
+    error.id = 'hq-mobile-error-' + Array.from(document.querySelectorAll(selector)).indexOf(input);
+    error.hidden = true;
+    error.setAttribute('aria-live', 'polite');
+    input.insertAdjacentElement('afterend', error);
+    input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby'), error.id].filter(Boolean).join(' '));
+    function validate(showError) {
+      var invalid = input.value !== '' && !/^09[0-9]{9}$/.test(input.value);
+      input.setCustomValidity(invalid ? message : '');
+      error.textContent = invalid && showError ? message : '';
+      error.hidden = !invalid || !showError;
+      if (invalid && showError) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    }
+    input.addEventListener('blur', function () { validate(true); });
+    input.addEventListener('invalid', function () { validate(true); });
+    validate(false);
+    input.addEventListener('beforeinput', function (event) {
+      if (!event.isComposing && event.data && /[^0-9]/.test(event.data)) event.preventDefault();
+    });
+    input.addEventListener('input', function () {
+      var start = input.selectionStart;
+      var prefix = input.value.slice(0, start === null ? input.value.length : start);
+      var clean = input.value.replace(/[^0-9]/g, '').slice(0, 11);
+      if (input.value !== clean) {
+        input.value = clean;
+        var position = Math.min(prefix.replace(/[^0-9]/g, '').length, 11);
+        input.setSelectionRange(position, position);
+      }
+      validate(!error.hidden);
+    });
+    input.addEventListener('paste', function (event) {
+      var pasted = (event.clipboardData || window.clipboardData).getData('text');
+      if (/[^0-9]/.test(pasted)) event.preventDefault();
+    });
   });
 });

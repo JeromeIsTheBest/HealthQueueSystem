@@ -12,7 +12,8 @@ requireRole(['Patient']);
 $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
-$flash = '';
+$flash = (string) ($_SESSION['patient_appointments_flash'] ?? '');
+unset($_SESSION['patient_appointments_flash']);
 
 // Tab key => [label, Appointments.Status it shows (null = everything)].
 // Keys are kept stable because the Wallet page links to ?tab=<key>.
@@ -115,6 +116,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
+
+// Redirect successful submissions so a refresh cannot repeat cancellation or refunds.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors && $flash !== '') {
+    $_SESSION['patient_appointments_flash'] = $flash;
+    header('Location: ' . HQ_BASE_URL . '/patient/my-appointments.php?' . http_build_query(['tab' => $activeTab]), true, 303);
+    exit;
 }
 
 const MINUTES_PER_PATIENT = 15;

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/input-validation.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/email.php';
@@ -46,6 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($values as $field => $value) {
         $values[$field] = trim((string) ($_POST[$field] ?? ''));
     }
+    $values['first_name'] = hqCapitalizeName($values['first_name']);
+    $values['last_name'] = hqCapitalizeName($values['last_name']);
     $password        = (string) ($_POST['password'] ?? '');
     $passwordConfirm  = (string) ($_POST['password_confirm'] ?? '');
     $intent = (string) ($_POST['intent'] ?? 'create_account');
@@ -60,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($values['first_name'] === '') $errors[] = 'First name is required.';
         if ($values['last_name'] === '')  $errors[] = 'Last name is required.';
         if ($values['contact_number'] === '') $errors[] = 'Contact number is required.';
+        if (!hqValidMobile($values['contact_number'])) $errors[] = 'Enter a valid mobile number';
         if (strlen($password) < 8) $errors[] = 'Password must be at least 8 characters long.';
         elseif ($password !== $passwordConfirm) $errors[] = 'Password and confirmation do not match.';
         if (!$emailVerified || $signupToken === '') $errors[] = 'Verify your email address before creating your account.';
@@ -69,6 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Registration is temporarily unavailable. Please try again later.';
     }
 
+    if (!$errors && $pdo) {
+        try {
+            if(!consumeRequestLimit($pdo,'registration-ip',requestClientAddress(),30) || !consumeRequestLimit($pdo,'registration-account',requestClientAddress().'|'.$values['email'],10)) $errors[]='Too many attempts. Please try again in 15 minutes.';
+        } catch(PDOException $e) {error_log('Request limit unavailable.');$errors[]='This service is temporarily unavailable.';}
+    }
     if (!$errors && $pdo) {
         try {
             $existing = $pdo->prepare('SELECT UserID FROM Users WHERE Email = ?');
@@ -206,7 +215,7 @@ require __DIR__ . '/../includes/header.php';
           <input type="hidden" id="pendingSignupEmailToken" name="email_verification_token" value="<?= htmlspecialchars($pendingSignupToken) ?>">
         <?php endif; ?>
         <label>Contact number
-          <input type="tel" name="contact_number" value="<?= htmlspecialchars($values['contact_number']) ?>" placeholder="09XX XXX XXXX" required>
+          <input type="tel" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= htmlspecialchars($values['contact_number']) ?>" placeholder="09123456789" required>
         </label>
         <label>Password
           <input type="password" name="password" minlength="8" required>

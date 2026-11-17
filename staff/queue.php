@@ -1,11 +1,14 @@
 <?php
+require_once __DIR__ . '/../includes/input-validation.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/sms.php';
-require_once __DIR__ . '/../includes/email.php';
+require_once __DIR__ . '/../includes/queue-email.php';
 require_once __DIR__ . '/../includes/wallet.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
+require_once __DIR__ . '/../includes/patient-booking-lock.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Staff']);
@@ -29,7 +32,7 @@ $walkInValues = ['first_name' => '', 'last_name' => '', 'contact_number' => '', 
 function waitingLine(PDO $pdo, int $clinicId, ?int $physicianId): array
 {
     $sql = "SELECT q.QueueID, COALESCE(q.Position, q.QueueNumber * 10) AS Pos FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID
-            WHERE q.ClinicID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status = 'Waiting' AND (a.AppointmentTime IS NULL OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW()) AND NOT EXISTS (SELECT 1 FROM Queue activeQ WHERE activeQ.ClinicID = q.ClinicID AND activeQ.Status IN ('Calling', 'Serving'))";
+            WHERE q.ClinicID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status = 'Waiting' AND (a.AppointmentTime IS NULL OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW()) AND NOT EXISTS (SELECT 1 FROM Queue activeQ WHERE activeQ.ClinicID = q.ClinicID AND DATE(activeQ.CreatedAt)=CURDATE() AND activeQ.Status IN ('Calling', 'Serving'))";
     $params = [$clinicId];
     if ($physicianId) {
         $sql .= ' AND q.PhysicianID = ?';
@@ -41,31 +44,6 @@ function waitingLine(PDO $pdo, int $clinicId, ?int $physicianId): array
 }
 
 /** Marks a waiting entry as Calling and notifies the patient. */
-function callQueueEntry(PDO $pdo, int $queueId, int $clinicId, int $staffId): ?string
-{
-    $targetStmt = $pdo->prepare("SELECT q.PhysicianID FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID WHERE q.QueueID = ? AND q.ClinicID = ? AND q.Status = 'Waiting' AND (a.AppointmentTime IS NULL OR a.AppointmentTime = '00:00:00' OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW())");
-    $targetStmt->execute([$queueId, $clinicId]);
-    $targetPhysicianId = $targetStmt->fetchColumn();
-    if ($targetPhysicianId === false) return null;
-
-    $busyStmt = $pdo->prepare("SELECT COUNT(*) FROM Queue WHERE ClinicID = ? AND Status IN ('Calling', 'Serving')");
-    $busyStmt->execute([$clinicId]);
-    if ((int) $busyStmt->fetchColumn() > 0) return null;
-
-    $stmt = $pdo->prepare("UPDATE Queue SET Status = 'Calling', CalledAt = NOW() WHERE QueueID = ? AND ClinicID = ? AND Status = 'Waiting'");
-    $stmt->execute([$queueId, $clinicId]);
-    if (!$stmt->rowCount()) return null;
-    $row = $pdo->prepare('SELECT q.QueueNumber, q.ScheduledNumber, q.RegularNumber, a.PatientID, a.AppointmentID, u.Email, u.FirstName, c.ClinicName FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID JOIN Users u ON u.UserID = a.PatientID JOIN Clinic c ON c.ClinicID = q.ClinicID WHERE q.QueueID = ?');
-    $row->execute([$queueId]);
-    $entry = $row->fetch();
-    notifyPatient($pdo, (int) $entry['PatientID'], "You're being called now - please proceed to the counter.", (int) $entry['AppointmentID']);
-    $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
-    queuePatientSms($pdo, (int) $entry['PatientID'], (int) $entry['AppointmentID'],
-        'called:' . $queueId, 'called', 'HealthQueue: You are being called now. Please proceed to the clinic counter.');
-    sendQueueNearEmail((string) $entry['Email'], (string) $entry['FirstName'], $ticketNumber, (string) $entry['ClinicName']);
-    logActivity($pdo, $staffId, $clinicId, 'Updated queue status', "Queue {$ticketNumber} set to Calling");
-    return $ticketNumber;
-}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your session expired. Please try again.';
@@ -78,6 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($formType === 'register_walkin') {
             foreach ($walkInValues as $field => $value) $walkInValues[$field] = trim((string) ($_POST[$field] ?? ''));
 
+            $walkInValues['first_name'] = hqCapitalizeName($walkInValues['first_name']);
+            $walkInValues['last_name'] = hqCapitalizeName($walkInValues['last_name']);
+            if (!hqValidMobile($walkInValues['contact_number'])) $errors[] = 'Enter a valid mobile number';
+
             if ($walkInValues['first_name'] === '' || $walkInValues['last_name'] === '') $errors[] = 'First and last name are required.';
             if ($walkInValues['contact_number'] === '') $errors[] = 'Contact number is required.';
             if ($walkInValues['email'] !== '' && !filter_var($walkInValues['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address, or leave it blank.';
@@ -86,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$errors) {
                 try {
                     $pdo->beginTransaction();
+                    lockQueueClinic($pdo,$clinicId);
 
                     $patientRoleStmt = $pdo->query("SELECT RoleID FROM Roles WHERE RoleName = 'Patient'");
                     $patientRoleId = (int) $patientRoleStmt->fetchColumn();
@@ -125,6 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $clinicPhysicians = $singlePhysician->fetchAll(PDO::FETCH_COLUMN);
                             if (count($clinicPhysicians) === 1) $physicianId = (int) $clinicPhysicians[0];
                         }
+                        lockPatientBooking($pdo,(int)$patientId);
+                        assertClinicPhysician($pdo,$clinicId,$physicianId);
                         $insertAppt = $pdo->prepare(
                             "INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern, Status)
                              VALUES (?, ?, ?, CURDATE(), NULL, ?, 'Confirmed')"
@@ -163,25 +148,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     if ($errors && $pdo->inTransaction()) $pdo->rollBack();
-                } catch (PDOException $e) {
+                } catch (Throwable $e) {
                     if ($pdo->inTransaction()) $pdo->rollBack();
                     error_log('Walk-in registration failed: ' . $e->getMessage());
-                    $errors[] = 'We could not register this walk-in. Please try again.';
+                    $errors[] = $e instanceof RuntimeException && !($e instanceof PDOException) ? $e->getMessage() : 'We could not register this walk-in. Please try again.';
                 }
             }
         } elseif ($formType === 'call_next') {
             try {
                 $filterPhysician = filter_input(INPUT_POST, 'physician_filter', FILTER_VALIDATE_INT) ?: null;
-                $line = waitingLine($pdo, $clinicId, $filterPhysician);
-                $called = $line ? callQueueEntry($pdo, (int) $line[0]['QueueID'], $clinicId, (int) $user['UserID']) : null;
+                $called=callNextClinicPatient($pdo,$clinicId,(int)$user['UserID'],$filterPhysician);
                 if ($called) {
                     $flash = "Calling queue {$called}.";
                 } else {
                     $errors[] = 'No one is waiting in this line.';
                 }
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
                 error_log('Call next failed: ' . $e->getMessage());
-                $errors[] = 'We could not call the next patient.';
+                $errors[] = $e instanceof RuntimeException && !($e instanceof PDOException)?$e->getMessage():'We could not call the next patient.';
             }
         } elseif ($formType === 'recall' && $queueId) {
             try {
@@ -356,6 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $entries = [];
+$upcomingVisits = [];
 $physicians = [];
 $tabCounts = ['all' => 0];
 $dataError = null;
@@ -381,6 +366,15 @@ if ($pdo && $clinicId) {
         );
         $stmt->execute([$clinicId]);
         $entries = $stmt->fetchAll();
+        $upcomingSql = "SELECT a.AppointmentID,a.AppointmentDate,a.AppointmentTime,pat.FirstName,pat.LastName,phy.LastName AS PhyLastName
+            FROM Appointments a JOIN Users pat ON pat.UserID=a.PatientID LEFT JOIN Users phy ON phy.UserID=a.PhysicianID
+            WHERE a.ClinicID=? AND a.Status='Confirmed' AND a.AppointmentDate>CURDATE()";
+        $upcomingParams = [$clinicId];
+        if ($physicianFilter) { $upcomingSql .= ' AND a.PhysicianID=?'; $upcomingParams[] = $physicianFilter; }
+        $upcomingStmt = $pdo->prepare($upcomingSql . ' ORDER BY a.AppointmentDate,a.AppointmentTime,a.AppointmentID LIMIT 20');
+        $upcomingStmt->execute($upcomingParams);
+        $upcomingVisits = $upcomingStmt->fetchAll();
+
 
         $physStmt = $pdo->prepare(
             "SELECT UserID, FirstName, LastName FROM Users
@@ -539,6 +533,18 @@ ob_start();
     </section>
     <section class="qm-guide"><h3>Managing the queue</h3><p>Register walk-ins as they arrive.</p><p>Approve online requests in Appointments.</p><a href="appointments.php">Open appointments</a></section>
   </aside></div>
+  <?php if ($upcomingVisits): ?>
+  <section class="qm-upcoming-panel">
+    <h3 class="qm-section-title">Upcoming approved visits</h3>
+    <p class="qm-upcoming-help">These patients are approved for a future date. They join the active queue on their appointment day.</p>
+    <ul class="qm-upcoming-list">
+      <?php foreach ($upcomingVisits as $visit): ?>
+      <li><div><strong><?= htmlspecialchars($visit['FirstName'].' '.$visit['LastName']) ?></strong><span><?= $visit['PhyLastName'] ? 'Dr. '.htmlspecialchars($visit['PhyLastName']) : 'No physician assigned' ?></span></div><div><strong><?= htmlspecialchars(date('M j, Y',strtotime($visit['AppointmentDate']))) ?></strong><span><?= $visit['AppointmentTime'] ? htmlspecialchars(date('g:i A',strtotime($visit['AppointmentTime']))) : 'Queue booking' ?></span></div><span class="qm-count">Approved</span></li>
+      <?php endforeach; ?>
+    </ul>
+    <a href="appointments.php?tab=all" class="qm-upcoming-link">View all appointments</a>
+  </section>
+  <?php endif; ?>
 <?php
 $queueHtml = ob_get_clean();
 
@@ -559,7 +565,7 @@ require __DIR__ . '/../includes/header.php';
     <div>
       <span class="an-eyebrow">Front desk</span>
       <h1>Queue Management</h1>
-      <p>Keep today's patient queue moving.</p>
+      <p>Today?s queue: <?= htmlspecialchars(date('F j, Y')) ?>. Future approved visits appear below.</p>
     </div>
     <div class="sd-hero-actions"><span class="qm-date"><?= htmlspecialchars(date('j F Y')) ?></span>
       <a href="<?= HQ_BASE_URL ?>/staff/display-board.php" class="btn sd-btn-ghost" target="_blank" rel="noopener">
@@ -601,7 +607,7 @@ require __DIR__ . '/../includes/header.php';
         <label>Last name<input type="text" name="last_name" value="<?= htmlspecialchars($walkInValues['last_name']) ?>" required></label>
       </div>
       <div class="form-stack form-cols-2">
-        <label>Contact number<input type="text" name="contact_number" value="<?= htmlspecialchars($walkInValues['contact_number']) ?>" required></label>
+        <label>Contact number<input type="text" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= htmlspecialchars($walkInValues['contact_number']) ?>" required></label>
         <label>Email <span class="optional">(optional)</span><input type="email" name="email" value="<?= htmlspecialchars($walkInValues['email']) ?>"></label>
       </div>
       <div class="form-stack form-cols-2">

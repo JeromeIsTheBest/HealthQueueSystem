@@ -9,7 +9,8 @@ requireRole(['Patient']);
 $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
-$flash = '';
+$flash=(string)($_SESSION['wallet_flash']??'');unset($_SESSION['wallet_flash']);
+$_SESSION['wallet_topup_key']=$_SESSION['wallet_topup_key']??bin2hex(random_bytes(32));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'top_up') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
@@ -26,9 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'to
         } else {
             try {
                 $pdo->beginTransaction();
-                walletTopUp($pdo, $user['UserID'], round($amount, 2), 'Simulated top-up');
+                walletTopUp($pdo, $user['UserID'], round($amount, 2), 'Simulated top-up',(string)($_POST['request_key']??''));
                 $pdo->commit();
-                $flash = 'PHP ' . number_format($amount, 2) . ' added to your wallet.';
+                $_SESSION['wallet_flash']='Top-up processed. Your demo wallet balance is up to date.';
+                unset($_SESSION['wallet_topup_key']);header('Location: '.HQ_BASE_URL.'/patient/wallet.php',true,303);exit;
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 error_log('Wallet top-up failed: ' . $e->getMessage());
@@ -163,6 +165,7 @@ require __DIR__ . '/../includes/header.php';
     <form method="post">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
       <input type="hidden" name="form_type" value="top_up">
+      <input type="hidden" name="request_key" value="<?= htmlspecialchars($_SESSION['wallet_topup_key']) ?>">
       <div class="form-stack form-cols-2">
         <?php foreach ([200, 500, 1000, 2000] as $preset): ?>
           <button type="submit" name="amount" value="<?= $preset ?>" class="btn btn-outline btn-sm">+ PHP <?= number_format($preset) ?></button>

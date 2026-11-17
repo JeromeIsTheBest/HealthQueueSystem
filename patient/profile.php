@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/input-validation.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
@@ -72,8 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'We could not deactivate your account right now.';
         }
     } elseif (($_POST['form_type'] ?? '') === 'update_profile') {
-        $firstName = trim((string) ($_POST['first_name'] ?? ''));
-        $lastName  = trim((string) ($_POST['last_name'] ?? ''));
+        $firstName = hqCapitalizeName((string) ($_POST['first_name'] ?? ''));
+        $lastName  = hqCapitalizeName((string) ($_POST['last_name'] ?? ''));
         $email     = trim((string) ($_POST['email'] ?? ''));
         $contact   = trim((string) ($_POST['contact_number'] ?? ''));
         $birth = trim((string) ($_POST['date_of_birth'] ?? ''));
@@ -83,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($sex, ['', 'Male', 'Female', 'Prefer not to say'], true)) $errors[] = 'Choose a valid sex.';
         if (mb_strlen($address) > 500) $errors[] = 'Address must be 500 characters or fewer.';
 
+        if (!hqValidMobile($contact)) $errors[] = 'Enter a valid mobile number';
         if ($firstName === '' || $lastName === '') $errors[] = 'First and last name are required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
 
@@ -93,8 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($dupe->fetch()) {
                     $errors[] = 'Another account already uses that email address.';
                 } else {
-                    $pdo->prepare('UPDATE Users SET FirstName = ?, LastName = ?, Email = ?, ContactNumber = ? WHERE UserID = ?')
-                        ->execute([$firstName, $lastName, $email, $contact ?: null, $user['UserID']]);
+                    $emailChanged = strcasecmp($email, $profile['Email']) !== 0;
+                    $pdo->prepare('UPDATE Users SET FirstName = ?, LastName = ?, EmailVerifiedAt = CASE WHEN Email <> ? THEN NULL ELSE EmailVerifiedAt END, Email = ?, ContactNumber = ? WHERE UserID = ?')
+                        ->execute([$firstName, $lastName, $email, $email, $contact ?: null, $user['UserID']]);
+                    if ($emailChanged) {
+                        $pdo->prepare('DELETE FROM EmailVerificationTokens WHERE UserID=?')->execute([$user['UserID']]);
+                        $pdo->prepare('UPDATE PasswordResets SET UsedAt=NOW() WHERE UserID=? AND UsedAt IS NULL')->execute([$user['UserID']]);
+                        logoutUser();header('Location: '.HQ_BASE_URL.'/auth/resend-verification.php?email_changed=1',true,303);exit;
+                    }
                     loginUser(['UserID' => $user['UserID'], 'ClinicID' => $user['ClinicID'], 'RoleID' => $user['RoleID'], 'RoleName' => $user['RoleName'], 'FirstName' => $firstName, 'LastName' => $lastName, 'Email' => $email]);
                     logActivity($pdo, $user['UserID'], null, 'Updated profile', 'Patient updated their own account details.');
                     $details = array_merge($details, ['date_of_birth' => $birth, 'sex' => $sex, 'address' => $address]);
@@ -114,13 +122,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (($_POST['form_type'] ?? '') === 'update_medical') {
         $bloodType    = trim((string) ($_POST['blood_type'] ?? ''));
         $allergies    = trim((string) ($_POST['allergies'] ?? ''));
-        $emergName    = trim((string) ($_POST['emergency_contact_name'] ?? ''));
+        $emergName    = hqCapitalizeName((string) ($_POST['emergency_contact_name'] ?? ''));
         $emergNumber  = trim((string) ($_POST['emergency_contact_number'] ?? ''));
 
         if ($bloodType !== '' && !in_array($bloodType, $bloodTypes, true)) $errors[] = 'Please choose a valid blood type.';
         if (mb_strlen($allergies) > 500) $errors[] = 'Allergies must be 500 characters or fewer.';
         if (mb_strlen($emergName) > 100) $errors[] = 'Emergency contact name must be 100 characters or fewer.';
-        if (mb_strlen($emergNumber) > 20) $errors[] = 'Emergency contact number must be 20 characters or fewer.';
+        if (!hqValidMobile($emergNumber)) $errors[] = 'Enter a valid mobile number';
 
         if (!$errors) {
             try {
@@ -159,6 +167,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $pdo->prepare('UPDATE Users SET PasswordHash = ? WHERE UserID = ?')
                     ->execute([password_hash($newPass, PASSWORD_DEFAULT), $user['UserID']]);
+                $pdo->prepare('UPDATE PasswordResets SET UsedAt=NOW() WHERE UserID=? AND UsedAt IS NULL')->execute([$user['UserID']]);
+                loginUser($user);
                 logActivity($pdo, $user['UserID'], null, 'Changed password', 'Patient changed their own password.');
                 $flash = 'Password changed.';
             }
@@ -279,6 +289,7 @@ require __DIR__ . '/../includes/header.php';
 ?>
 
 <main class="portal-shell patient-profile-page"><div class="profile-container">
+  <?php if(!empty($profile['ContactNumber']) && !hqValidMobile($profile['ContactNumber'])): ?><p class="form-message warning" role="status">Enter a valid mobile number</p><?php endif; ?>
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
   <?php if ($errors && !$reopenModal): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
@@ -404,7 +415,7 @@ require __DIR__ . '/../includes/header.php';
         <label>First name<input type="text" name="first_name" value="<?= $formValue('first_name', $profile['FirstName']) ?>" required></label>
         <label>Last name<input type="text" name="last_name" value="<?= $formValue('last_name', $profile['LastName']) ?>" required></label>
         <label>Email address<input type="email" name="email" value="<?= $formValue('email', $profile['Email']) ?>" required></label>
-        <label>Contact number<input type="tel" name="contact_number" value="<?= $formValue('contact_number', $profile['ContactNumber']) ?>"></label>
+        <label>Contact number<input type="tel" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= $formValue('contact_number', $profile['ContactNumber']) ?>"></label>
         <label>Date of birth<input type="date" name="date_of_birth" max="<?= date('Y-m-d') ?>" value="<?= $formValue('date_of_birth', $details['date_of_birth'] ?? '') ?>"></label>
         <label>Sex<select name="sex"><?php foreach (['' => 'Not specified', 'Male' => 'Male', 'Female' => 'Female', 'Prefer not to say' => 'Prefer not to say'] as $value => $label): ?><option value="<?= $value ?>"<?= ($old['sex'] ?? $details['sex'] ?? '') === $value ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></label>
         <label>Address / Location<textarea name="address" maxlength="500"><?= $formValue('address', $details['address'] ?? '') ?></textarea></label>
@@ -436,7 +447,7 @@ require __DIR__ . '/../includes/header.php';
         </label>
         <label>Allergies<textarea name="allergies" rows="3" maxlength="500" placeholder="e.g. Penicillin, peanuts"><?= $formValue('allergies', $profile['Allergies']) ?></textarea></label>
         <label>Emergency contact name<input type="text" name="emergency_contact_name" maxlength="100" value="<?= $formValue('emergency_contact_name', $profile['EmergencyContactName']) ?>"></label>
-        <label>Emergency contact number<input type="tel" name="emergency_contact_number" maxlength="20" value="<?= $formValue('emergency_contact_number', $profile['EmergencyContactNumber']) ?>"></label>
+        <label>Emergency contact number<input type="tel" name="emergency_contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= $formValue('emergency_contact_number', $profile['EmergencyContactNumber']) ?>"></label>
       </div>
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:14px;">Save Changes</button>
     </form>

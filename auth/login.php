@@ -40,6 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors && $pdo) {
         try {
+            if(!consumeRequestLimit($pdo,'login-ip',requestClientAddress(),60) || !consumeRequestLimit($pdo,'login-account',requestClientAddress().'|'.$email,10)) $errors[]='Too many attempts. Please try again in 15 minutes.';
+        } catch(PDOException $e) {error_log('Request limit unavailable.');$errors[]='This service is temporarily unavailable.';}
+    }
+    if (!$errors && $pdo) {
+        try {
             $stmt = $pdo->prepare(
                 'SELECT u.UserID, u.ClinicID, u.RoleID, r.RoleName, u.FirstName, u.LastName, u.Email, u.PasswordHash, u.Status, u.EmailVerifiedAt
                  FROM Users u
@@ -56,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($user['RoleName'] === 'Patient' && empty($user['EmailVerifiedAt'])) {
                 $emailUnverified = true;
             } else {
+                clearRequestLimit($pdo,'login-account',requestClientAddress().'|'.$email);
                 loginUser($user);
                 header('Location: ' . HQ_BASE_URL . '/' . dashboardPathFor($user['RoleName']));
                 exit;

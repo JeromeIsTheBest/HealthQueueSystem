@@ -48,16 +48,16 @@ if ($appointment['BookingFeePaid']) {
 
 $isAjax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
 
-// One handler for both modes of payment -- which one applies is decided by
-// the "payment_mode" field (wallet or card), not by a different form_type
-// per button, so the UI only ever needs a single Pay Now action.
+// Only the funded HealthQueue wallet can complete checkout until external payments are integrated.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'submit_payment') {
-    // Wallet really deducts; GCash, Maya and card are simulated (demo) methods.
-    $paymentMode = isset(PAYMENT_METHODS[$_POST['payment_mode'] ?? '']) ? $_POST['payment_mode'] : 'card';
+    // Never mark a booking paid based on an unverified external/demo selection.
+    $paymentMode = (string) ($_POST['payment_mode'] ?? '');
 
     $clinicLocked = false;
     if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your session expired. Please try again.';
+    } elseif ($paymentMode !== 'wallet') {
+        $errors[] = 'Choose HealthQueue wallet and add enough funds before paying. External payment methods are not connected.';
     } elseif ($appointment['Status'] !== 'Pending') {
         $errors[] = 'This request can no longer be paid for.';
     } elseif (!($clinicLocked = lockClinicBooking($pdo, (int) $appointment['ClinicID']))) {
@@ -68,24 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'su
     } else {
         try {
             $pdo->beginTransaction();
-            $fee = round((float) $appointment['BaseConsultationFee'], 2);
-
-            if ($paymentMode === 'wallet') {
-                $paid = walletDeduct($pdo, $user['UserID'], $fee, $appointmentId, 'Booking fee for ' . $appointment['ClinicName']);
-                if (!$paid) {
-                    $pdo->rollBack();
-                    $errors[] = 'Your wallet balance is not enough to cover this fee.';
-                }
-            } else {
-                $paid = true;
-            }
-
-            if ($paid ?? false) {
-                $pdo->prepare("UPDATE Appointments SET BookingFeePaid = 1, BookingFeePaidAt = NOW(), BookingPaymentMethod = ? WHERE AppointmentID = ? AND PatientID = ?")
-                    ->execute([$paymentMode, $appointmentId, $user['UserID']]);
+            $payment = payBookingFromWallet($pdo, (int) $user['UserID'], (int) $appointmentId);
+            if ($payment['paid']) {
                 $pdo->commit();
 
-                notifyClinic(
+                if (!$payment['already_paid']) notifyClinic(
                     $pdo,
                     (int) $appointment['ClinicID'],
                     'New appointment request from ' . $user['FirstName'] . ' ' . $user['LastName'] . ' for ' . $appointment['AppointmentDate'] . '.',
@@ -104,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'su
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('Booking payment failed: ' . $e->getMessage());
-            $errors[] = 'We could not process your payment right now. Please try again.';
+            $errors[] = $e instanceof RuntimeException && !($e instanceof PDOException) ? $e->getMessage() : 'We could not process your payment right now. Please try again.';
         }
     }
     if ($clinicLocked) unlockClinicBooking($pdo, (int) $appointment['ClinicID']);

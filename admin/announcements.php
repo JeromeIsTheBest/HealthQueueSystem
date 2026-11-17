@@ -76,75 +76,48 @@ if ($pdo) {
 }
 
 $pageTitle = 'Announcements — HealthQueue';
+$isAdminAnnouncements = true;
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="admin-shell"><div class="container">
-  <section class="admin-hero"><div><span class="eyebrow">Communication</span><h1>Announcements</h1><p>Post updates for patients, staff, or physicians across the platform.</p></div></section>
-
-  <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
-  <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-
-  <section class="admin-section">
-    <div class="portal-heading"><div><span class="section-kicker">New announcement</span><h2>Post an update</h2></div></div>
-    <form class="registration-form" method="post" enctype="multipart/form-data" style="max-width:640px;">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
-      <div class="form-stack">
-        <label>Title<input name="title" value="<?= htmlspecialchars($values['title']) ?>" required></label>
-        <label>Audience
-          <select name="audience">
-            <?php foreach ($audiences as $audience): ?>
-              <option value="<?= htmlspecialchars($audience) ?>" <?= $values['audience'] === $audience ? 'selected' : '' ?>><?= htmlspecialchars($audience) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </label>
-      </div>
-      <div class="form-stack form-cols-2">
-        <label>From
-          <select name="clinic_id">
-            <option value="">HealthQueue (platform-wide)</option>
-            <?php foreach ($clinicOptions as $optId => $optName): ?>
-              <option value="<?= (int) $optId ?>" <?= $values['clinic_id'] === (string) $optId ? 'selected' : '' ?>><?= htmlspecialchars($optName) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </label>
-        <label>Category
-          <select name="category">
-            <?php foreach ($categories as $category): ?>
-              <option <?= $values['category'] === $category ? 'selected' : '' ?>><?= htmlspecialchars($category) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </label>
-      </div>
-      <div class="form-stack">
-        <label>Affects appointments on <span class="optional">(optional -- patients booked at this clinic on this date see it pinned)</span><input type="date" name="affects_date" value="<?= htmlspecialchars($values['affects_date']) ?>"></label>
-        <label>Message<textarea name="message" rows="4" required><?= htmlspecialchars($values['message']) ?></textarea></label>
-        <label>Photo <span class="optional">(optional -- JPG, PNG, WEBP, or GIF, 5 MB max)</span><input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif"></label>
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">Post announcement</button>
-    </form>
-  </section>
-
-  <section class="admin-section">
-    <div class="portal-heading"><div><span class="section-kicker">History</span><h2>Recent announcements</h2></div></div>
-    <?php if ($announcements): ?>
-      <div class="inquiry-list">
-        <?php foreach ($announcements as $announcement): ?>
-          <article class="inquiry-card">
-            <div>
-              <h3><?= htmlspecialchars($announcement['Title']) ?></h3>
-              <p><?= nl2br(htmlspecialchars($announcement['Message'])) ?></p>
-              <?php if ($announcement['PhotoPath']): ?><img src="<?= htmlspecialchars(announcementPhotoUrl($announcement['PhotoPath'])) ?>" alt="" class="an-admin-photo"><?php endif; ?>
-              <span><?= htmlspecialchars($announcement['ClinicName'] ?: 'HealthQueue') ?> &middot; <?= htmlspecialchars($announcement['Category']) ?><?= $announcement['AffectsDate'] ? ' &middot; affects ' . htmlspecialchars(date('M j, Y', strtotime($announcement['AffectsDate']))) : '' ?> &middot; Posted by <?= htmlspecialchars($announcement['FirstName'] . ' ' . $announcement['LastName']) ?> &middot; <?= htmlspecialchars(date('M j, Y g:i A', strtotime($announcement['CreatedAt']))) ?></span>
-            </div>
-            <span class="status-badge status-active"><?= htmlspecialchars($announcement['Audience']) ?></span>
-          </article>
-        <?php endforeach; ?>
-      </div>
-    <?php else: ?>
-      <p class="admin-empty">No announcements have been posted yet.</p>
-    <?php endif; ?>
-  </section>
-</div></main>
-
+<main class="admin-shell aa-page"><div class="container aa-container">
+<p class="aa-breadcrumb">Administration <span>/</span> Announcements</p>
+<header class="aa-heading"><div><h1>Announcements</h1><p>Keep your community informed.</p></div><time datetime="<?= date('Y-m-d') ?>"><?= date('j F Y') ?></time></header>
+<?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
+<?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+<div class="aa-columns">
+<section class="aa-panel" aria-labelledby="aa-compose-title">
+<h2 id="aa-compose-title">Post an update</h2>
+<form class="aa-form" method="post" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
+<label>Title<input name="title" placeholder="Enter announcement title" value="<?= htmlspecialchars($values['title']) ?>" required></label>
+<div class="aa-field-row">
+<label>Audience<select name="audience"><?php foreach ($audiences as $audience): ?><option value="<?= htmlspecialchars($audience) ?>" <?= $values['audience']===$audience?'selected':'' ?>><?= htmlspecialchars($audience) ?></option><?php endforeach; ?></select></label>
+<label>From<select name="clinic_id"><option value="">HealthQueue (platform-wide)</option><?php foreach ($clinicOptions as $optId=>$optName): ?><option value="<?= (int)$optId ?>" <?= $values['clinic_id']===(string)$optId?'selected':'' ?>><?= htmlspecialchars($optName) ?></option><?php endforeach; ?></select></label>
+</div>
+<div class="aa-field-row">
+<label>Category<select name="category"><?php foreach ($categories as $category): ?><option <?= $values['category']===$category?'selected':'' ?>><?= htmlspecialchars($category) ?></option><?php endforeach; ?></select></label>
+<label>Affected date <span class="aa-optional">(optional)</span><input type="date" name="affects_date" value="<?= htmlspecialchars($values['affects_date']) ?>" aria-describedby="aa-date-help"></label>
+</div>
+<p id="aa-date-help" class="aa-hint">Choose a clinic to pin this update for its patients booked on the affected date.</p>
+<label>Message<textarea name="message" rows="5" placeholder="Write a clear update for your community..." required><?= htmlspecialchars($values['message']) ?></textarea></label>
+<div><label class="aa-photo-label" for="aa-photo">Photo <span class="aa-optional">(optional)</span></label>
+<div class="aa-upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></svg><span>Add a photo</span><small>JPG, PNG, WEBP or GIF ? Up to 5 MB</small><input id="aa-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" aria-describedby="aa-photo-name"></div><p class="aa-hint" id="aa-photo-name" aria-live="polite"></p></div>
+<button type="submit" class="btn btn-primary btn-block">Publish announcement</button>
+</form></section>
+<section class="aa-panel aa-history" aria-labelledby="aa-history-title">
+<h2 id="aa-history-title">Recent announcements <span class="aa-count"><?= count($announcements) ?></span></h2>
+<?php if($announcements): ?><div class="aa-history-list">
+<?php foreach($announcements as $announcement): ?>
+<article class="aa-card"><h3><?= htmlspecialchars($announcement['Title']) ?></h3>
+<div class="aa-tags"><span><?= htmlspecialchars($announcement['Category']) ?></span><span class="aa-audience"><?= htmlspecialchars($announcement['Audience']) ?></span></div>
+<p class="aa-message"><?= nl2br(htmlspecialchars($announcement['Message'])) ?></p>
+<?php if($announcement['PhotoPath']): ?><img src="<?= htmlspecialchars(announcementPhotoUrl($announcement['PhotoPath'])) ?>" alt="" class="aa-photo"><?php endif; ?>
+<p class="aa-meta"><?= htmlspecialchars($announcement['ClinicName'] ?: 'HealthQueue') ?> &middot; <?= htmlspecialchars(date('j M Y',strtotime($announcement['CreatedAt']))) ?></p>
+<?php if($announcement['AffectsDate']): ?><p class="aa-meta">Affects appointments on <?= htmlspecialchars(date('j M Y',strtotime($announcement['AffectsDate']))) ?></p><?php endif; ?>
+<p class="aa-meta">Posted by <?= htmlspecialchars($announcement['FirstName'].' '.$announcement['LastName']) ?></p>
+</article>
+<?php endforeach; ?></div><?php else: ?><div class="aa-empty"><h3>No announcements yet</h3><p>Publish your first update using the form.</p></div><?php endif; ?>
+</section></div></div></main>
+<script src="<?= HQ_BASE_URL ?>/assets/js/admin-announcements.js?v=<?= filemtime(__DIR__ . '/../assets/js/admin-announcements.js') ?>" defer></script>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

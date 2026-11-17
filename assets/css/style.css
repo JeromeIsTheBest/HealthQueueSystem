@@ -2663,3 +2663,29 @@ button.pp-security-row { cursor:pointer; }
 .admin-clinic-photo-item { height:76px; cursor:grab; touch-action:none; user-select:none; }
 .admin-clinic-photo-item img { -webkit-user-drag:none; }
 .admin-clinic-photo-item.is-moving { cursor:grabbing; opacity:.65; outline:2px solid #0088af; border-radius:8px; }
+
+/* Recording consent and language share a compact, responsive row. */
+.cw-recording-options {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.cw-recording-options .cw-consent {margin:0;flex:1;min-width:200px;}
+.cw-recording-options .cw-language {display:flex;align-items:center;gap:8px;margin:0;margin-left:auto;font-size:11px;color:var(--slate-600);}
+.cw-language select {width:auto;max-width:180px;margin:0;padding:8px 10px;border:1px solid var(--slate-200);border-radius:8px;background:#fff;color:var(--teal-900);font:inherit;font-size:12px;}
+@media(max-width:600px) {.cw-recording-options {align-items:flex-start;gap:12px;}.cw-recording-options .cw-language {margin-left:0;justify-content:space-between;width:100%;}.cw-language select {max-width:60%;}}
+
+/* Finalize consultation confirmation. Native dialog supplies focus containment. */
+.cw-finalize-dialog {border:1px solid var(--slate-200);width:calc(100% - 32px);max-width:480px;box-sizing:border-box;transform:none;padding:32px;}
+.cw-finalize-dialog::backdrop {background:rgba(15,23,42,.5);backdrop-filter:blur(3px);}
+.cw-finalize-dialog h2 {color:var(--teal-900);font-size:23px;margin:0 0 12px;letter-spacing:-.03em;}
+.cw-finalize-dialog .modal-subtitle {line-height:1.8;}
+.cw-finalize-buttons {display:flex;justify-content:flex-end;gap:12px;margin-top:26px;}
+.cw-finalize-buttons .btn {font-size:12px;padding:12px 16px;min-height:44px;white-space:normal;}
+@media(max-width:480px) {.cw-finalize-dialog {padding:26px 20px;}.cw-finalize-buttons {flex-direction:column-reverse;}.cw-finalize-buttons .btn {width:100%;}}
+
+/* Physician profile photos in the staff physician directory. */
+.ph-card .ph-avatar {width:80px;height:80px;border-radius:20px;font-size:26px;overflow:hidden;}
+.ph-card .ph-avatar img {display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit;}
+
+.hq-mobile-error {display:block;margin-top:6px;color:var(--danger-700,#b91c1c);font-size:12px;font-weight:400;line-height:1.5;}
+.hq-mobile-error[hidden] {display:none;}
+
+.cw-summary-approval {display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid var(--slate-200);border-radius:10px;font-size:12px;line-height:1.7;}
+.cw-summary-approval input {flex-shrink:0;margin-top:4px;}

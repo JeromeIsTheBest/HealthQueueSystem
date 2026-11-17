@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/sms.php';
 require_once __DIR__ . '/../includes/email.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Staff']);
@@ -32,28 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $flash = ['error', 'The database is temporarily unavailable.'];
     } elseif ($formType === 'call_next') {
         try {
-            // Next in line = lowest waiting queue number today.
-            $next = $pdo->prepare(
-                "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, a.PatientID, a.AppointmentID, u.Email, u.FirstName, c.ClinicName FROM Queue q
-                 JOIN Appointments a ON a.AppointmentID = q.AppointmentID
-                 JOIN Users u ON u.UserID = a.PatientID JOIN Clinic c ON c.ClinicID = q.ClinicID
-                 WHERE q.ClinicID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status = 'Waiting' AND (a.AppointmentTime IS NULL OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW()) AND NOT EXISTS (SELECT 1 FROM Queue activeQ WHERE activeQ.ClinicID = q.ClinicID AND activeQ.Status IN ('Calling', 'Serving'))
-                 ORDER BY CASE WHEN a.AppointmentTime IS NOT NULL AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW() THEN 0 ELSE 1 END, CASE WHEN a.AppointmentTime IS NOT NULL AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW() THEN TIMESTAMP(a.AppointmentDate, a.AppointmentTime) END, q.QueueNumber LIMIT 1"
-            );
-            $next->execute([$clinicId]);
-            $entry = $next->fetch();
-            if (!$entry) {
-                $flash = ['error', 'No one is waiting in the queue right now.'];
-            } else {
-                $pdo->prepare("UPDATE Queue SET Status = 'Calling', CalledAt = NOW() WHERE QueueID = ? AND Status = 'Waiting'")->execute([$entry['QueueID']]);
-                notifyPatient($pdo, (int) $entry['PatientID'], "You're being called now — please proceed to the counter.", (int) $entry['AppointmentID']);
-                $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
-                queuePatientSms($pdo, (int) $entry['PatientID'], (int) $entry['AppointmentID'],
-                    'called:' . $entry['QueueID'], 'called', 'HealthQueue: You are being called now. Please proceed to the clinic counter.');
-                sendQueueNearEmail((string) $entry['Email'], (string) $entry['FirstName'], $ticketNumber, (string) $entry['ClinicName']);
-                logActivity($pdo, $user['UserID'], $clinicId, 'Updated queue status', "Queue #{$entry['QueueNumber']} set to Calling");
-                $flash = ['success', "Calling queue #{$entry['QueueNumber']}."];
-            }
+            $ticket=callNextClinicPatient($pdo,$clinicId,(int)$user['UserID']);
+            $flash=$ticket?['success','Calling queue '.$ticket.'.']:['error','No patient is available to call, or another patient is being served.'];
         } catch (PDOException $e) {
             error_log('Call next failed: ' . $e->getMessage());
             $flash = ['error', 'We could not call the next patient.'];

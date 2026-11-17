@@ -555,3 +555,79 @@ CREATE TABLE IF NOT EXISTS ClinicPhoto (
 ALTER TABLE Clinic ADD COLUMN IF NOT EXISTS Latitude DECIMAL(10,7) NULL;
 ALTER TABLE Clinic ADD COLUMN IF NOT EXISTS Longitude DECIMAL(10,7) NULL;
 ALTER TABLE ClinicPhoto ADD COLUMN IF NOT EXISTS SortOrder INT NOT NULL DEFAULT 0;
+
+-- Reliable queue reminder email tracking.
+CREATE TABLE IF NOT EXISTS QueueEmailOutbox (
+    EmailID INT AUTO_INCREMENT PRIMARY KEY,
+    QueueID INT NOT NULL,
+    PatientID INT NOT NULL,
+    AppointmentID INT NOT NULL,
+    EventType VARCHAR(20) NOT NULL,
+    Status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    Attempts INT NOT NULL DEFAULT 0,
+    LastError VARCHAR(200) NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_queue_email_event (QueueID, EventType),
+    INDEX idx_queue_email_pending (Status, UpdatedAt),
+    FOREIGN KEY (QueueID) REFERENCES Queue(QueueID) ON DELETE CASCADE,
+    FOREIGN KEY (PatientID) REFERENCES Users(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID) ON DELETE CASCADE
+);
+
+-- Capstone simulation only. These records never initiate bank transfers.
+CREATE TABLE IF NOT EXISTS DemoSettlements (
+ SettlementID INT AUTO_INCREMENT PRIMARY KEY,
+ RequestKey VARCHAR(64) NOT NULL,
+ Reference VARCHAR(40) NOT NULL,
+ GrossAmount DECIMAL(12,2) NOT NULL,
+ CreatedByUserID INT NOT NULL,
+ CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_demo_settlement_request (RequestKey),
+ UNIQUE KEY uq_demo_settlement_reference (Reference),
+ CONSTRAINT fk_demo_settlement_admin FOREIGN KEY (CreatedByUserID) REFERENCES Users(UserID)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS DemoSettlementItems (
+ SettlementID INT NOT NULL,
+ PaymentID INT NOT NULL,
+ PRIMARY KEY (SettlementID,PaymentID),
+ UNIQUE KEY uq_demo_settled_payment (PaymentID),
+ CONSTRAINT fk_demo_item_settlement FOREIGN KEY (SettlementID) REFERENCES DemoSettlements(SettlementID),
+ CONSTRAINT fk_demo_item_payment FOREIGN KEY (PaymentID) REFERENCES AppointmentPayments(PaymentID)
+) ENGINE=InnoDB;
+
+-- Simulated physician withdrawals only. No external transfers.
+CREATE TABLE IF NOT EXISTS PhysicianWithdrawals (
+ WithdrawalID INT AUTO_INCREMENT PRIMARY KEY,
+ Reference VARCHAR(40) NOT NULL UNIQUE,
+ RequestKey VARCHAR(64) NOT NULL UNIQUE,
+ PhysicianID INT NOT NULL,
+ Amount DECIMAL(12,2) NOT NULL,
+ PayoutMethod VARCHAR(20) NOT NULL,
+ AccountName VARCHAR(150) NOT NULL,
+ AccountNumber VARCHAR(34) NOT NULL,
+ BankName VARCHAR(100) NULL,
+ Status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+ CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ ReviewedAt DATETIME NULL,
+ ReviewedByUserID INT NULL,
+ INDEX idx_physician_withdrawals_status (PhysicianID,Status),
+ CONSTRAINT fk_withdrawal_physician FOREIGN KEY (PhysicianID) REFERENCES Users(UserID),
+ CONSTRAINT fk_withdrawal_reviewer FOREIGN KEY (ReviewedByUserID) REFERENCES Users(UserID)
+) ENGINE=InnoDB;
+
+-- Audit protections: idempotent top-ups, throttling, and explicit AI publication.
+ALTER TABLE WalletTransactions ADD COLUMN IF NOT EXISTS RequestKey CHAR(64) NULL;
+ALTER TABLE WalletTransactions ADD UNIQUE INDEX IF NOT EXISTS uq_wallet_request_key (RequestKey);
+CREATE TABLE IF NOT EXISTS RequestRateLimits (
+ BucketKey CHAR(64) PRIMARY KEY,
+ WindowStart DATETIME NOT NULL,
+ Attempts INT NOT NULL DEFAULT 1,
+ INDEX idx_rate_window (WindowStart)
+) ENGINE=InnoDB;
+ALTER TABLE AITranscriptVersions ADD COLUMN IF NOT EXISTS ApprovedAt DATETIME NULL;
+ALTER TABLE AITranscriptVersions ADD COLUMN IF NOT EXISTS ApprovedByPhysicianID INT NULL;
+ALTER TABLE AITranscriptVersions ADD COLUMN IF NOT EXISTS ApprovedVersionID INT NULL;
+
+ALTER TABLE AITranscriptVersions ADD FOREIGN KEY IF NOT EXISTS fk_ai_approved_physician (ApprovedByPhysicianID) REFERENCES Users(UserID);
+ALTER TABLE AITranscriptVersions ADD FOREIGN KEY IF NOT EXISTS fk_ai_approved_version (ApprovedVersionID) REFERENCES ConsultationVersions(VersionID);

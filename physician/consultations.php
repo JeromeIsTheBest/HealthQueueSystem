@@ -199,7 +199,7 @@ $pcCalendar = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4
                   <?php $mins = max(0, (int) $row['WaitingMinutes']); ?>
                   <tr>
                     <td><span class="pc-ticket"><?= $pcTicket($row) ?></span></td>
-                    <td><div class="pc-patient"><span class="pc-avatar" aria-hidden="true"><?= $pcInitials($row) ?></span><div><strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong><small><?= htmlspecialchars($source($row)) ?><?= $row['QueueStatus'] === 'Calling' ? ' ? being called' : '' ?></small></div></div></td>
+                    <td><div class="pc-patient"><span class="pc-avatar" aria-hidden="true"><?= $pcInitials($row) ?></span><div><strong><?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?></strong><small><?= htmlspecialchars($source($row)) ?><?= $row['QueueStatus'] === 'Calling' ? ' - being called' : '' ?></small></div></div></td>
                     <td><span class="pc-concern" title="<?= htmlspecialchars($row['Concern'] ?? '') ?>"><?= htmlspecialchars($concern($row)) ?></span></td>
                     <td><span class="pc-wait<?= $mins >= LONG_WAIT_MINUTES ? ' is-long' : '' ?>"><?= htmlspecialchars($waitLabel($mins)) ?></span></td>
                     <?php if (!$inProgress): ?><td>

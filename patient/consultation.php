@@ -89,7 +89,8 @@ try {
         "SELECT t.TranscriptText, t.GeneratedAt
          FROM AITranscriptVersions t
          JOIN Consultations cons ON cons.ConsultationID = t.ConsultationID
-         WHERE cons.AppointmentID = ? AND t.TranscriptType = 'AI_Summary'
+         WHERE cons.AppointmentID = ? AND t.TranscriptType = 'AI_Summary' AND t.ApprovedAt IS NOT NULL AND t.ApprovedByPhysicianID = cons.DoctorID
+           AND t.ApprovedVersionID = (SELECT VersionID FROM ConsultationVersions v WHERE v.ConsultationID=cons.ConsultationID AND v.Status='Finalized' ORDER BY v.RevisionNumber DESC LIMIT 1)
          ORDER BY t.GeneratedAt DESC
          LIMIT 1"
     );
@@ -112,7 +113,6 @@ if (!$isAjax) {
 
   <section class="portal-hero" style="margin-top:18px;">
     <div>
-      <span class="eyebrow">Consultation record</span>
       <h1><?= htmlspecialchars($appointment['ClinicName']) ?></h1>
       <p>Dr. <?= htmlspecialchars($appointment['DoctorFirstName'] . ' ' . $appointment['DoctorLastName']) ?> &middot; <?= htmlspecialchars(date('l, F j, Y', strtotime($appointment['AppointmentDate']))) ?> at <?= htmlspecialchars(date('g:i A', strtotime($appointment['AppointmentTime']))) ?></p>
     </div>
@@ -153,7 +153,7 @@ if (!$isAjax) {
       </div>
       <p style="margin-top:14px;color:var(--slate-400);font-size:12.5px;">Generated <?= htmlspecialchars(date('M j, Y g:i A', strtotime($aiSummary['GeneratedAt']))) ?>.</p>
       <div class="dev-note">
-        <strong>Note:</strong> AI transcription/summarization is not connected to a real speech-to-text or language model yet — the text above is placeholder output from the pipeline being built ahead of that integration. Always rely on the notes from your physician above, not this summary.
+        <strong>Reviewed summary:</strong> This AI-assisted summary was approved by your physician. Refer to the finalized consultation notes above for your care instructions.
       </div>
     <?php else: ?>
       <p class="admin-empty">No AI-generated summary is available for this visit yet.</p>

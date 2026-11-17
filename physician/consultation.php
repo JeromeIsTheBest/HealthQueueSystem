@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/ai-transcription.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/consultation-publication.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Physician']);
@@ -110,10 +111,15 @@ function notesToText(array $notes): array
 /** Saves a draft (updating the current draft in place) or finalizes. Returns the save time. */
 function saveNotes(PDO $pdo, array $appointment, int $appointmentId, int $doctorId, array $notes, bool $finalize): string
 {
+    $pdo->beginTransaction();
+    try {
+    $guard=$pdo->prepare('SELECT Status FROM Appointments WHERE AppointmentID=? AND PhysicianID=? FOR UPDATE');$guard->execute([$appointmentId,$doctorId]);$status=$guard->fetchColumn();
+    if(!$status || in_array($status,['Completed','Cancelled'],true))throw new RuntimeException('This consultation can no longer be edited.');
     [$clinicalNotes, $prescriptionText] = notesToText($notes);
     $consultationId = getOrCreateConsultationId($pdo, $appointment, $appointmentId, $doctorId);
     $json = json_encode($notes, JSON_UNESCAPED_UNICODE);
 
+    $lock=$pdo->prepare('SELECT ConsultationID FROM Consultations WHERE ConsultationID=? FOR UPDATE');$lock->execute([$consultationId]);
     $latest = $pdo->prepare('SELECT VersionID, Status FROM ConsultationVersions WHERE ConsultationID = ? ORDER BY RevisionNumber DESC LIMIT 1');
     $latest->execute([$consultationId]);
     $latestRow = $latest->fetch();
@@ -130,7 +136,10 @@ function saveNotes(PDO $pdo, array $appointment, int $appointmentId, int $doctor
              VALUES (?, ?, ?, ?, ?, ?, ?)'
         )->execute([$consultationId, $doctorId, (int) $rev->fetchColumn(), $clinicalNotes, $prescriptionText ?: null, $json, $finalize ? 'Finalized' : 'Draft']);
     }
-    return (string) $pdo->query('SELECT NOW()')->fetchColumn();
+    $savedVersionId=$latestRow && $latestRow['Status']==='Draft'?(int)$latestRow['VersionID']:(int)$pdo->lastInsertId();
+    if($finalize)approveConsultationSummary($pdo,$consultationId,$savedVersionId,$doctorId,($_POST['approve_summary']??'')==='1'?(int)($_POST['summary_id']??0):0);
+    $time=(string)$pdo->query('SELECT NOW()')->fetchColumn();$pdo->commit();return $time;
+    } catch(Throwable $e) {if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }
 
 function jsonReply(array $data, int $code = 200): void
@@ -151,9 +160,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notes = notesFromPost();
         $finalize = $formType === 'finalize_notes';
         [$clinicalText] = notesToText($notes);
+        foreach (['bp' => 'Blood pressure', 'temp' => 'Temperature', 'weight' => 'Weight'] as $key => $label) {
+            $value = $notes['vitals'][$key];
+            $pattern = $key === 'bp' ? '/^[0-9]+(?:\/[0-9]+)?$/' : '/^[0-9]+(?:\.[0-9]+)?$/';
+            if ($value !== '' && !preg_match($pattern, $value)) {
+                $errors[] = $label . ($key === 'bp' ? ' must contain numbers only, such as 120/80.' : ' must contain numbers only; decimals are allowed.');
+            }
+        }
         if ($finalize && ($notes['assessment'] === '' || $clinicalText === '')) {
             $errors[] = 'Add at least an assessment before finalizing this consultation.';
-        } else {
+        }
+        if (!$errors) {
             try {
                 $savedAt = saveNotes($pdo, $appointment, $appointmentId, (int) $user['UserID'], $notes, $finalize);
                 if ($finalize) {
@@ -170,9 +187,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 if ($isAjax) jsonReply(['ok' => true, 'savedAt' => $savedAt]);
                 $flash = 'Draft saved.';
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
                 error_log('Consultation save failed: ' . $e->getMessage());
-                $errors[] = 'We could not save these notes. Please try again.';
+                $errors[] = $e instanceof RuntimeException && !($e instanceof PDOException)?$e->getMessage():'We could not save these notes. Please try again.';
             }
         }
         if ($isAjax) jsonReply(['ok' => false, 'errors' => $errors], 422);
@@ -188,43 +205,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             jsonReply(['ok' => false], 500);
         }
     } elseif ($formType === 'upload_audio') {
-        $file = $_FILES['audio_file'] ?? null;
-        if (!$file || $file['error'] !== UPLOAD_ERR_OK || $file['size'] <= 0) {
-            $errors[] = 'No recording was received. Please try recording again.';
-        } elseif ($file['size'] > 25 * 1024 * 1024) {
-            $errors[] = 'Recording is too large (25 MB limit).';
-        } else {
+        $file=$_FILES['audio_file']??null;$newPath=null;$oldPath=null;
+        if(!$file || $file['error']!==UPLOAD_ERR_OK || $file['size']<=0)$errors[]='No recording was received. Please try recording again.';
+        elseif($file['size']>25*1024*1024)$errors[]='Recording is too large (25 MB limit).';
+        elseif(!($extension=recordingExtension($file['tmp_name'])))$errors[]='Upload a valid WebM, Ogg, or MP4 audio recording.';
+        else {
             try {
-                $consultationId = getOrCreateConsultationId($pdo, $appointment, $appointmentId, (int) $user['UserID']);
-                $consentStmt = $pdo->prepare('SELECT RecordingConsent, AudioFilePath FROM Consultations WHERE ConsultationID = ?');
-                $consentStmt->execute([$consultationId]);
-                $consult = $consentStmt->fetch();
-                if (!(int) $consult['RecordingConsent']) {
-                    $errors[] = 'The patient has not consented to recording.';
-                } else {
-                    $storageDir = __DIR__ . '/../storage/audio';
-                    if (!is_dir($storageDir)) mkdir($storageDir, 0750, true);
-                    $filename = 'consultation_' . $consultationId . '_' . bin2hex(random_bytes(8)) . '.webm';
-                    if ($consult['AudioFilePath'] && is_file($storageDir . '/' . basename($consult['AudioFilePath']))) {
-                        unlink($storageDir . '/' . basename($consult['AudioFilePath']));
-                    }
-                    if (!move_uploaded_file($file['tmp_name'], $storageDir . '/' . $filename)) {
-                        $errors[] = 'We could not save this recording. Please try again.';
-                    } else {
-                        $duration = filter_input(INPUT_POST, 'duration_seconds', FILTER_VALIDATE_INT) ?: null;
-                        $pdo->prepare('UPDATE Consultations SET AudioFilePath = ?, AudioDurationSeconds = ? WHERE ConsultationID = ?')
-                            ->execute([$filename, $duration, $consultationId]);
-                        logActivity($pdo, $user['UserID'], $appointment['ClinicID'], 'Uploaded consultation recording', "Appointment #{$appointmentId}");
-                        if ($isAjax) jsonReply(['ok' => true]);
-                        $flash = 'Recording saved.';
-                    }
-                }
-            } catch (PDOException $e) {
-                error_log('Audio upload failed: ' . $e->getMessage());
-                $errors[] = 'We could not save this recording. Please try again.';
-            }
+                $pdo->beginTransaction();
+                $guard=$pdo->prepare('SELECT Status FROM Appointments WHERE AppointmentID=? AND PhysicianID=? FOR UPDATE');$guard->execute([$appointmentId,$user['UserID']]);
+                if(in_array($guard->fetchColumn(),['Completed','Cancelled'],true))throw new RuntimeException('This consultation can no longer be edited.');
+                $consultationId=getOrCreateConsultationId($pdo,$appointment,$appointmentId,(int)$user['UserID']);
+                $stmt=$pdo->prepare('SELECT RecordingConsent,AudioFilePath FROM Consultations WHERE ConsultationID=? FOR UPDATE');$stmt->execute([$consultationId]);$consult=$stmt->fetch();
+                if(!(int)$consult['RecordingConsent'])throw new RuntimeException('The patient has not consented to recording.');
+                $storageDir=__DIR__.'/../storage/audio';if(!is_dir($storageDir))mkdir($storageDir,0750,true);
+                $filename='consultation_'.$consultationId.'_'.bin2hex(random_bytes(8)).'.'.$extension;$newPath=$storageDir.'/'.$filename;
+                if(!move_uploaded_file($file['tmp_name'],$newPath))throw new RuntimeException('We could not save this recording. Please try again.');
+                $duration=filter_input(INPUT_POST,'duration_seconds',FILTER_VALIDATE_INT)?:null;
+                $pdo->prepare('UPDATE Consultations SET AudioFilePath=?,AudioDurationSeconds=? WHERE ConsultationID=?')->execute([$filename,$duration,$consultationId]);
+                $oldPath=$consult['AudioFilePath']?$storageDir.'/'.basename($consult['AudioFilePath']):null;
+                $pdo->commit();$newPath=null;
+                if($oldPath && is_file($oldPath) && !unlink($oldPath))error_log('Previous recording cleanup required.');
+                logActivity($pdo,$user['UserID'],$appointment['ClinicID'],'Uploaded consultation recording','Appointment #'.$appointmentId);
+                if($isAjax)jsonReply(['ok'=>true]);$flash='Recording saved.';
+            } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();if($newPath && is_file($newPath))unlink($newPath);error_log('Audio upload failed: '.$e->getMessage());$errors[]=$e instanceof RuntimeException && !($e instanceof PDOException)?$e->getMessage():'We could not save this recording. Please try again.';}
         }
-        if ($isAjax) jsonReply(['ok' => false, 'errors' => $errors], 422);
+        if($isAjax)jsonReply(['ok'=>false,'errors'=>$errors],422);
     } elseif ($formType === 'generate_transcript') {
         try {
             $consultStmt = $pdo->prepare('SELECT ConsultationID, AudioFilePath, RecordingConsent FROM Consultations WHERE AppointmentID = ?');
@@ -243,6 +248,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logActivity($pdo, $user['UserID'], $appointment['ClinicID'], 'Generated Whisper transcript', "Appointment #{$appointmentId}");
                 $flash = 'Transcript generated. Review and correct it before using it.';
                 if ($isAjax) jsonReply(['ok' => true] + $transcription);
+            }
+        } catch (PDOException $e) {
+            error_log('Transcript database save failed: ' . $e->getMessage());
+            $errors[] = 'The database connection failed. Check that MySQL is running in XAMPP, then try again.';
+            if ($isAjax && isset($transcriptText) && trim($transcriptText) !== '') {
+                jsonReply(['ok' => false, 'errors' => $errors, 'unsaved_text' => $transcriptText], 503);
             }
         } catch (Throwable $e) {
             error_log('Transcript generation failed: ' . $e->getMessage());
@@ -279,9 +290,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $generatedSummary = summarizeTranscript($input);
                 $pdo->prepare("INSERT INTO AITranscriptVersions (ConsultationID, TranscriptType, TranscriptText) VALUES (?, 'AI_Summary', ?)")
                     ->execute([$consultationId, $generatedSummary]);
+                $generatedSummaryId=(int)$pdo->lastInsertId();
                 logActivity($pdo, $user['UserID'], $appointment['ClinicID'], 'Generated local AI summary', "Appointment #{$appointmentId}");
                 $flash = 'AI summary generated. Review before inserting into notes.';
-                if ($isAjax) jsonReply(['ok' => true, 'summary' => $generatedSummary]);
+                if ($isAjax) jsonReply(['ok' => true, 'summary' => $generatedSummary, 'summary_id'=>$generatedSummaryId]);
             }
         } catch (Throwable $e) {
             error_log('Summary regenerate failed: ' . $e->getMessage());
@@ -337,7 +349,7 @@ try {
     $consultStmt->execute([$appointmentId]);
     $consultation = $consultStmt->fetch() ?: null;
     if ($consultation) {
-        $tStmt = $pdo->prepare('SELECT TranscriptText, GeneratedAt FROM AITranscriptVersions WHERE ConsultationID = ? AND TranscriptType = ? ORDER BY GeneratedAt DESC, TranscriptVersionID DESC LIMIT 1');
+        $tStmt = $pdo->prepare('SELECT TranscriptVersionID, TranscriptText, GeneratedAt FROM AITranscriptVersions WHERE ConsultationID = ? AND TranscriptType = ? ORDER BY GeneratedAt DESC, TranscriptVersionID DESC LIMIT 1');
         foreach (['Original_STT' => 'latestTranscript', 'Doctor_Corrected' => 'latestCorrected', 'AI_Summary' => 'latestSummary'] as $type => $var) {
             $tStmt->execute([(int) $consultation['ConsultationID'], $type]);
             $$var = $tStmt->fetch() ?: null;
@@ -365,7 +377,9 @@ try {
     $errors[] = 'Some consultation data could not be loaded, but you can still save notes.';
 }
 
-// Only show saved, real summaries. Generation happens on explicit request.
+// Only show saved summaries; compare transcript versions to flag outdated drafts.
+if ($latestCorrected && $latestTranscript && (int) $latestCorrected['TranscriptVersionID'] < (int) $latestTranscript['TranscriptVersionID']) $latestCorrected = null;
+$summaryNeedsRefresh = $latestSummary && max((int) ($latestTranscript['TranscriptVersionID'] ?? 0), (int) ($latestCorrected['TranscriptVersionID'] ?? 0)) > (int) $latestSummary['TranscriptVersionID'];
 $summaryText = $latestSummary['TranscriptText'] ?? '';
 if (str_contains($summaryText, '[PLACEHOLDER')) $summaryText = '';
 $summarySetupNotice = '';
@@ -459,7 +473,16 @@ require __DIR__ . '/../includes/header.php';
           <span class="cw-rec-pill" id="recPill" hidden>● REC <span id="recTimer">00:00</span></span>
         </div>
         <?php if (!$isCompleted): ?>
+          <div class="cw-recording-options">
           <label class="cw-consent"><input type="checkbox" id="consentBox"<?= !empty($consultation['RecordingConsent']) ? ' checked' : '' ?>> Patient consented to recording</label>
+            <label class="cw-language" for="transcriptLanguage"><span>Spoken language</span>
+              <select id="transcriptLanguage" name="transcript_language">
+                <option value="auto">Automatic</option>
+                <option value="tl">Tagalog / Filipino</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+          </div>
           <div class="cw-rec-actions">
             <button type="button" class="btn btn-outline btn-sm" id="recStart">● Start recording</button>
             <button type="button" class="btn btn-outline btn-sm" id="recPause" hidden>❚❚ Pause</button>
@@ -469,25 +492,10 @@ require __DIR__ . '/../includes/header.php';
         <?php endif; ?>
         <audio id="recPlayer" controls<?= !empty($consultation['AudioFilePath']) ? ' src="' . HQ_BASE_URL . '/physician/audio-stream.php?appointment_id=' . (int) $appointmentId . '"' : ' hidden' ?>></audio>
 
-        <p class="cw-muted cw-small">Record with patient consent, then stop. Whisper will transcribe the saved recording. Review the text before using it.</p>
+        <p class="cw-muted cw-small">Choose the spoken language, record with patient consent, then stop. The recording will save and transcribe automatically. Review the text before using it.</p>
           <details class="cw-transcript" id="transcriptPanel" open>
             <summary>Consultation transcript</summary>
             <p id="transcriptStatus" class="cw-muted cw-small" role="status"></p>
-            <?php if (!$latestTranscript || !$isCompleted): ?>
-              <form method="post" id="transcribeForm">
-                <label class="cw-label" for="transcriptLanguage">Spoken language</label>
-                <select id="transcriptLanguage" name="transcript_language" style="width:100%;padding:10px;margin-bottom:10px;font:inherit;border:1px solid #cbd5e1;border-radius:8px">
-                  <option value="auto">Automatic (detect dominant language)</option>
-                  <option value="tl">Tagalog / Filipino (also try for Tagalog + English)</option>
-                  <option value="en">English</option>
-                </select>
-                <p class="cw-muted cw-small">For Tagalog + English, try Tagalog / Filipino if Automatic chooses the wrong language. Automatic detects the dominant language from the opening audio. Bisaya/Cebuano accuracy is experimental. No translation is applied.</p>
-                <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-                <input type="hidden" name="form_type" value="generate_transcript">
-                <input type="hidden" name="appointment_id" value="<?= (int) $appointmentId ?>">
-                <button type="submit" class="btn btn-outline btn-sm"<?= $isCompleted ? ' disabled' : '' ?> id="transcribeBtn"<?= empty($consultation['AudioFilePath']) ? ' disabled' : '' ?>><?= $latestTranscript ? 'Transcribe recording again' : 'Generate transcript' ?></button>
-              </form>
-            <?php endif; ?>
               <form method="post" data-save-first id="transcriptEditForm"<?= !$latestTranscript ? ' hidden' : '' ?>>
                 <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
                 <input type="hidden" name="form_type" value="save_corrected_transcript">
@@ -505,10 +513,10 @@ require __DIR__ . '/../includes/header.php';
         </div>
         <p class="cw-summary" id="aiSummary"<?= $summaryText === '' ? ' hidden' : '' ?>><?= htmlspecialchars($summaryText) ?></p>
         <?php if ($summarySetupNotice !== ''): ?><p class="form-message cw-info"><?= htmlspecialchars($summarySetupNotice) ?></p><?php endif; ?>
-        <p id="summaryStatus" class="cw-muted cw-small" role="status"><?= $summaryText === '' ? 'Review the transcript, then generate a draft summary.' : 'Saved draft. Verify every statement against the consultation.' ?></p>
+        <p id="summaryStatus" class="cw-muted cw-small" role="status"><?= $summaryNeedsRefresh ? 'Transcript changed. Regenerate the summary before inserting it into notes.' : ($summaryText === '' ? 'A draft summary will generate automatically after transcription.' : 'Saved draft. Verify every statement against the consultation.') ?></p>
         <?php if (!$isCompleted): ?>
           <div class="cw-rec-actions">
-            <button type="button" class="btn btn-outline btn-sm" id="insertSummary"<?= $summaryText === '' ? ' disabled' : '' ?>>Insert into notes</button>
+            <button type="button" class="btn btn-outline btn-sm" id="insertSummary"<?= $summaryText === '' || $summaryNeedsRefresh ? ' disabled' : '' ?>>Insert into notes</button>
             <form method="post" id="summaryForm">
               <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
               <input type="hidden" name="form_type" value="regenerate_summary">
@@ -525,6 +533,8 @@ require __DIR__ . '/../includes/header.php';
       <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
       <input type="hidden" name="appointment_id" value="<?= (int) $appointmentId ?>">
       <input type="hidden" name="form_type" value="save_draft" id="notesFormType">
+      <input type="hidden" name="summary_id" id="approvedSummaryId" value="<?= (int)($latestSummary['TranscriptVersionID']??0) ?>">
+      <label class="cw-summary-approval"><input type="checkbox" name="approve_summary" id="approveSummary" value="1" <?= $summaryText==='' || $summaryNeedsRefresh?'disabled':'' ?>> I reviewed the AI summary and approve showing it to the patient when this consultation is completed.</label>
 
       <section class="sd-card">
         <div class="cw-card-head">
@@ -534,9 +544,9 @@ require __DIR__ . '/../includes/header.php';
         <label class="cw-label">Subjective<textarea name="subjective" id="subjective" rows="3" placeholder="History and symptoms in the patient's words"<?= $readonly ?>><?= htmlspecialchars($notes['subjective']) ?></textarea></label>
         <span class="cw-label">Objective · vitals</span>
         <div class="cw-vitals">
-          <input name="vital_bp" placeholder="BP e.g. 120/80" aria-label="Blood pressure" value="<?= htmlspecialchars($notes['vitals']['bp']) ?>"<?= $readonly ?>>
-          <input name="vital_temp" placeholder="Temp e.g. 38.2 °C" aria-label="Temperature" value="<?= htmlspecialchars($notes['vitals']['temp']) ?>"<?= $readonly ?>>
-          <input name="vital_weight" placeholder="Weight e.g. 58 kg" aria-label="Weight" value="<?= htmlspecialchars($notes['vitals']['weight']) ?>"<?= $readonly ?>>
+          <input type="text" inputmode="numeric" pattern="[0-9]+(/[0-9]+)?" maxlength="20" data-vital-format="bp" title="Numbers only, for example 120/80" name="vital_bp" placeholder="BP e.g. 120/80" aria-label="Blood pressure" value="<?= htmlspecialchars($notes['vitals']['bp']) ?>"<?= $readonly ?>>
+          <input type="text" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" maxlength="20" data-vital-format="decimal" title="Numbers only; decimals are allowed" name="vital_temp" placeholder="Temp e.g. 38.2 °C" aria-label="Temperature" value="<?= htmlspecialchars($notes['vitals']['temp']) ?>"<?= $readonly ?>>
+          <input type="text" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" maxlength="20" data-vital-format="decimal" title="Numbers only; decimals are allowed" name="vital_weight" placeholder="Weight e.g. 58 kg" aria-label="Weight" value="<?= htmlspecialchars($notes['vitals']['weight']) ?>"<?= $readonly ?>>
         </div>
         <label class="cw-label">Assessment<textarea name="assessment" rows="2" placeholder="Diagnosis or impression"<?= $readonly ?>><?= htmlspecialchars($notes['assessment']) ?></textarea></label>
         <label class="cw-label">Plan<textarea name="plan" rows="3" placeholder="Treatment, advice, follow-up"<?= $readonly ?>><?= htmlspecialchars($notes['plan']) ?></textarea></label>
@@ -594,6 +604,15 @@ require __DIR__ . '/../includes/header.php';
 </template>
 
 <?php if (!$isCompleted): ?>
+<dialog id="finalizeConsultationModal" class="modal-box cw-finalize-dialog" aria-labelledby="finalizeConsultationTitle" aria-describedby="finalizeConsultationDescription">
+  <button type="button" class="modal-close" id="closeFinalizeModal" aria-label="Close">&times;</button>
+  <h2 id="finalizeConsultationTitle">Finalize consultation?</h2>
+  <p class="modal-subtitle" id="finalizeConsultationDescription">Your notes will be finalized. The front desk will then confirm the visit as complete.</p>
+  <div class="cw-finalize-buttons">
+    <button type="button" class="btn btn-outline" id="cancelFinalizeModal" autofocus>Keep editing</button>
+    <button type="button" class="btn btn-primary" id="confirmFinalizeModal">Finalize consultation</button>
+  </div>
+</dialog>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var form = document.getElementById('notesForm');
@@ -624,20 +643,66 @@ document.addEventListener('DOMContentLoaded', function () {
       })
       .catch(function () { savedLabel.textContent = 'Could not save — retrying'; return false; });
   }
+  form.querySelectorAll('[data-vital-format]').forEach(function (input) {
+    var allowed = input.dataset.vitalFormat === 'bp' ? /^[0-9]*(?:\/[0-9]*)?$/ : /^[0-9]*(?:\.[0-9]*)?$/;
+    function accepts(text) {
+      var start = input.selectionStart == null ? input.value.length : input.selectionStart;
+      var end = input.selectionEnd == null ? start : input.selectionEnd;
+      return allowed.test(input.value.slice(0, start) + text + input.value.slice(end));
+    }
+    input.addEventListener('beforeinput', function (event) {
+      if (event.data != null && !accepts(event.data)) event.preventDefault();
+    });
+    input.addEventListener('paste', function (event) {
+      if (!accepts(event.clipboardData.getData('text'))) event.preventDefault();
+    });
+  });
   form.addEventListener('input', function () { dirty = true; ago(); });
   setInterval(function () { if (dirty) saveDraft(); }, 20000);
   setInterval(ago, 5000);
   ago();
   window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-  // Save / finalize buttons.
+  // Confirm finalization in an accessible modal, then submit the original notes form.
+  var finalizeModal = document.getElementById('finalizeConsultationModal');
+  var finalizeButton = form.querySelector('[data-submit="finalize_notes"]');
+  var confirmFinalize = document.getElementById('confirmFinalizeModal');
+  var finalizationApproved = false;
+  var notesSubmitting = false;
   form.querySelectorAll('[data-submit]').forEach(function (btn) {
-    btn.addEventListener('click', function (e) {
-      var type = btn.getAttribute('data-submit');
-      document.getElementById('notesFormType').value = type;
-      if (type === 'finalize_notes' && !confirm('Finalize this consultation? The front desk will then confirm the visit as complete.')) { e.preventDefault(); return; }
-      dirty = false; // the full-page submit saves everything
+    btn.addEventListener('click', function () {
+      document.getElementById('notesFormType').value = btn.getAttribute('data-submit');
     });
+  });
+  form.addEventListener('submit', function (event) {
+    if (notesSubmitting) { event.preventDefault(); return; }
+    var type = event.submitter ? event.submitter.getAttribute('data-submit') : 'save_draft';
+    document.getElementById('notesFormType').value = type || 'save_draft';
+    if (type === 'finalize_notes' && !finalizationApproved) {
+      event.preventDefault();
+      finalizeModal.showModal();
+      return;
+    }
+    finalizationApproved = false;
+    notesSubmitting = true;
+    dirty = false;
+  });
+  function closeFinalizeModal() { finalizeModal.close(); }
+  document.getElementById('closeFinalizeModal').addEventListener('click', closeFinalizeModal);
+  document.getElementById('cancelFinalizeModal').addEventListener('click', closeFinalizeModal);
+  finalizeModal.addEventListener('close', function () { finalizeButton.focus(); });
+  finalizeModal.addEventListener('click', function (event) {
+    if (event.target !== finalizeModal) return;
+    var bounds = finalizeModal.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeFinalizeModal();
+  });
+  confirmFinalize.addEventListener('click', function () {
+    if (notesSubmitting) return;
+    finalizationApproved = true;
+    finalizeModal.close();
+    form.requestSubmit(finalizeButton);
+    finalizationApproved = false;
+    if (notesSubmitting) { confirmFinalize.disabled = true; confirmFinalize.textContent = 'Finalizing...'; }
   });
 
   // Other forms on the page (transcript, regenerate) save notes first.
@@ -682,29 +747,60 @@ document.addEventListener('DOMContentLoaded', function () {
   var summaryStatus = document.getElementById('summaryStatus');
   var transcriptEdited = false;
   var transcriptEditor = document.getElementById('transcriptText');
-  if (transcriptEditor) transcriptEditor.addEventListener('input', function() { transcriptEdited = true; });
-  if (summaryForm) summaryForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    if (summaryBtn.disabled) return;
+  var summaryBusy = false;
+  var transcriptRevision = 0;
+  function markSummaryStale() {
+    document.getElementById('approveSummary').checked=false;document.getElementById('approveSummary').disabled=true;
+    if (insertBtn) insertBtn.disabled = true;
+    if (summaryStatus) summaryStatus.textContent = 'Transcript changed. Regenerate the summary before inserting it into notes.';
+  }
+  if (transcriptEditor) transcriptEditor.addEventListener('input', function() {
+    transcriptEdited = true;
+    transcriptRevision++;
+    markSummaryStale();
+  });
+  function generateSummary() {
+    if (!summaryForm || summaryBusy) return Promise.resolve(false);
+    summaryBusy = true;
     summaryBtn.disabled = true;
+    insertBtn.disabled = true;
+    if (startBtn) startBtn.disabled = true;
     summaryStatus.textContent = 'Generating a local draft summary. The first request may take longer while the model loads.';
-    (dirty ? saveDraft() : Promise.resolve(true)).then(function(ok) {
+    var sourceRevision = transcriptRevision;
+    var sourceText = transcriptEditor.value;
+    return (dirty ? saveDraft() : Promise.resolve(true)).then(function(ok) {
       if (!ok) throw new Error('Save your notes before generating the summary.');
       if (!transcriptEdited) return {ok:true};
-      return post({form_type:'save_corrected_transcript', corrected_transcript:transcriptEditor.value});
+      return post({form_type:'save_corrected_transcript', corrected_transcript:sourceText});
     }).then(function(json) {
       if (!json.ok) throw new Error((json.errors || ['Could not save transcript corrections.']).join(' '));
-      transcriptEdited = false;
+      if (transcriptRevision === sourceRevision) transcriptEdited = false;
       return post({form_type:'regenerate_summary'});
     }).then(function(json) {
       if (!json.ok) throw new Error((json.errors || ['Summary generation failed.']).join(' '));
       summary.textContent = json.summary;
+      document.getElementById('approvedSummaryId').value=json.summary_id;
+      document.getElementById('approveSummary').checked=false;
+      document.getElementById('approveSummary').disabled=false;
       summary.hidden = false;
-      insertBtn.disabled = false;
       summaryBtn.textContent = 'Regenerate summary';
-      summaryStatus.textContent = 'Draft saved. Review every statement before inserting it into notes.';
-    }).catch(function(err) { summaryStatus.textContent = err.message; })
-      .finally(function() { summaryBtn.disabled = false; });
+      if (transcriptRevision !== sourceRevision) {
+        markSummaryStale();
+        return false;
+      }
+      insertBtn.disabled = false;
+      summaryStatus.textContent = 'AI draft saved. Review every statement before inserting it into notes.';
+      return true;
+    }).catch(function(err) { summaryStatus.textContent = err.message; return false; })
+      .finally(function() {
+        summaryBusy = false;
+        summaryBtn.disabled = !!busy || !!uploadingRecording;
+        if (startBtn) startBtn.disabled = !!busy || !!uploadingRecording || !consentBox.checked;
+      });
+  }
+  if (summaryForm) summaryForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (!summaryBtn.disabled) generateSummary();
   });
 
   // ---- Recording: consent, start/pause/resume/stop, auto-upload ----
@@ -717,30 +813,45 @@ document.addEventListener('DOMContentLoaded', function () {
   var status = document.getElementById('recStatus');
   var player = document.getElementById('recPlayer');
   var consentPending = Promise.resolve({ok:true});
-  var transcribeForm = document.getElementById('transcribeForm');
-  var transcribeBtn = document.getElementById('transcribeBtn');
   var transcriptStatus = document.getElementById('transcriptStatus');
   var busy = false;
+  var uploadingRecording = false;
+  var languageSelect = document.getElementById('transcriptLanguage');
   function transcribeRecording() {
-    if (busy) return Promise.resolve();
-    busy = true; if (summaryBtn) summaryBtn.disabled = true; startBtn.disabled = true; transcribeBtn.disabled = true; document.getElementById('transcriptLanguage').disabled = true;
-    transcriptStatus.textContent = 'Whisper is transcribing. This can take several minutes. Keep this page open.';
+    if (busy || (recorder && recorder.state !== 'inactive')) return Promise.resolve(false);
+    busy = true; if (summaryBtn) summaryBtn.disabled = true; startBtn.disabled = true; document.getElementById('transcriptLanguage').disabled = true;
+    transcriptStatus.textContent = 'Processing recording: generating the transcript. This can take several minutes. Keep this page open.';
+    document.getElementById('transcriptPanel').open = true;
+    status.textContent = 'Recording saved. Transcribing automatically...';
     return post({form_type:'generate_transcript', transcript_language:document.getElementById('transcriptLanguage').value}).then(function(json) {
-      if (!json.ok) throw new Error((json.errors || ['Transcription failed.']).join(' '));
+      if (!json.ok) {
+        if (json.unsaved_text) {
+          document.getElementById('transcriptText').value = json.unsaved_text;
+          document.getElementById('transcriptEditForm').hidden = false;
+          transcriptEdited = true;
+          var saveError = new Error('Transcript generated but not saved. Keep this page open, start MySQL in XAMPP, then use Save correction.');
+          saveError.unsavedTranscript = true;
+          throw saveError;
+        }
+        throw new Error((json.errors || ['Transcription failed.']).join(' '));
+      }
       document.getElementById('transcriptText').value = json.text;
+      transcriptRevision++;
+      markSummaryStale();
       transcriptEdited = false;
       document.getElementById('transcriptEditForm').hidden = false;
       var languageNames = {tl:'Tagalog / Filipino', en:'English'};
       transcriptStatus.textContent = 'Model: ' + json.model + '. Detected/selected language: ' + (languageNames[json.language] || json.language) + '. Review mixed-language words and medical terms.';
       document.getElementById('transcriptPanel').open = true;
-    }).catch(function(err) { transcriptStatus.textContent = err.message; }).finally(function() {
-      busy = false; if (summaryBtn) summaryBtn.disabled = false; transcribeBtn.disabled = false; document.getElementById('transcriptLanguage').disabled = false; startBtn.disabled = !consentBox.checked;
+      status.textContent = 'Transcript generated. Creating the AI draft summary...';
+      return generateSummary().then(function(generated) {
+        status.textContent = generated ? 'Processing complete. Review the transcript and AI draft summary.' : 'Transcript saved. The summary needs attention; check the AI summary message below.';
+        return true;
+      });
+    }).catch(function(err) { transcriptStatus.textContent = err.message; status.textContent = err.unsavedTranscript ? 'Transcript generated but not saved. Restore the database connection before saving.' : 'Processing did not finish. Check the message below before trying again.'; return false; }).finally(function() {
+      busy = false; if (summaryBtn) summaryBtn.disabled = false; document.getElementById('transcriptLanguage').disabled = false; startBtn.disabled = !consentBox.checked;
     });
   }
-  if (transcribeForm) transcribeForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    (dirty ? saveDraft() : Promise.resolve(true)).then(function(ok) { if (ok) transcribeRecording(); });
-  });
   var recorder = null, chunks = [], elapsed = 0, tickStart = 0, ticker = null;
 
   function post(fields) {
@@ -755,7 +866,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var s = Math.floor(total / 1000);
     timer.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   }
-  function syncConsent() { startBtn.disabled = !consentBox.checked; status.textContent = consentBox.checked ? '' : 'Tick consent before recording.'; }
+  function syncConsent() { startBtn.disabled = summaryBusy || uploadingRecording || busy || !consentBox.checked; status.textContent = consentBox.checked ? '' : 'Tick consent before recording.'; }
 
   if (!navigator.mediaDevices || !window.MediaRecorder) {
     startBtn.disabled = true;
@@ -784,32 +895,54 @@ document.addEventListener('DOMContentLoaded', function () {
           stream.getTracks().forEach(function (t) { t.stop(); });
           var mime = recorder.mimeType || 'audio/webm';
           var blob = new Blob(chunks, { type: mime });
+          uploadingRecording = true;
           startBtn.disabled = true;
+          consentBox.disabled = true;
+
+          if (summaryBtn) summaryBtn.disabled = true;
+          languageSelect.disabled = true;
           player.src = URL.createObjectURL(blob);
           player.hidden = false;
-          status.textContent = 'Saving recording…';
+          status.textContent = 'Processing recording: saving audio...';
+          transcriptStatus.textContent = 'Saving your recording before transcription starts.';
+          document.getElementById('transcriptPanel').open = true;
           var data = new FormData();
           data.set('csrf_token', csrf);
           data.set('appointment_id', appointmentId);
           data.set('form_type', 'upload_audio');
           data.set('duration_seconds', Math.round(elapsed / 1000));
           data.set('audio_file', new File([blob], 'consultation.webm', { type: mime }));
+          var recordingSaved = false;
           fetch(pageUrl, { method: 'POST', body: data, headers: { 'X-Requested-With': 'fetch' } })
             .then(function (r) { return r.json(); })
             .then(function (json) {
               if (!json.ok) throw new Error((json.errors || ['Could not save the recording.']).join(' '));
-              status.textContent = 'Recording saved.';
-              transcribeBtn.disabled = false;
-              return transcribeRecording();
+              recordingSaved = true;
+              status.textContent = 'Recording saved. Starting transcription...';
+              return (dirty ? saveDraft() : Promise.resolve(true)).then(function(ok) {
+                if (!ok) throw new Error('Recording saved. Save your notes before recording again.');
+                return transcribeRecording();
+              });
             })
-            .catch(function(err) { status.textContent = err.message; })
-            .finally(function() { if (!busy) startBtn.disabled = !consentBox.checked; });
+            .catch(function(err) { status.textContent = err.message; transcriptStatus.textContent = err.message; })
+            .finally(function() {
+              uploadingRecording = false;
+              consentBox.disabled = false;
+              if (!busy) {
+                startBtn.disabled = !consentBox.checked;
+                languageSelect.disabled = false;
+                if (summaryBtn) summaryBtn.disabled = false;
+              }
+            });
         };
         recorder.start();
         tickStart = Date.now();
         ticker = setInterval(showTime, 250);
         pill.hidden = false; startBtn.hidden = true; pauseBtn.hidden = false; stopBtn.hidden = false;
         consentBox.disabled = true;
+
+        if (summaryBtn) summaryBtn.disabled = true;
+        status.textContent = 'Recording. Choose Stop to save and process automatically.';
       }).catch(function(err) {
         startBtn.disabled = !consentBox.checked;
         status.textContent = err.name === 'NotAllowedError' ? 'Microphone permission is blocked. Allow the microphone in your browser site settings and try again.' : (err.name === 'NotFoundError' ? 'No microphone was found. Connect a microphone and try again.' : err.message);
@@ -827,11 +960,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     stopBtn.addEventListener('click', function () {
+      if (!recorder || recorder.state === 'inactive') return;
+      startBtn.disabled = true;
       if (tickStart) elapsed += Date.now() - tickStart;
       tickStart = 0; clearInterval(ticker); showTime();
       recorder.stop();
       pill.hidden = true; pauseBtn.hidden = true; stopBtn.hidden = true; startBtn.hidden = false;
-      startBtn.textContent = '● Record again'; consentBox.disabled = false;
+      startBtn.textContent = '● Record again'; consentBox.disabled = true;
     });
   }
 });

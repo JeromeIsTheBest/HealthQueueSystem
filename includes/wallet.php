@@ -13,16 +13,22 @@
  */
 
 /** Adds funds to a patient's wallet (a simulated top-up). Caller must be inside a transaction. */
-function walletTopUp(PDO $pdo, int $patientId, float $amount, string $description): float
+function walletTopUp(PDO $pdo, int $patientId, float $amount, string $description, ?string $requestKey = null): float
 {
     $stmt = $pdo->prepare('SELECT WalletBalance FROM Users WHERE UserID = ? FOR UPDATE');
     $stmt->execute([$patientId]);
-    $newBalance = round((float) $stmt->fetchColumn() + $amount, 2);
+    $balance=(float)$stmt->fetchColumn();
+    if ($requestKey !== null) {
+        if(!preg_match('/\A[a-f0-9]{64}\z/',$requestKey))throw new RuntimeException('Refresh the wallet page and try again.');
+        $existing=$pdo->prepare('SELECT PatientID FROM WalletTransactions WHERE RequestKey=? FOR UPDATE');$existing->execute([$requestKey]);$owner=$existing->fetchColumn();
+        if($owner!==false){if((int)$owner!==$patientId)throw new RuntimeException('Invalid top-up request.');return $balance;}
+    }
+    $newBalance = round($balance + $amount, 2);
 
     $pdo->prepare('UPDATE Users SET WalletBalance = ? WHERE UserID = ?')->execute([$newBalance, $patientId]);
     $pdo->prepare(
-        'INSERT INTO WalletTransactions (PatientID, Type, Amount, BalanceAfter, Description) VALUES (?, ?, ?, ?, ?)'
-    )->execute([$patientId, 'TopUp', $amount, $newBalance, $description]);
+        'INSERT INTO WalletTransactions (PatientID, Type, Amount, BalanceAfter, Description, RequestKey) VALUES (?, ?, ?, ?, ?, ?)'
+    )->execute([$patientId, 'TopUp', $amount, $newBalance, $description, $requestKey]);
 
     return $newBalance;
 }
@@ -47,6 +53,13 @@ function walletDeduct(PDO $pdo, int $patientId, float $amount, ?int $appointment
     return true;
 }
 
+/** Original wallet debit, never the clinic's mutable current fee. */
+function walletBookingAmount(PDO $pdo,int $patientId,int $appointmentId): float
+{
+    $stmt=$pdo->prepare("SELECT COALESCE(SUM(Amount),0) FROM WalletTransactions WHERE PatientID=? AND RelatedAppointmentID=? AND Type='BookingPayment'");
+    $stmt->execute([$patientId,$appointmentId]);return round((float)$stmt->fetchColumn(),2);
+}
+
 /** Refunds funds back into a patient's wallet (e.g. after a cancellation). Caller must be inside a transaction. */
 function walletRefund(PDO $pdo, int $patientId, float $amount, ?int $appointmentId, string $description): float
 {
@@ -58,6 +71,8 @@ function walletRefund(PDO $pdo, int $patientId, float $amount, ?int $appointment
         $existing->execute([$appointmentId]);
         if ((int) $existing->fetchColumn()) return $currentBalance;
     }
+    if ($appointmentId !== null) $amount=walletBookingAmount($pdo,$patientId,$appointmentId);
+    if ($amount <= 0) return $currentBalance;
     $newBalance = round($currentBalance + $amount, 2);
 
     $pdo->prepare('UPDATE Users SET WalletBalance = ? WHERE UserID = ?')->execute([$newBalance, $patientId]);
@@ -86,8 +101,28 @@ function cancelBooking(PDO $pdo, int $appointmentId, int $patientId, string $rea
         $refunded = $pdo->prepare("SELECT COUNT(*) FROM WalletTransactions WHERE RelatedAppointmentID = ? AND Type = 'Refund'");
         $refunded->execute([$appointmentId]);
         if (!(int) $refunded->fetchColumn()) {
-            walletRefund($pdo, $patientId, round((float) $booking['BaseConsultationFee'], 2), $appointmentId, $description . $booking['ClinicName']);
+            walletRefund($pdo, $patientId, walletBookingAmount($pdo,$patientId,$appointmentId), $appointmentId, $description . $booking['ClinicName']);
         }
     }
     return true;
+}
+
+/** Atomically pay a pending booking once. Caller owns the transaction. */
+function payBookingFromWallet(PDO $pdo, int $patientId, int $appointmentId): array
+{
+    if (!$pdo->inTransaction()) throw new LogicException('Booking payment requires a transaction.');
+    $stmt = $pdo->prepare('SELECT a.Status, a.BookingFeePaid, c.BaseConsultationFee, c.ClinicName FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.AppointmentID = ? AND a.PatientID = ? FOR UPDATE');
+    $stmt->execute([$appointmentId, $patientId]);
+    $booking = $stmt->fetch();
+    if (!$booking) throw new RuntimeException('This appointment is unavailable.');
+    if ((int) $booking['BookingFeePaid']) return ['paid' => true, 'already_paid' => true];
+    if ($booking['Status'] !== 'Pending') throw new RuntimeException('This request can no longer be paid for.');
+    $fee = round((float) $booking['BaseConsultationFee'], 2);
+    if (!is_finite($fee) || $fee < 0) throw new RuntimeException('The booking fee is unavailable. Please contact the clinic.');
+    if (!walletDeduct($pdo, $patientId, $fee, $appointmentId, 'Booking fee for ' . $booking['ClinicName'])) {
+        throw new RuntimeException('Your wallet balance is not enough. Add funds to your wallet, then try again.');
+    }
+    $pdo->prepare("UPDATE Appointments SET BookingFeePaid = 1, BookingFeePaidAt = NOW(), BookingPaymentMethod = 'wallet' WHERE AppointmentID = ? AND PatientID = ?")
+        ->execute([$appointmentId, $patientId]);
+    return ['paid' => true, 'already_paid' => false];
 }

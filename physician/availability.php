@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/../includes/input-validation.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
@@ -31,6 +32,7 @@ $chipTime = static function (string $time): string {
 
 $today = $pdo ? (string) $pdo->query('SELECT CURDATE()')->fetchColumn() : date('Y-m-d');
 $monthParam = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? $_POST['month'] ?? '')) ? ($_GET['month'] ?? $_POST['month']) : substr($today, 0, 7);
+if(!hqValidCalendarValue((string)$monthParam,'Y-m')){$monthParam=substr($today,0,7);$errors[]='Choose a valid calendar month.';}
 $monthStart = new DateTimeImmutable($monthParam . '-01');
 $monthEnd = $monthStart->modify('last day of this month');
 
@@ -40,7 +42,7 @@ function postedDates(string $today): array
     $dates = [];
     foreach (explode(',', (string) ($_POST['dates'] ?? '')) as $date) {
         $date = trim($date);
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && $date >= $today) $dates[$date] = true;
+        if (hqValidCalendarValue($date) && $date >= $today) $dates[$date] = true;
     }
     return array_keys($dates);
 }

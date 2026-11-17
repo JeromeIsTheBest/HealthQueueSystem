@@ -1,74 +1,37 @@
-# Semaphore SMS
+# textbee SMS setup
 
-HealthQueue queues appointment confirmations when staff accept requests. The
-CLI worker checks today's queue for patients with at most two eligible waiting
-patients ahead, and patients currently being called. Patients do not need to
-keep a page open. Run the worker every minute; alerts are not instantaneous and
-provider delivery may take longer. Repeated calls do not send another SMS for
-the same queue entry. Reschedule/cancellation SMS and OTP are not included.
+HealthQueue sends booking confirmations, approaching-turn alerts (0, 1 or 2 eligible waiting patients ahead), and called-patient alerts through textbee. Messages are queued in SmsOutbox; only the CLI worker contacts textbee. No branded sender name is needed: the recipient sees your Android SIM number.
 
-## Setup
+1. Verify your textbee account email, register an Android phone, grant SMS permission and keep it online with SMS allowance. Set battery usage to unrestricted. Select a default device or copy its device ID.
+2. Create a textbee API key. Store it only in local server configuration, never in Git or chat.
+3. Edit existing entries in C:\xampp\apache\conf\extra\httpd-xampp.conf:
 
-1. Obtain a Semaphore API key, approved sender name and SMS credits.
-   Provider documentation: https://semaphore.co/docs
-2. Back up the database. Apply
-   `database/migrations/20261112_create_sms_outbox.sql` once using phpMyAdmin.
-   Fresh installations include this table in `database/schema.sql`.
-   The PatientProfileDetails migration must also be installed.
-3. Enable PHP cURL for CLI PHP. Configure these environment variables for
-   **both Apache/PHP and the scheduled CLI process**:
+```apache
+SetEnv HQ_SMS_ENABLED "1"
+SetEnv HQ_TEXTBEE_API_KEY "YOUR_PRIVATE_TEXTBEE_API_KEY"
+SetEnv HQ_TEXTBEE_DEVICE_ID "YOUR_DEVICE_ID"
+```
 
-   ```text
-   HQ_SMS_ENABLED=1
-   HQ_SEMAPHORE_API_KEY=your-private-api-key
-   HQ_SMS_SENDER_NAME=your-approved-sender-name
-   ```
+Device ID is optional if you have a default device. Restart Apache after editing. Legacy provider credentials are no longer used.
 
-   Keys belong in the server environment, never in Git or browser code.
-   Restart Apache after environment changes. Missing configuration disables SMS.
-4. Save a valid Philippine mobile number on a test patient and enable their
-   SMS Notifications preference. Accepted formats include 09xxxxxxxxx,
-   639xxxxxxxxx and +639xxxxxxxxx. Existing accounts with no saved preference
-   follow the profile's existing default of enabled. Obtain permission before
-   using real recipients; use your own number for initial testing.
-5. Run manually (this sends real, billable SMS when enabled):
+4. Check without sending:
 
-   ```powershell
-   C:\xampp\php\php.exe C:\xampp\htdocs\healthqueue\scripts\process-sms.php
-   ```
+```powershell
+powershell.exe -NoProfile -File C:\xampp\htdocs\healthqueue\scripts\process-sms.ps1 -Check
+```
 
-6. Schedule every minute using Windows Task Scheduler, or Linux cron:
+5. Use your own number and enable SMS Notifications in the patient profile. Approve a valid test booking, then send eligible queued messages:
 
-   ```cron
-   * * * * * /usr/bin/php /var/www/healthqueue/scripts/process-sms.php >> /var/log/healthqueue-sms.log 2>&1
-   ```
+```powershell
+powershell.exe -NoProfile -File C:\xampp\htdocs\healthqueue\scripts\process-sms.ps1
+```
 
-   Use your actual installation path. Ensure the scheduled process receives
-   the environment variables and database access. Restrict web access to
-   scripts, SQL files and configuration during deployment.
+The launcher reads only SMS SetEnv values into its process environment. Direct php.exe invocation instead requires the same environment variables in that shell. Run the worker every minute using Windows Task Scheduler for background alerts. The local Windows task `HealthQueue SMS Reminders` is now enabled and runs this launcher every minute. It runs while the current Windows user is logged in; keep the laptop, MySQL and Android sender phone available.
 
-## Operation and testing
+6. Inspect SmsOutbox. accepted means textbee accepted a batch for the phone, not confirmed delivery. ProviderMessageID stores smsBatchId. Check actual delivery in textbee and on the recipient phone. failed means configuration/request error; pending HTTP429 retries after five minutes up to three attempts; unknown outcomes are not resent automatically.
 
-Accept an appointment, then run the worker. For a current appointment, progress
-the queue and run again to check near-turn and call alerts. Run twice to verify
-no duplicates. Disable the preference before dispatch to verify it is skipped.
-Cancelled appointments, inactive accounts and invalid numbers are skipped.
-Run `php scripts/test-sms.php --database` for checks using session-local
-temporary tables. This requires a local MySQL connection and sends no SMS.
-Queue alerts older than ten minutes or whose queue state changed are skipped.
+Existing unknown/failed/accepted entries from the previous provider are not reset or resent during migration. Use a fresh test booking after configuration to avoid duplicating earlier messages.
 
-Inspect `SmsOutbox` using an administrator database tool. `accepted` means the
-provider returned a message ID, not confirmed handset delivery. ProviderStatus
-stores the initial provider status. Use that ID in Semaphore's dashboard/API
-to check subsequent delivery; automatic status polling is not included.
+No schema change is needed. Automated safe checks: `C:\xampp\php\php.exe scripts/test-sms.php --database`. They use temporary database tables and send no messages.
 
-Explicit HTTP 429 rate limits retry after five minutes, up to three attempts.
-Timeouts, server errors and interrupted sends become `unknown` and are not
-automatically resent: check Semaphore before manually retrying to avoid duplicate
-charges. Other explicit client errors fail. A database lock serializes workers.
-No live SMS is sent as part of installation or automated checks.
-
-SMS content contains operational notices only, without clinical notes. Limit
-database access and periodically remove old outbox rows according to your
-retention policy. Preserve event keys while related bookings remain active to
-keep duplicate protection effective.
+Official documentation: https://textbee.dev/docs/sending-sms/sending-sms

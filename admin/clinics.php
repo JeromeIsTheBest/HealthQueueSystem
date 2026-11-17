@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/input-validation.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
@@ -40,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($values['clinic_name'] === '') $errors[] = 'Clinic name is required.';
         if ($values['address'] === '') $errors[] = 'Address is required.';
         if ($values['contact_number'] === '') $errors[] = 'Contact number is required.';
+        if (!hqValidMobile($values['contact_number'])) $errors[] = 'Enter a valid mobile number';
         if (!is_numeric($values['base_consultation_fee']) || (float) $values['base_consultation_fee'] < 0) {
             $errors[] = 'Consultation fee must be a valid non-negative amount.';
         }
@@ -238,17 +240,21 @@ if ($pdo) {
 }
 
 $pageTitle = 'Manage Clinics — HealthQueue';
+$directoryKind = 'clinics';
+require __DIR__ . '/../includes/admin-directory.php';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="admin-shell"><div class="container">
-  <section class="admin-hero"><div><span class="eyebrow">Clinic directory</span><h1>Manage clinics</h1><p>Add new clinics, edit their details, or archive ones no longer partnered with HealthQueue.</p></div><a href="<?= HQ_BASE_URL ?>/admin/export.php?type=clinics" class="btn btn-outline">Export CSV</a></section>
+<main class="admin-shell dr-page"><div class="container dr-container">
+  <?php renderDirectoryHeading('Manage clinics', 'Keep your clinic directory organized and up to date.', 'clinicDirectoryModal', 'Add clinic'); ?>
 
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
   <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
-  <section class="admin-section" id="clinic-form">
-    <div class="portal-heading"><div><span class="section-kicker"><?= $editingClinic ? 'Edit clinic' : 'Add clinic' ?></span><h2><?= $editingClinic ? htmlspecialchars($editingClinic['ClinicName']) : 'New clinic' ?></h2></div></div>
+  <?php renderDirectoryStats(); ?>
+  <dialog class="modal-box dr-dialog" id="clinicDirectoryModal" aria-labelledby="directoryFormTitle" data-open-on-load="<?= $editingClinic || ($errors && ($_POST['form_type'] ?? '') === 'save_clinic') ? '1' : '0' ?>">
+    <button type="button" class="modal-close" data-directory-close aria-label="Close">&times;</button>
+    <div class="portal-heading"><div><span class="section-kicker"><?= $editingClinic ? 'Edit clinic' : 'Add clinic' ?></span><h2 id="directoryFormTitle"><?= $editingClinic ? htmlspecialchars($editingClinic['ClinicName']) : 'New clinic' ?></h2></div></div>
     <form class="registration-form" method="post" enctype="multipart/form-data" style="max-width:640px;">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
       <input type="hidden" name="form_type" value="save_clinic">
@@ -258,7 +264,7 @@ require __DIR__ . '/../includes/header.php';
         <label>Address<input name="address" value="<?= htmlspecialchars($values['address']) ?>" required></label>
       </div>
       <div class="form-stack form-cols-2">
-        <label>Contact number<input type="tel" name="contact_number" value="<?= htmlspecialchars($values['contact_number']) ?>" required></label>
+        <label>Contact number<input type="tel" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= htmlspecialchars($values['contact_number']) ?>" required></label>
         <label>Consultation fee (PHP)<input type="number" step="0.01" min="0" name="base_consultation_fee" value="<?= htmlspecialchars($values['base_consultation_fee']) ?>" required></label>
       </div>
       <div class="form-stack">
@@ -303,39 +309,32 @@ require __DIR__ . '/../includes/header.php';
       <button type="submit" class="btn btn-primary btn-block"><?= $editingClinic ? 'Save changes' : 'Add clinic' ?></button>
       <?php if ($editingClinic): ?><a href="<?= HQ_BASE_URL ?>/admin/clinics.php" class="text-link" style="display:block;text-align:center;margin-top:12px;">Cancel edit</a><?php endif; ?>
     </form>
-  </section>
+  </dialog>
 
-  <section class="admin-section">
-    <div class="portal-heading">
-      <div><span class="section-kicker"><?= $showArchived ? 'Archived' : 'Active directory' ?></span><h2><?= $showArchived ? 'Archived clinics' : 'All clinics' ?></h2></div>
-      <a href="<?= HQ_BASE_URL ?>/admin/clinics.php?<?= $showArchived ? '' : 'archived=1&' ?>q=<?= urlencode($search) ?>" class="text-link"><?= $showArchived ? 'View active directory' : 'View archived clinics' ?> <span>&rarr;</span></a>
-    </div>
-    <form method="get" class="admin-search">
-      <?php if ($showArchived): ?><input type="hidden" name="archived" value="1"><?php endif; ?>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Search by clinic name or address&hellip;">
-      <button type="submit" class="btn btn-outline btn-sm">Search</button>
-      <?php if ($search !== ''): ?><a href="<?= HQ_BASE_URL ?>/admin/clinics.php<?= $showArchived ? '?archived=1' : '' ?>" class="text-link">Clear</a><?php endif; ?>
-    </form>
+  <section class="admin-section dr-panel">
+    <div class="portal-heading"><h2>Clinic directory</h2><nav class="dr-directory-tabs" aria-label="Clinic directory view"><a href="clinic-requests.php">Clinic requests (<?= (int)$dirStats['pending'] ?>)</a><a href="<?= htmlspecialchars(dirUrl(['archived'=>null,'page'=>1])) ?>"<?= !$showArchived ? ' aria-current="page"' : '' ?>>Active directory</a><a href="<?= htmlspecialchars(dirUrl(['archived'=>1,'page'=>1])) ?>"<?= $showArchived ? ' aria-current="page"' : '' ?>>Archived</a></nav></div>
+    <?php renderDirectoryFilters(); ?>
     <div class="admin-table-wrap">
       <table class="admin-table">
         <thead><tr><th>Photo</th><th>Clinic</th><th>Location</th><th>Contact</th><th>Fee</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
         <?php foreach ($clinics as $clinic): ?>
           <tr>
-            <td><?php if (!empty($clinic['PhotoUrl'])): ?><img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($clinic['PhotoUrl']) ?>" alt="" style="width:52px;height:40px;object-fit:cover;border-radius:6px;"><?php else: ?><span class="unassigned">None</span><?php endif; ?></td>
+            <td><?php if (!empty($clinic['PhotoUrl'])): ?><img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($clinic['PhotoUrl']) ?>" alt="" style="width:52px;height:40px;object-fit:cover;border-radius:6px;"><?php else: ?><span class="dr-avatar dr-clinic-avatar"><?= dirIcon('clinic') ?></span><?php endif; ?></td>
             <td><strong><?= htmlspecialchars($clinic['ClinicName']) ?></strong></td>
             <td><?= htmlspecialchars($clinic['Address']) ?></td>
             <td><?= htmlspecialchars($clinic['ContactNumber']) ?></td>
             <td>PHP <?= number_format((float) $clinic['BaseConsultationFee'], 2) ?></td>
             <td><span class="status-badge status-<?= strtolower(htmlspecialchars($clinic['Status'])) ?>"><?= htmlspecialchars($clinic['Status']) ?></span></td>
             <td>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <div class="dr-actions">
                 <?php if (!$showArchived): ?>
-                  <a href="<?= HQ_BASE_URL ?>/admin/clinics.php?edit=<?= (int) $clinic['ClinicID'] ?>#clinic-form" class="btn btn-outline btn-sm">Edit</a>
+                  <a href="<?= HQ_BASE_URL ?>/admin/clinics.php?edit=<?= (int) $clinic['ClinicID'] ?>#clinicDirectoryModal" class="btn btn-outline btn-sm">Edit</a>
+                  <details class="dr-more"><summary aria-label="More clinic actions">&hellip;</summary><div class="dr-more-content">
                   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="update_clinic_status"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['ClinicID'] ?>">
                     <?php if ($clinic['Status'] === 'Active'): ?><button class="btn btn-outline btn-sm" name="status" value="Inactive" onclick="return confirm('Set this clinic to inactive? Patients will no longer be able to request appointments.');">Set inactive</button>
-                    <?php else: ?><button class="btn btn-primary btn-sm" name="status" value="Active">Activate</button><?php endif; ?>
+                      </div></details>
+                <?php else: ?><button class="btn btn-primary btn-sm" name="status" value="Active">Activate</button><?php endif; ?>
                   </form>
                   <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="archive_clinic"><input type="hidden" name="clinic_id" value="<?= (int) $clinic['ClinicID'] ?>">
                     <button class="btn btn-outline btn-sm" onclick="return confirm('Archive this clinic? It will be hidden from patients and the active directory. This can be undone.');">Archive</button>
@@ -353,8 +352,11 @@ require __DIR__ . '/../includes/header.php';
         </tbody>
       </table>
     </div>
+    <?php renderDirectoryPagination(); ?>
   </section>
+<aside class="dr-help"><strong>Clinic details matter</strong><p>Keep contact details, fees, photos and operating hours current for patients.</p></aside>
 </div></main>
 
 <script src="<?= HQ_BASE_URL ?>/assets/js/admin-clinic-photos.js?v=<?= filemtime(__DIR__ . '/../assets/js/admin-clinic-photos.js') ?>" defer></script>
+<script src="<?= HQ_BASE_URL ?>/assets/js/admin-directory.js?v=<?= filemtime(__DIR__ . '/../assets/js/admin-directory.js') ?>" defer></script>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/availability.php';
+require_once __DIR__ . '/../includes/input-validation.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Patient']);
@@ -20,6 +21,8 @@ if (!$pdo || !$clinicId) {
     echo json_encode(['dates' => [], 'times' => []]);
     exit;
 }
+
+if ((isset($_GET['date']) && !hqValidCalendarValue((string)$_GET['date'])) || (isset($_GET['month']) && !hqValidCalendarValue((string)$_GET['month'],'Y-m'))) {http_response_code(400);echo json_encode(['error'=>'Choose a valid calendar date.']);exit;}
 
 try {
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date'] ?? ''))) {

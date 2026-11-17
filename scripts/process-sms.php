@@ -2,8 +2,9 @@
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/sms.php';
-if (!smsEnabled()) { echo "SMS disabled or credentials missing.\n"; exit; }
+if (!smsEnabled()) { echo "textbee SMS disabled or HQ_TEXTBEE_API_KEY missing.\n"; exit; }
 if (!function_exists('curl_init')) { fwrite(STDERR, "PHP cURL is required.\n"); exit(1); }
+if (in_array('--check', $argv, true)) { echo "textbee SMS configuration ready. No SMS sent.\n"; exit; }
 $pdo = getDbConnection();
 if (!$pdo) exit(1);
 // Serialize scheduled workers, including network calls, without holding a transaction.
@@ -43,7 +44,7 @@ try {
             continue;
         }
         $pdo->prepare("UPDATE SmsOutbox SET Status = 'sending', Attempts = Attempts + 1 WHERE SmsID = ?")->execute([$row['SmsID']]);
-        $result = semaphoreSend($number, $row['Message']);
+        $result = textbeeSend($number, $row['Message']);
         if ($result['status'] === 'pending' && (int) $row['Attempts'] >= 2) $result['status'] = 'failed';
         $pdo->prepare('UPDATE SmsOutbox SET Status = ?, ProviderMessageID = ?, ProviderStatus = ? WHERE SmsID = ?')
             ->execute([$result['status'], $result['id'], $result['detail'], $row['SmsID']]);

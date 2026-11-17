@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors && !$pdo) $errors[] = 'Email verification is temporarily unavailable. Please try again later.';
 
     if (!$errors && $pdo) {
+        try {
+            if(!consumeRequestLimit($pdo,'verification-ip',requestClientAddress(),20) || !consumeRequestLimit($pdo,'verification-account',requestClientAddress().'|'.$email,3)) $errors[]='Too many attempts. Please try again in 15 minutes.';
+        } catch(PDOException $e) {error_log('Request limit unavailable.');$errors[]='This service is temporarily unavailable.';}
+    }
+    if (!$errors && $pdo) {
         $submitted = true;
         try {
             $stmt = $pdo->prepare(
@@ -49,6 +54,7 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($submitted): ?>
     <div class="form-message success" role="status">If that address belongs to an unverified HealthQueue patient account, a verification link will be sent when eligible. Check your inbox and spam folder.</div>
   <?php else: ?>
+    <?php if(isset($_GET['email_changed'])): ?><p class="form-message success" role="status">Your email was changed. Enter your new address below to verify it before signing in.</p><?php endif; ?>
     <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><div class="form-stack"><label>Email address<input type="email" name="email" value="<?= htmlspecialchars($email) ?>" required autofocus></label></div><button class="btn btn-primary btn-block" type="submit">Send verification link</button></form>
   <?php endif; ?>
   <p class="auth-footer-note"><a href="<?= HQ_BASE_URL ?>/auth/login.php">Back to sign in</a></p>

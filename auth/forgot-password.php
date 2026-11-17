@@ -31,6 +31,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors && $pdo) {
         try {
+            if(!consumeRequestLimit($pdo,'recovery-ip',requestClientAddress(),20) || !consumeRequestLimit($pdo,'recovery-account',requestClientAddress().'|'.$email,3)) $errors[]='Too many attempts. Please try again in 15 minutes.';
+        } catch(PDOException $e) {error_log('Request limit unavailable.');$errors[]='This service is temporarily unavailable.';}
+    }
+    if (!$errors && $pdo) {
+        try {
             $stmt = $pdo->prepare('SELECT UserID, FirstName FROM Users WHERE Email = ? AND DeletedAt IS NULL');
             $stmt->execute([$email]);
             $user = $stmt->fetch();

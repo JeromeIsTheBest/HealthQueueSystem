@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/input-validation.php';
 /**
  * Shared "My Profile" page for Staff, Physician and Admin accounts -- same
  * layout as the patient profile (profile card + Personal Information, with
@@ -45,11 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!$pdo) {
         $errors[] = 'The database is temporarily unavailable.';
     } elseif ($formType === 'update_profile') {
-        $firstName = trim((string) ($_POST['first_name'] ?? ''));
-        $lastName  = trim((string) ($_POST['last_name'] ?? ''));
+        $firstName = hqCapitalizeName((string) ($_POST['first_name'] ?? ''));
+        $lastName  = hqCapitalizeName((string) ($_POST['last_name'] ?? ''));
         $email     = trim((string) ($_POST['email'] ?? ''));
         $contact   = trim((string) ($_POST['contact_number'] ?? ''));
 
+        if (!hqValidMobile($contact)) $errors[] = 'Enter a valid mobile number';
         if ($firstName === '' || $lastName === '') $errors[] = 'First and last name are required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
         if ($profileContactRequired && $contact === '') $errors[] = 'Contact number is required.';
@@ -96,6 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $pdo->prepare('UPDATE Users SET PasswordHash = ? WHERE UserID = ?')
                     ->execute([password_hash($newPass, PASSWORD_DEFAULT), $user['UserID']]);
+                $pdo->prepare('UPDATE PasswordResets SET UsedAt=NOW() WHERE UserID=? AND UsedAt IS NULL')->execute([$user['UserID']]);
+                loginUser($user);
                 logActivity($pdo, $user['UserID'], $logClinicId, 'Changed password', $roleName . ' changed their own password.');
                 $flash = 'Password changed.';
             }
@@ -166,6 +170,7 @@ require __DIR__ . '/header.php';
 ?>
 
 <main class="portal-shell"><div class="profile-container">
+  <?php if(!empty($profile['ContactNumber']) && !hqValidMobile($profile['ContactNumber'])): ?><p class="form-message warning" role="status">Enter a valid mobile number</p><?php endif; ?>
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
   <?php if ($errors && !$reopenModal): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
@@ -263,7 +268,7 @@ require __DIR__ . '/header.php';
         <label>First name<input type="text" name="first_name" value="<?= $formValue('first_name', $profile['FirstName']) ?>" required></label>
         <label>Last name<input type="text" name="last_name" value="<?= $formValue('last_name', $profile['LastName']) ?>" required></label>
         <label>Email address<input type="email" name="email" value="<?= $formValue('email', $profile['Email']) ?>" required></label>
-        <label>Contact number<input type="tel" name="contact_number" value="<?= $formValue('contact_number', $profile['ContactNumber']) ?>"<?= $profileContactRequired ? ' required' : '' ?>></label>
+        <label>Contact number<input type="tel" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= $formValue('contact_number', $profile['ContactNumber']) ?>"<?= $profileContactRequired ? ' required' : '' ?>></label>
       </div>
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:14px;">Save Changes</button>
     </form>

@@ -1,0 +1,8 @@
+# Private application data must never be served as static web content.
+Options -Indexes
+RewriteEngine On
+RewriteRule (^|/)\.(?!well-known/) - [F,L]
+RewriteRule ^(?:storage|database|scripts|includes|config|vendor|docs)(?:/|$) - [F,L,NC]
+<FilesMatch "\.(?:sql|ps1|py|ini|log|bak|env|lock)$">
+ Require all denied
+</FilesMatch>

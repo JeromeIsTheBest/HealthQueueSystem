@@ -37,7 +37,9 @@ if (!is_file($fullPath)) {
     exit;
 }
 
-header('Content-Type: audio/webm');
+$extension=strtolower(pathinfo($fullPath,PATHINFO_EXTENSION));
+header('Content-Type: '.(['webm'=>'audio/webm','ogg'=>'audio/ogg','m4a'=>'audio/mp4'][$extension]??'application/octet-stream'));
+header('X-Content-Type-Options: nosniff');
 header('Content-Length: ' . filesize($fullPath));
 header('Cache-Control: private, no-store');
 readfile($fullPath);

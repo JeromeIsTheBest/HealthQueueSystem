@@ -1,0 +1,11 @@
+<?php
+require_once __DIR__.'/../config/db.php';require_once __DIR__.'/../includes/auth.php';define('HQ_BASE_URL','..');requireRole(['Admin']);$pdo=getDbConnection();$rows=[];$errors=[];
+if($pdo){try{$rows=$pdo->query("SELECT a.AppointmentID,a.BookingPaymentMethod,a.BookingFeePaidAt,c.ClinicName,t.Paid,t.Refunded FROM (SELECT RelatedAppointmentID,SUM(CASE WHEN Type='BookingPayment' THEN Amount ELSE 0 END) AS Paid,SUM(CASE WHEN Type='Refund' THEN Amount ELSE 0 END) AS Refunded FROM WalletTransactions GROUP BY RelatedAppointmentID HAVING Refunded>0 AND ABS(Paid-Refunded)>0.005) t JOIN Appointments a ON a.AppointmentID=t.RelatedAppointmentID JOIN Clinic c ON c.ClinicID=a.ClinicID")->fetchAll();}catch(PDOException $e){$errors[]='Reconciliation details are temporarily unavailable.';}}
+$isAdminDirectory=true;$pageTitle='Wallet reconciliation - HealthQueue';require __DIR__.'/../includes/header.php';
+?>
+<main class="admin-shell dr-page"><div class="container dr-container"><header class="dr-heading"><div><h1>Wallet reconciliation</h1><p>Historical exceptions require payment evidence before any correction.</p></div><a class="btn btn-outline" href="revenue.php">Back to revenue</a></header>
+<?php foreach($errors as $error): ?><p class="form-message error"><?= htmlspecialchars($error) ?></p><?php endforeach; ?>
+<section class="dr-panel"><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Appointment</th><th>Clinic</th><th>Recorded method</th><th>Wallet debit</th><th>Refund</th><th>Review</th></tr></thead><tbody>
+<?php foreach($rows as $row): ?><tr><td>#<?= (int)$row['AppointmentID'] ?></td><td><?= htmlspecialchars($row['ClinicName']) ?></td><td><?= htmlspecialchars($row['BookingPaymentMethod']??'Not recorded') ?></td><td>PHP <?= number_format((float)$row['Paid'],2) ?></td><td>PHP <?= number_format((float)$row['Refunded'],2) ?></td><td><?= (float)$row['Paid']===0.0?'No matching wallet debit':'Amounts differ' ?></td></tr><?php endforeach; ?>
+<?php if(!$rows): ?><tr><td colspan="6">No refund discrepancies found.</td></tr><?php endif; ?></tbody></table></div><p>Existing ledger entries have been preserved. Verify the original payment and refund evidence before authorizing a corrective transaction.</p></section></div></main>
+<?php require __DIR__.'/../includes/footer.php'; ?>

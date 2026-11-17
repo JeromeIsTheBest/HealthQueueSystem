@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/availability.php';
+require_once __DIR__ . '/../includes/patient-booking-lock.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Patient']);
@@ -32,7 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $clinicIds = array_map(static fn(array $clinic): string => (string) $clinic['ClinicID'], $clinics);
     if (!in_array($values['clinic_id'], $clinicIds, true)) $errors[] = 'Please select a clinic.';
-    if ($values['appointment_date'] === '' || $values['appointment_date'] < date('Y-m-d')) $errors[] = 'Please choose a future appointment date.';
+    $parsedBookingDate=DateTimeImmutable::createFromFormat('!Y-m-d',$values['appointment_date']);
+    if (!$parsedBookingDate || $parsedBookingDate->format('Y-m-d')!==$values['appointment_date'] || $values['appointment_date'] < date('Y-m-d')) $errors[] = 'Please choose a future appointment date.';
     if ($values['appointment_time'] === '' && ($_POST['no_time_confirmed'] ?? '') !== '1') {
         $errors[] = 'Please confirm that you want a queue booking without a specific time.';
     }
@@ -47,13 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$validPhysician) $errors[] = 'Please choose a physician from the selected clinic.';
     }
 
-    // A patient may have one active appointment request at a time.
+    // Serialize the one-active-booking rule across devices and clinics.
     if (!$errors && $pdo) {
-        $activeBooking = $pdo->prepare("SELECT AppointmentID FROM Appointments WHERE PatientID = ? AND Status IN ('Pending', 'Confirmed') LIMIT 1");
-        $activeBooking->execute([$user['UserID']]);
-        if ($activeBooking->fetchColumn()) {
-            $errors[] = 'You already have an active booking. You can book again after it is completed or cancelled.';
-        }
+        try {$pdo->beginTransaction();lockPatientBooking($pdo,(int)$user['UserID']);}
+        catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$errors[]=$e instanceof RuntimeException && !($e instanceof PDOException)?$e->getMessage():'Booking is temporarily unavailable.';}
     }
 
     // Hold a per-clinic lock from the capacity check until the insert, so two
@@ -82,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare('INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern) VALUES (?, ?, ?, ?, ?, ?)');
             $stmt->execute([$user['UserID'], (int) $values['clinic_id'], $bookingPhysicianId, $values['appointment_date'], $values['appointment_time'] !== '' ? $values['appointment_time'] : null, $values['concern'] ?: null]);
             $newAppointmentId = (int) $pdo->lastInsertId();
+            $pdo->commit();
 
             if ($isAjax) {
                 $clinicRow = array_values(array_filter($clinics, static fn(array $c): bool => (string) $c['ClinicID'] === $values['clinic_id']))[0] ?? null;
@@ -119,10 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: ' . HQ_BASE_URL . '/patient/checkout.php?appointment_id=' . $newAppointmentId);
             exit;
         } catch (PDOException $e) {
+            if($pdo->inTransaction())$pdo->rollBack();
             error_log('Appointment request failed: ' . $e->getMessage());
             $errors[] = 'We could not submit your appointment request. Please try again.';
         }
     }
+    if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
     if ($clinicLocked) unlockClinicBooking($pdo, (int) $values['clinic_id']);
 
     if ($errors && $isAjax) {

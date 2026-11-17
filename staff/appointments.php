@@ -5,6 +5,8 @@ require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/sms.php';
 require_once __DIR__ . '/../includes/wallet.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
+require_once __DIR__ . '/../includes/demo-revenue.php';
 require_once __DIR__ . '/../includes/availability.php';
 
 define('HQ_BASE_URL', '..');
@@ -38,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                 try {
                     $pdo->beginTransaction();
+                    lockQueueClinic($pdo,$clinicId);
                     $lookup = $pdo->prepare(
                         "SELECT r.RequestID, r.PatientID, r.RequestedDate, r.RequestedTime,
                                 a.ClinicID, a.PhysicianID, a.Status AS AppointmentStatus,
@@ -115,80 +118,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } elseif ($formType === 'accept_request') {
-            $physicianId = filter_input(INPUT_POST, 'physician_id', FILTER_VALIDATE_INT) ?: null;
             try {
-                // Scoped to this staff member's own clinic so one clinic's
-                // staff can never touch another clinic's appointment requests.
-                $checkStmt = $pdo->prepare("SELECT PhysicianID, PatientID, AppointmentDate, AppointmentTime FROM Appointments WHERE AppointmentID = ? AND ClinicID = ? AND Status = 'Pending'");
-                $checkStmt->execute([$appointmentId, $clinicId]);
-                $existing = $checkStmt->fetch();
-
-                if (!$existing) {
-                    $errors[] = 'That request could not be found.';
-                } elseif (!$physicianId && !$existing['PhysicianID']) {
-                    $errors[] = 'Please assign a physician before accepting this request.';
-                } else {
-                    if ($physicianId) {
-                        $physCheck = $pdo->prepare(
-                            "SELECT UserID FROM Users WHERE UserID = ? AND ClinicID = ?
-                             AND RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Physician')"
-                        );
-                        $physCheck->execute([$physicianId, $clinicId]);
-                        if (!$physCheck->fetch()) {
-                            $errors[] = 'Please choose a physician from your clinic.';
-                        }
-                    }
-                    if (!$errors) {
-                        $pdo->beginTransaction();
-
-                        $stmt = $pdo->prepare("UPDATE Appointments SET Status = 'Confirmed', PhysicianID = COALESCE(?, PhysicianID) WHERE AppointmentID = ? AND ClinicID = ?");
-                        $stmt->execute([$physicianId, $appointmentId, $clinicId]);
-
-                        // Accepting a request is the moment it joins the day's
-                        // queue -- walk-ins get a queue number at registration,
-                        // so an accepted online request needs the same step.
-                        $queueNumStmt = $pdo->prepare('SELECT COALESCE(MAX(QueueNumber), 0) + 1 FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = ?');
-                        $queueNumStmt->execute([$clinicId, $existing['AppointmentDate']]);
-                        $queueNumber = (int) $queueNumStmt->fetchColumn();
-                        $scheduledNumber = null;
-                        $regularNumber = null;
-                        if ($existing['AppointmentTime'] !== null) {
-                            $scheduledNumStmt = $pdo->prepare(
-                                "SELECT COALESCE(MAX(q.ScheduledNumber), 0) + 1
-                                 FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID
-                                 WHERE q.ClinicID = ? AND DATE(a.AppointmentDate) = ? AND q.ScheduledNumber IS NOT NULL"
-                            );
-                            $scheduledNumStmt->execute([$clinicId, $existing['AppointmentDate']]);
-                            $scheduledNumber = (int) $scheduledNumStmt->fetchColumn();
-                        } else {
-                            $regularNumStmt = $pdo->prepare(
-                                "SELECT COALESCE(MAX(RegularNumber), 0) + 1 FROM Queue
-                                 WHERE ClinicID = ? AND DATE(CreatedAt) = ? AND RegularNumber IS NOT NULL"
-                            );
-                            $regularNumStmt->execute([$clinicId, $existing['AppointmentDate']]);
-                            $regularNumber = (int) $regularNumStmt->fetchColumn();
-                        }
-
-                        $ticketToken = $scheduledNumber !== null ? 'S-' . $scheduledNumber : '#' . $regularNumber;
-                        $insertQueue = $pdo->prepare(
-                            "INSERT INTO Queue (ClinicID, AppointmentID, PhysicianID, QueueNumber, ScheduledNumber, RegularNumber, Status, CreatedByStaffID, CreatedAt) VALUES (?, ?, ?, ?, ?, ?, 'Waiting', ?, GREATEST(NOW(), TIMESTAMP(?, COALESCE(?, '00:00:00'))))"
-                        );
-                        $insertQueue->execute([$clinicId, $appointmentId, $physicianId ?: $existing['PhysicianID'], $queueNumber, $scheduledNumber, $regularNumber, $user['UserID'], $existing['AppointmentDate'], $existing['AppointmentTime']]);
-
-                        $pdo->commit();
-                        logActivity($pdo, $user['UserID'], $clinicId, 'Accepted appointment request', "Appointment #{$appointmentId}, queue {$ticketToken}");
-                        queuePatientSms($pdo, (int) $existing['PatientID'], $appointmentId,
-                            'confirmed:' . $appointmentId, 'confirmed',
-                            'HealthQueue: Your appointment on ' . $existing['AppointmentDate'] . ' is confirmed. Queue ' . $ticketToken . '. Check your account for details.');
-                        notifyPatient($pdo, (int) $existing['PatientID'], 'Your appointment on ' . $existing['AppointmentDate'] . ' has been confirmed. Your queue number is ' . $ticketToken . '.', $appointmentId);
-                        $flash = "Appointment request accepted as queue {$ticketToken}.";
-                    }
-                }
-            } catch (PDOException $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                error_log('Accept request failed: ' . $e->getMessage());
-                $errors[] = 'We could not accept this request.';
-            }
+                $physicianId=filter_input(INPUT_POST,'physician_id',FILTER_VALIDATE_INT)?:null;
+                $approved=approveClinicAppointment($pdo,(int)$appointmentId,$clinicId,$physicianId,(int)$user['UserID']);
+                queuePatientSms($pdo,(int)$approved['PatientID'],(int)$appointmentId,'confirmed:'.$appointmentId,'confirmed','HealthQueue: Your appointment on '.$approved['AppointmentDate'].' is confirmed. Queue '.$approved['ticket'].'. Check your account for details.');
+                notifyPatient($pdo,(int)$approved['PatientID'],'Your appointment on '.$approved['AppointmentDate'].' has been confirmed. Your queue number is '.$approved['ticket'].'.',(int)$appointmentId);
+                logActivity($pdo,(int)$user['UserID'],$clinicId,'Accepted appointment request','Appointment #'.$appointmentId.', queue '.$approved['ticket']);
+                $flash='Appointment request accepted as queue '.$approved['ticket'].'.';
+            } catch(PDOException $e) {error_log('Accept request failed: '.$e->getMessage());$errors[]='We could not accept this request.';}
+            catch(RuntimeException $e) {$errors[]=$e->getMessage();}
         } elseif ($formType === 'reject_request') {
             // The reason is required and is shown to the patient.
             $declineReason = trim((string) ($_POST['decline_reason'] ?? ''));
@@ -199,6 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
             try {
                 $pdo->beginTransaction();
+                    lockQueueClinic($pdo,$clinicId);
                 $lookup = $pdo->prepare(
                     "SELECT a.PatientID, a.BookingFeePaid, c.ClinicName, c.BaseConsultationFee
                      FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID
@@ -214,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->prepare("UPDATE Appointments SET Status = 'Cancelled', DeclineReason = ? WHERE AppointmentID = ? AND ClinicID = ?")
                         ->execute([$declineReason !== '' ? $declineReason : 'Declined by the clinic', $appointmentId, $clinicId]);
                     // A paid booking fee goes back to the patient's wallet.
-                    $refund = $target['BookingFeePaid'] ? round((float) $target['BaseConsultationFee'], 2) : 0.0;
+                    $refund = $target['BookingFeePaid'] ? walletBookingAmount($pdo,(int)$target['PatientID'],(int)$appointmentId) : 0.0;
                     if ($refund > 0) {
                         walletRefund($pdo, (int) $target['PatientID'], $refund, $appointmentId, 'Refund for declined request at ' . $target['ClinicName']);
                     }
@@ -263,6 +202,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } elseif ($formType === 'confirm_complete') {
             try {
+                $pdo->beginTransaction();
+                    lockQueueClinic($pdo,$clinicId);
                 // Scoped to this staff member's own clinic, and only allowed
                 // once the physician has actually finalized their notes --
                 // staff confirm the visit is over, they don't write the notes.
@@ -272,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                              JOIN Consultations cons ON cons.ConsultationID = v.ConsultationID
                              WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized') AS FinalizedCount
                      FROM Appointments a
-                     WHERE a.AppointmentID = ? AND a.ClinicID = ?"
+                     WHERE a.AppointmentID = ? AND a.ClinicID = ? FOR UPDATE"
                 );
                 $checkStmt->execute([$appointmentId, $clinicId]);
                 $target = $checkStmt->fetch();
@@ -286,11 +227,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ->execute([$appointmentId, $clinicId]);
                     $pdo->prepare("UPDATE Queue SET Status = 'Completed' WHERE AppointmentID = ? AND Status IN ('Waiting', 'Calling', 'Serving')")
                         ->execute([$appointmentId]);
+                    recordCompletedDemoPayment($pdo, (int)$appointmentId);
                     logActivity($pdo, $user['UserID'], $clinicId, 'Confirmed consultation complete', "Appointment #{$appointmentId}");
                     notifyPatient($pdo, (int) $target['PatientID'], 'Your consultation record is ready to view.', $appointmentId);
                     $flash = 'Consultation confirmed as complete.';
                 }
+                if ($errors) $pdo->rollBack(); else $pdo->commit();
             } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 error_log('Confirm consultation complete failed: ' . $e->getMessage());
                 $errors[] = 'We could not confirm this consultation right now.';
             }
@@ -526,7 +470,7 @@ require __DIR__ . '/../includes/header.php';
       <button type="submit" class="btn sa-filter-btn">Apply filters</button>
       <?php if ($search !== '' || $dateFilter !== ''): ?><a href="?tab=<?= htmlspecialchars($activeTab) ?>" class="sa-clear">Reset</a><?php endif; ?>
     </form>
-  <header class="sa-list-heading"><h2><?= htmlspecialchars(['requests' => 'Appointment requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today?s appointments', 'confirm' => 'Visits to confirm', 'all' => 'All appointments'][$activeTab]) ?></h2><p><?= $activeTab === 'requests' ? 'Paid bookings awaiting your clinic?s approval' : 'Review and manage your clinic appointments.' ?></p></header>
+  <header class="sa-list-heading"><h2><?= htmlspecialchars(['requests' => 'Appointment requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today’s appointments', 'confirm' => 'Visits to confirm', 'all' => 'All appointments'][$activeTab]) ?></h2><p><?= $activeTab === 'requests' ? 'Paid bookings awaiting your clinic’s approval' : 'Review and manage your clinic appointments.' ?></p></header>
 
   <?php if ($activeTab === 'reschedules'): ?>
     <?php if ($rescheduleRequests): ?>

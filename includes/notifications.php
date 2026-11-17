@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/notification-preferences.php';
 /**
  * Writes one row to Notifications for a clinic's staff feed. Read state is
  * shared across the whole clinic team rather than tracked per user, which
@@ -21,6 +22,7 @@ function notifyClinic(PDO $pdo, int $clinicId, string $message, ?int $relatedApp
 function notifyPatient(PDO $pdo, int $patientId, string $message, ?int $relatedAppointmentId = null): void
 {
     try {
+        if(!patientAllowsNotification($pdo,$patientId,'in_app_notifications'))return;
         $stmt = $pdo->prepare(
             'INSERT INTO PatientNotifications (PatientID, Message, RelatedAppointmentID) VALUES (?, ?, ?)'
         );
