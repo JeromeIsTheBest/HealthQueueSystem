@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/input-validation.php';
+require_once __DIR__ . '/includes/clinic-inquiry.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/clinic-photos.php';
@@ -20,12 +21,12 @@ $registrationSuccess = !empty($_SESSION['clinic_registration_success']);
 unset($_SESSION['clinic_registration_success']);
 $registrationValues = [
     'clinic_name' => '', 'contact_name' => '', 'email' => '',
-    'phone' => '', 'city' => '', 'physicians_count' => '',
+    'phone' => '', 'city' => '', 'staff_count' => '', 'base_consultation_fee' => '',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'clinic_registration') {
     if(!verifyCsrfToken($_POST['csrf_token']??null))$registrationErrors[]='Your session expired. Please try again.';
-    if(!$registrationErrors && $pdo) {try{if(!consumeRequestLimit($pdo,'clinic-inquiry',requestClientAddress(),5))$registrationErrors[]='Too many inquiries. Please try again in 15 minutes.';}catch(PDOException $e){$registrationErrors[]='Registration is temporarily unavailable.';}}
+    if(!$registrationErrors && $pdo) {try{if(!consumeRequestLimit($pdo,'clinic-inquiry',requestClientAddress(),5,900,currentUser()['UserID']??null))$registrationErrors[]='Too many inquiries. Please try again in 15 minutes.';}catch(PDOException $e){$registrationErrors[]='Registration is temporarily unavailable.';}}
     foreach ($registrationValues as $field => $value) {
         $registrationValues[$field] = trim((string) ($_POST[$field] ?? ''));
     }
@@ -39,6 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'cl
     $registrationValues['contact_name'] = hqCapitalizeName($registrationValues['contact_name']);
     if (!hqValidMobile($registrationValues['phone'])) $registrationErrors[] = 'Enter a valid mobile number';
 
+    if($registrationValues['staff_count']!=='' && filter_var($registrationValues['staff_count'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])===false)$registrationErrors[]='Number of staff must be a positive whole number.';
+
+    if (!validClinicInquiryPrice($registrationValues['base_consultation_fee'])) $registrationErrors[] = 'Enter a valid consultation base price (0 to 99,999,999.99, up to two decimal places).';
+
     if ($registrationValues['email'] !== '' && !filter_var($registrationValues['email'], FILTER_VALIDATE_EMAIL)) {
         $registrationErrors[] = 'Please enter a valid email address.';
     }
@@ -47,8 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'cl
         try {
             $stmt = $pdo->prepare(
                 'INSERT INTO ClinicRegistrationInquiry
-                 (ClinicName, ContactName, Email, Phone, City, PhysiciansCount)
-                 VALUES (?, ?, ?, ?, ?, ?)'
+                 (ClinicName, ContactName, Email, Phone, City, StaffCount, BaseConsultationFee)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
             $stmt->execute([
                 $registrationValues['clinic_name'],
@@ -56,7 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'cl
                 $registrationValues['email'],
                 $registrationValues['phone'],
                 $registrationValues['city'],
-                $registrationValues['physicians_count'] !== '' ? (int) $registrationValues['physicians_count'] : null,
+                $registrationValues['staff_count'] !== '' ? (int) $registrationValues['staff_count'] : null,
+                $registrationValues['base_consultation_fee'],
             ]);
             $_SESSION['clinic_registration_success'] = true;
             header('Location: ' . HQ_BASE_URL . '/index.php#clinic-inquiry', true, 303);
@@ -306,7 +312,8 @@ require __DIR__ . '/includes/header.php';
             <label>Email address<input type="email" name="email" value="<?= htmlspecialchars($registrationValues['email']) ?>" required></label>
             <label>Phone number<input type="tel" name="phone" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= htmlspecialchars($registrationValues['phone']) ?>" required></label>
             <label>City / location<input name="city" value="<?= htmlspecialchars($registrationValues['city']) ?>" required></label>
-            <label>Number of physicians<input type="number" name="physicians_count" min="1" value="<?= htmlspecialchars($registrationValues['physicians_count']) ?>"></label>
+            <label>Base price of consultation (PHP)<input type="number" name="base_consultation_fee" min="0" max="99999999.99" step="0.01" inputmode="decimal" placeholder="e.g. 500.00" value="<?= htmlspecialchars($registrationValues['base_consultation_fee']) ?>" required></label>
+            <label>Number of staff<input type="number" name="staff_count" min="1" value="<?= htmlspecialchars($registrationValues['staff_count']) ?>"></label>
           </div>
           <button type="submit" class="btn btn-primary btn-block">Submit registration inquiry</button>
           <small>We’ll use these details only to contact you about clinic registration.</small>

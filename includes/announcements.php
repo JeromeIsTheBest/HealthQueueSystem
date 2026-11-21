@@ -42,3 +42,47 @@ function announcementPhotoUrl(?string $filename): ?string
 {
     return $filename ? HQ_BASE_URL . '/assets/uploads/announcements/' . rawurlencode(basename($filename)) : null;
 }
+
+/** Personal in-app announcement alerts; caller owns the publishing transaction. */
+function notifyPhysiciansOfAnnouncement(PDO $pdo,int $announcementId):int
+{
+    if(!$pdo->inTransaction())throw new LogicException('Announcement alerts require a transaction.');
+    $s=$pdo->prepare("SELECT a.*,c.ClinicName FROM Announcements a LEFT JOIN Clinic c ON c.ClinicID=a.ClinicID WHERE a.AnnouncementID=?");$s->execute([$announcementId]);$a=$s->fetch();
+    if(!$a||!in_array($a['Audience'],['Physicians','Everyone'],true))return 0;
+    $message='Announcement: '.$a['Title']."\n".$a['Message']."\nFrom: ".($a['ClinicName']?:'HealthQueue');
+    if($a['AffectsDate'])$message.="\nAffected date: ".date('j F Y',strtotime($a['AffectsDate']));
+    $s=$pdo->prepare("INSERT INTO PhysicianNotifications(PhysicianID,AnnouncementID,Message)
+        SELECT u.UserID,?,? FROM Users u JOIN Roles r ON r.RoleID=u.RoleID
+        WHERE r.RoleName='Physician' AND u.Status='Active' AND u.DeletedAt IS NULL
+          AND u.CreatedAt<=? AND (? IS NULL OR u.ClinicID=?)
+        ON DUPLICATE KEY UPDATE NotificationID=PhysicianNotifications.NotificationID");
+    $s->execute([$announcementId,$message,$a['CreatedAt'],$a['ClinicID'],$a['ClinicID']]);return $s->rowCount();
+}
+
+/** Deliver only to the selected audience; staff alerts retain the existing shared-clinic read state. */
+function notifyAnnouncementAudience(PDO $pdo,int $announcementId):int
+{
+    if(!$pdo->inTransaction())throw new LogicException('Announcement alerts require a transaction.');
+    require_once __DIR__.'/notification-preferences.php';
+    $count=notifyPhysiciansOfAnnouncement($pdo,$announcementId);
+    $s=$pdo->prepare('SELECT a.*,c.ClinicName FROM Announcements a LEFT JOIN Clinic c ON c.ClinicID=a.ClinicID WHERE a.AnnouncementID=?');$s->execute([$announcementId]);$a=$s->fetch();if(!$a)return $count;
+    $message='Announcement: '.$a['Title']."\n".$a['Message']."\nFrom: ".($a['ClinicName']?:'HealthQueue');if($a['AffectsDate'])$message.="\nAffected date: ".date('j F Y',strtotime($a['AffectsDate']));
+    if(in_array($a['Audience'],['Staff','Everyone'],true)){
+        $s=$pdo->prepare("INSERT INTO Notifications(ClinicID,AnnouncementID,Message)
+            SELECT DISTINCT u.ClinicID,?,? FROM Users u JOIN Roles r ON r.RoleID=u.RoleID JOIN Clinic c ON c.ClinicID=u.ClinicID
+            WHERE r.RoleName='Staff' AND u.Status='Active' AND u.DeletedAt IS NULL AND c.archived=0
+              AND u.CreatedAt<=? AND (? IS NULL OR u.ClinicID=?)
+            ON DUPLICATE KEY UPDATE NotificationID=Notifications.NotificationID");
+        $s->execute([$announcementId,$message,$a['CreatedAt'],$a['ClinicID'],$a['ClinicID']]);$count+=$s->rowCount();
+    }
+    if(in_array($a['Audience'],['Patients','Everyone'],true)){
+        $s=$pdo->prepare("SELECT u.UserID FROM Users u JOIN Roles r ON r.RoleID=u.RoleID
+            WHERE r.RoleName='Patient' AND u.Status='Active' AND u.DeletedAt IS NULL AND u.CreatedAt<=?
+              AND (? IS NULL OR EXISTS(SELECT 1 FROM Appointments ap WHERE ap.PatientID=u.UserID AND ap.ClinicID=? AND ap.CreatedAt<=?))
+              AND NOT EXISTS(SELECT 1 FROM AnnouncementDismissals d WHERE d.UserID=u.UserID AND d.AnnouncementID=?)");
+        $s->execute([$a['CreatedAt'],$a['ClinicID'],$a['ClinicID'],$a['CreatedAt'],$announcementId]);$ids=$s->fetchAll(PDO::FETCH_COLUMN);
+        $insert=$pdo->prepare('INSERT INTO PatientNotifications(PatientID,AnnouncementID,Message) VALUES(?,?,?) ON DUPLICATE KEY UPDATE NotificationID=PatientNotifications.NotificationID');
+        foreach($ids as $id)if(patientAllowsNotification($pdo,(int)$id,'in_app_notifications')){$insert->execute([$id,$announcementId,$message]);$count+=$insert->rowCount();}
+    }
+    return $count;
+}

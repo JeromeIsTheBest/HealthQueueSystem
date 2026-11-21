@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/wallet.php';
@@ -17,7 +18,8 @@ const ALMOST_TURN_AHEAD = 2;
 $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
-$flash = '';
+$flash = (string)($_SESSION['patient_queue_feedback']??'');
+unset($_SESSION['patient_queue_feedback']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $queueId = filter_input(INPUT_POST, 'queue_id', FILTER_VALIDATE_INT);
@@ -31,8 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // Scoped to this patient's own active entry for today.
             $lookup = $pdo->prepare(
-                "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.ClinicID, q.Status, a.AppointmentID, a.BookingFeePaid, c.ClinicName, c.BaseConsultationFee,
-                        (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange
+                "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.ClinicID, q.Status, a.AppointmentID, a.BookingFeePaid, c.ClinicName, COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) AS BaseConsultationFee,
+                        (TIMESTAMP(a.AppointmentDate, COALESCE(NULLIF(a.AppointmentTime,'00:00:00'), c.CloseTime)) - INTERVAL 2 HOUR > NOW()) AS CanChange
                  FROM Queue q
                  JOIN Appointments a ON a.AppointmentID = q.AppointmentID
                  JOIN Clinic c ON c.ClinicID = q.ClinicID
@@ -45,16 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$target) {
                 $errors[] = 'That queue entry is no longer active.';
             } elseif ($formType === 'running_late') {
-                // One heads-up per entry every 10 minutes, so the front desk isn't spammed.
-                $lastKey = 'late_notice_' . $target['QueueID'];
-                if (($_SESSION[$lastKey] ?? 0) > time() - 600) {
-                    $flash = 'The clinic already knows you are running late.';
-                } else {
-                    notifyClinic($pdo, (int) $target['ClinicID'], "{$patientName} (queue #{$target['QueueNumber']}) is running late.", (int) $target['AppointmentID']);
-                    logActivity($pdo, $user['UserID'], (int) $target['ClinicID'], 'Reported running late', "Queue #{$target['QueueNumber']}");
-                    $_SESSION[$lastKey] = time();
-                    $flash = 'We let the clinic know you are running late.';
-                }
+                $lateResult=reportPatientRunningLate($pdo,(int)$target['QueueID'],(int)$user['UserID']);
+                $flash=$lateResult['duplicate']?'The clinic already knows you are running late.':(!empty($lateResult['grace_extended'])?'The clinic was notified. Please arrive before '.date('g:i A',strtotime($lateResult['deadline'])).'; your grace period was extended once.':($lateResult['moved']?'The clinic was notified. You moved back one place in the queue for your physician.':'The clinic was notified. No following patient is waiting to swap with you.'));
+                $_SESSION['patient_queue_feedback']=$flash;
+                header('Location: '.HQ_BASE_URL.'/patient/queue-status.php',true,303);
+                exit;
             } elseif ($formType === 'leave_queue') {
                 if (!$target['CanChange']) {
                     $errors[] = 'The cancellation window has closed.';
@@ -85,7 +82,7 @@ if ($pdo) {
     try {
         $stmt = $pdo->prepare(
             "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.CloseTime, a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern,
-                    (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange,
+                    (TIMESTAMP(a.AppointmentDate, COALESCE(NULLIF(a.AppointmentTime,'00:00:00'), c.CloseTime)) - INTERVAL 2 HOUR > NOW()) AS CanChange,
                     phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName, patient.Email AS PatientEmail, patient.FirstName AS PatientFirstName
              FROM Queue q
              JOIN Appointments a ON a.AppointmentID = q.AppointmentID
@@ -98,19 +95,9 @@ if ($pdo) {
         $stmt->execute([$user['UserID']]);
         $entries = $stmt->fetchAll();
 
-        $aheadStmt = $pdo->prepare(
-            "SELECT COUNT(*) FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = CURDATE() AND Status = 'Waiting' AND COALESCE(Position, QueueNumber * 10) < (SELECT COALESCE(me.Position, me.QueueNumber * 10) FROM Queue me WHERE me.ClinicID = Queue.ClinicID AND DATE(me.CreatedAt) = CURDATE() AND me.QueueNumber = ? ORDER BY me.QueueID DESC LIMIT 1)"
-        );
-        $servingStmt = $pdo->prepare(
-            "SELECT MAX(QueueNumber) FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = CURDATE() AND Status IN ('Calling', 'Serving')"
-        );
         foreach ($entries as &$entry) {
-            $aheadStmt->execute([$entry['ClinicID'], $entry['QueueNumber']]);
-            $entry['Ahead'] = $entry['Status'] === 'Waiting' ? (int) $aheadStmt->fetchColumn() : 0;
-            $entry['WaitMinutes'] = $entry['Ahead'] * MINUTES_PER_PATIENT;
-            $servingStmt->execute([$entry['ClinicID']]);
-            $entry['NowServing'] = $servingStmt->fetchColumn() ?: null;
-            if ($entry['Status'] === 'Waiting' && $entry['Ahead'] <= ALMOST_TURN_AHEAD) {
+            $progress=patientQueueProgress($pdo,(int)$entry['QueueID']);$entry['Ahead']=$entry['Status']==='Waiting'?$progress['Ahead']:0;$entry['WaitMinutes']=$progress['EstimatedWaitMinutes'];$entry['NowServing']=$progress['NowServing'];$entry['GraceHeld']=$progress['GraceHeld'];$entry['GraceDeadline']=$progress['GraceDeadline'];$entry['GraceRescheduleRequested']=$progress['GraceRescheduleRequested'];
+            if (empty($entry['GraceHeld']) && $entry['Status'] === 'Waiting' && $entry['WaitMinutes'] <= 15) {
                 $ticketNumber = $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']);
                 $notice = "Your queue number {$ticketNumber} at {$entry['ClinicName']} is coming up soon.";
                 $noticeStmt = $pdo->prepare('INSERT INTO PatientNotifications (PatientID, Message, RelatedAppointmentID) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM PatientNotifications WHERE PatientID = ? AND RelatedAppointmentID = ? AND Message = ?)');
@@ -156,13 +143,16 @@ $steps = ['Checked in', 'Waiting', 'Almost your turn', 'Being served', 'Done'];
 ob_start();
 if ($entries):
     foreach ($entries as $entry):
-        if ($entry['Status'] === 'Serving') {
+        if (!empty($entry['GraceHeld'])) {
+            $stage=1;
+            $banner=['lq-banner-warning',!empty($entry['GraceRescheduleRequested'])?'Your reschedule request is awaiting clinic review. The queue continues for other patients.':'Your scheduled time has passed. Confirm your arrival with staff, report late, or request a reschedule before '.date('g:i A',strtotime($entry['GraceDeadline'])).'.'];
+        } elseif ($entry['Status'] === 'Serving') {
             $stage = 3;
             $banner = ['lq-banner-success', "You're being seen now."];
         } elseif ($entry['Status'] === 'Calling') {
             $stage = 3;
             $banner = ['lq-banner-success', "It's your turn! Please proceed to the counter."];
-        } elseif ($entry['Ahead'] <= ALMOST_TURN_AHEAD) {
+        } elseif ($entry['WaitMinutes'] <= 15) {
             $stage = 2;
             $banner = ['lq-banner-warning', 'Almost your turn. Please head to the waiting area.'];
         } else {
@@ -186,10 +176,10 @@ if ($entries):
       </div>
 
       <div class="lq-stats">
-        <div class="lq-stat lq-stat-mine"><span>Your number</span><strong><?= $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']) ?></strong><em><?= htmlspecialchars($entry['Status'] === 'Waiting' ? 'In line' : ($entry['Status'] === 'Calling' ? 'Called' : 'Being seen')) ?></em></div>
+        <div class="lq-stat lq-stat-mine"><span>Your number</span><strong><?= $entry['ScheduledNumber'] !== null ? 'S-' . (int) $entry['ScheduledNumber'] : '#' . (int) ($entry['RegularNumber'] ?? $entry['QueueNumber']) ?></strong><em><?= htmlspecialchars(!empty($entry['GraceHeld']) ? 'Awaiting arrival' : ($entry['Status'] === 'Waiting' ? 'In line' : ($entry['Status'] === 'Calling' ? 'Called' : 'Being seen'))) ?></em></div>
         <div class="lq-stat"><span>Now serving</span><strong><?= $entry['NowServing'] ? '#' . (int) $entry['NowServing'] : '—' ?></strong></div>
-        <div class="lq-stat"><span>Ahead of you</span><strong><?= (int) $entry['Ahead'] ?></strong></div>
-        <div class="lq-stat"><span>Est. wait</span><strong><?= $entry['Status'] === 'Waiting' ? '~' . (int) $entry['WaitMinutes'] . '<small> min</small>' : 'Now' ?></strong></div>
+        <div class="lq-stat"><span>Ahead of you</span><strong><?= !empty($entry['GraceHeld']) ? '&mdash;' : (int)$entry['Ahead'] ?></strong></div>
+        <div class="lq-stat"><span>Est. wait</span><strong><?= !empty($entry['GraceHeld']) ? 'Awaiting arrival' : ($entry['Status'] === 'Waiting' ? '~' . (int) $entry['WaitMinutes'] . '<small> min</small>' : 'Now') ?></strong></div>
       </div>
 
       <div class="lq-banner <?= $banner[0] ?>" role="status">
@@ -205,6 +195,7 @@ if ($entries):
 
       <?php if (in_array($entry['Status'], ['Waiting', 'Calling'], true)): ?>
         <div class="lq-actions">
+          <?php if(empty($entry['GraceHeld']) || (empty($entry['GraceRescheduleRequested']) && strtotime($entry['GraceDeadline'])>time())): ?>
           <form method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
             <input type="hidden" name="form_type" value="running_late">
@@ -213,7 +204,10 @@ if ($entries):
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               I'm running late
             </button>
+            <small class="lq-late-help">Notifies the clinic. During a scheduled arrival grace period, extends it once by 30 minutes; otherwise lets the following patient go first.</small>
           </form>
+          <?php endif; ?>
+          <?php if (!empty($entry['GraceHeld']) && empty($entry['GraceRescheduleRequested']) && strtotime($entry['GraceDeadline'])>time()): ?><a class="btn btn-outline btn-sm" href="<?= HQ_BASE_URL ?>/patient/my-appointments.php">Request reschedule</a><?php endif; ?>
           <?php if ($entry['CanChange']): ?><form method="post" onsubmit="return confirm('Leave the queue? You will lose your place in line. Any booking fee you paid will be refunded to your wallet.');">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
             <input type="hidden" name="form_type" value="leave_queue">

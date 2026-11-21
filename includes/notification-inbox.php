@@ -1,4 +1,4 @@
-<?php // Shared patient and clinic notification presentation; controllers enforce ownership. ?>
+<?php // Shared patient, physician and clinic notification presentation; controllers enforce ownership. ?>
 <main class="portal-shell notifications-page"><div class="container">
   <section class="portal-hero"><div><span class="eyebrow"><?= htmlspecialchars($inboxEyebrow) ?></span><h1>Notifications</h1><p><?= htmlspecialchars($inboxDescription) ?></p></div></section>
 
@@ -23,8 +23,8 @@
         </div>
         <div class="compact-list notification-list">
           <?php foreach ($notifications as $note): ?>
-            <article class="notification-row<?= $note['IsRead'] ? ' is-read' : '' ?>" data-id="<?= (int) $note['NotificationID'] ?>" data-read="<?= $note['IsRead'] ? '1' : '0' ?>">
-              <label class="notif-check-wrap" aria-label="Select notification"><input type="checkbox" class="notif-check" name="notification_ids[]" value="<?= (int) $note['NotificationID'] ?>"></label>
+            <article class="notification-row<?= $note['IsRead'] ? ' is-read' : '' ?>" data-id="<?= (int) $note['NotificationID'] ?>" data-read="<?= $note['IsRead'] ? '1' : '0' ?>"<?php if(!empty($note['RecordAccessRequestID'])): ?> data-record-access-request="<?= (int)$note['RecordAccessRequestID'] ?>" data-record-access-status="<?= htmlspecialchars($note['RecordAccessStatus']??'Expired',ENT_QUOTES) ?>"<?php endif; ?><?php if(!empty($note['VisitCompletionAppointmentID'])): ?> data-visit-completion-appointment="<?= (int)$note['VisitCompletionAppointmentID'] ?>" data-visit-completion-status="<?= htmlspecialchars($note['VisitCompletionStatus']??'Closed',ENT_QUOTES) ?>"<?php endif; ?>>
+              <label class="notif-check-wrap aria-label="Select notification"><input type="checkbox" class="notif-check" name="notification_ids[]" value="<?= (int) $note['NotificationID'] ?>"></label>
               <div class="notif-content">
                 <button type="button" class="notif-message-toggle" aria-haspopup="dialog" aria-controls="notificationDetailModal">
                   <strong class="notif-message" id="notification-message-<?= (int) $note['NotificationID'] ?>"><?= htmlspecialchars($note['Message']) ?></strong>
@@ -59,6 +59,17 @@
     </div>
     <div class="notification-detail-meta"><time id="notificationDetailTime"></time></div>
     <p id="notificationDetailMessage" class="notification-detail-message"></p>
+    <div id="notificationRecordAccess" class="notification-record-access" hidden>
+      <p class="notification-record-access-info">Opening this message marks it Read. It does not approve sharing your records.</p>
+      <button type="button" class="btn btn-primary" id="notificationReviewRecordAccess">Review request</button>
+      <p id="notificationRecordAccessState" role="status"></p>
+    </div>
+    <div id="notificationVisitCompletion" class="notification-record-access" hidden>
+      <p class="notification-record-access-info">Reading this message does not confirm your consultation. Review your visit to confirm completion or report an issue.</p>
+      <button type="button" class="btn btn-primary" id="notificationReviewVisitCompletion">Review visit</button>
+      <p id="notificationVisitCompletionState" role="status"></p>
+      <a href="<?= HQ_BASE_URL ?>/patient/my-appointments.php">View My Appointments</a>
+    </div>
     <p id="notificationReadError" class="form-message error" role="alert" hidden></p>
     <form method="post" class="notification-detail-actions">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">

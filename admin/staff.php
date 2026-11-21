@@ -49,6 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = 'Please select an active clinic.';
                 } elseif ($emailStmt->fetch()) {
                     $errors[] = 'An account with this email already exists.';
+                } elseif (hqMobileInUse($pdo,$values['contact_number'],(int)($memberId?:0))) {
+                    $errors[] = 'This mobile number is already registered to another account.';
                 } elseif ($memberId) {
                     $sql = 'UPDATE Users SET FirstName = ?, LastName = ?, Email = ?, ContactNumber = ?, ClinicID = ?';
                     $params = [$values['first_name'], $values['last_name'], $values['email'], $values['contact_number'], (int) $values['clinic_id']];
@@ -76,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } catch (PDOException $e) {
                 error_log('Staff save failed: ' . $e->getMessage());
-                $errors[] = 'We could not save this account.';
+                $errors[] = hqDuplicateMobileError($e)?'This mobile number is already registered to another account.':'We could not save this account.';
             }
         }
     } elseif (($_POST['form_type'] ?? '') === 'update_status') {
@@ -156,13 +158,13 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
   <?php renderDirectoryStats(); ?>
-  <dialog class="modal-box dr-dialog" id="memberDirectoryModal" aria-labelledby="directoryFormTitle" data-open-on-load="<?= $editingMember || ($errors && ($_POST['form_type'] ?? '') === 'save_member') ? '1' : '0' ?>">
+  <dialog class="modal-box dr-dialog" id="memberDirectoryModal" data-staff-directory aria-labelledby="directoryFormTitle" data-open-on-load="<?= $editingMember || ($errors && ($_POST['form_type'] ?? '') === 'save_member') ? '1' : '0' ?>">
     <button type="button" class="modal-close" data-directory-close aria-label="Close">&times;</button>
     <div class="portal-heading"><div><span class="section-kicker"><?= $editingMember ? 'Edit staff account' : 'Add staff' ?></span><h2 id="directoryFormTitle"><?= $editingMember ? htmlspecialchars($editingMember['FirstName'] . ' ' . $editingMember['LastName']) : 'New staff account' ?></h2></div></div>
     <form class="registration-form" method="post" style="max-width:640px;">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
       <input type="hidden" name="form_type" value="save_member">
-      <?php if ($editingMember): ?><input type="hidden" name="member_id" value="<?= (int) $editingMember['UserID'] ?>"><?php endif; ?>
+      <input type="hidden" name="member_id" value="<?= (int) ($editingMember['UserID'] ?? 0) ?>">
       <div class="form-stack form-cols-2">
         <label>First name<input name="first_name" value="<?= htmlspecialchars($values['first_name']) ?>" required></label>
         <label>Last name<input name="last_name" value="<?= htmlspecialchars($values['last_name']) ?>" required></label>
@@ -171,7 +173,7 @@ require __DIR__ . '/../includes/header.php';
         <label>Clinic<select name="clinic_id" required><option value="">Select an active clinic</option><?php foreach ($activeClinics as $clinic): ?><option value="<?= (int) $clinic['ClinicID'] ?>" <?= $values['clinic_id'] === (string) $clinic['ClinicID'] ? 'selected' : '' ?>><?= htmlspecialchars($clinic['ClinicName']) ?></option><?php endforeach; ?></select></label>
         <label>Email address<input type="email" name="email" value="<?= htmlspecialchars($values['email']) ?>" required></label>
         <label>Contact number<input type="tel" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= htmlspecialchars($values['contact_number']) ?>" required></label>
-        <label><?= $editingMember ? 'New password ' : 'Temporary password' ?><span class="optional"><?= $editingMember ? '(leave blank to keep current)' : '' ?></span><input type="password" name="password" minlength="8" <?= $editingMember ? '' : 'required' ?>></label>
+        <label data-staff-password-label><?= $editingMember ? 'New password ' : 'Temporary password' ?><span class="optional"><?= $editingMember ? '(leave blank to keep current)' : '' ?></span><input type="password" name="password" minlength="8" <?= $editingMember ? '' : 'required' ?>></label>
       </div>
       <button type="submit" class="btn btn-primary btn-block"><?= $editingMember ? 'Save changes' : 'Create account' ?></button>
       <?php if ($editingMember): ?><a href="<?= HQ_BASE_URL ?>/admin/staff.php" class="text-link" style="display:block;text-align:center;margin-top:12px;">Cancel edit</a><?php endif; ?>
@@ -194,7 +196,7 @@ require __DIR__ . '/../includes/header.php';
             <td><span class="status-badge status-<?= strtolower(htmlspecialchars($member['Status'])) ?>"><?= htmlspecialchars($member['Status']) ?></span></td>
             <td>
               <div class="dr-actions">
-                <a href="<?= HQ_BASE_URL ?>/admin/staff.php?edit=<?= (int) $member['UserID'] ?>#memberDirectoryModal" class="btn btn-outline btn-sm">Edit</a>
+                <a href="<?= HQ_BASE_URL ?>/admin/staff.php?edit=<?= (int) $member['UserID'] ?>#memberDirectoryModal" class="btn btn-outline btn-sm" data-staff-edit="<?= htmlspecialchars(json_encode($member, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8') ?>">Edit</a>
 
                 <form method="post" class="dr-status-action"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="update_status"><input type="hidden" name="member_id" value="<?= (int) $member['UserID'] ?>">
                   <?php if ($member['Status'] === 'Active'): ?><button class="btn btn-outline btn-sm" name="status" value="Inactive" onclick="return confirm('Deactivate this account? The staff member will no longer be able to sign in.');">Deactivate</button>

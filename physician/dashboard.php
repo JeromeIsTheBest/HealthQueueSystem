@@ -4,6 +4,9 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/ai-transcription.php';
 require_once __DIR__ . '/../includes/wallet.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
+require_once __DIR__ . '/../includes/physician-accounts.php';
+require_once __DIR__ . '/../includes/demo-revenue.php';
 require_once __DIR__ . '/../includes/notifications.php';
 
 define('HQ_BASE_URL', '..');
@@ -11,6 +14,8 @@ requireRole(['Physician']);
 
 $user = currentUser();
 $pdo = getDbConnection();
+$account=$pdo?physicianAccount($pdo,(int)$user['UserID']):null;
+$isMain=(bool)($account['is_main']??false);
 $errors = [];
 $flash = '';
 
@@ -26,31 +31,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'up
             $errors[] = 'Invalid appointment update.';
         } else {
             try {
-                // Scoped to this physician's own UserID so one physician can never touch another's appointment.
-                $pdo->beginTransaction();
-                $patientStmt = $pdo->prepare('SELECT PatientID FROM Appointments WHERE AppointmentID = ? AND PhysicianID = ? FOR UPDATE');
-                $patientStmt->execute([$appointmentId, $user['UserID']]);
-                $patientId = $patientStmt->fetchColumn();
-                $changed = $newStatus === 'Cancelled' && $patientId
-                    ? cancelBooking($pdo, (int) $appointmentId, (int) $patientId, 'Cancelled by physician', 'Refund for physician-cancelled booking at ')
-                    : false;
-                if ($newStatus === 'NoShow' && $patientId) {
-                    $stmt = $pdo->prepare("UPDATE Appointments SET Status = 'NoShow' WHERE AppointmentID = ? AND PhysicianID = ? AND Status = 'Confirmed'");
-                    $stmt->execute([$appointmentId, $user['UserID']]);
-                    $changed = (bool) $stmt->rowCount();
+                if($newStatus==='NoShow'){
+                    markClinicNoShow($pdo,(int)$appointmentId,(int)$user['ClinicID'],(int)$user['UserID'],(int)$user['UserID']);$flash='Appointment marked as no-show. Any paid booking fee is retained.';
+                }else{
+                    $pdo->beginTransaction();lockQueueClinic($pdo,(int)$user['ClinicID']);
+                    $patientStmt=$pdo->prepare('SELECT PatientID FROM Appointments WHERE AppointmentID=? AND PhysicianID=? FOR UPDATE');$patientStmt->execute([$appointmentId,$user['UserID']]);$patientId=$patientStmt->fetchColumn();
+                    $changed=$patientId&&cancelBooking($pdo,(int)$appointmentId,(int)$patientId,'Cancelled by physician','Refund for physician-cancelled booking at ');
+                    if(!$changed)throw new RuntimeException('That appointment could not be cancelled.');
+                    $pdo->commit();notifyPatient($pdo,(int)$patientId,'Your appointment was cancelled by the physician. Any eligible refund has been applied to your wallet.',(int)$appointmentId);$flash='Appointment cancelled.';
                 }
-                if ($changed) {
-                    $pdo->commit();
-                    logActivity($pdo, $user['UserID'], $user['ClinicID'], 'Updated appointment status', "Appointment #{$appointmentId} set to {$newStatus}.");
-                    if ($newStatus === 'Cancelled') notifyPatient($pdo, (int) $patientId, 'Your appointment was cancelled by the physician. Any eligible booking fee refund has been applied to your wallet.', (int) $appointmentId);
-                    $flash = 'Appointment updated.';
-                } else {
-                    if ($pdo->inTransaction()) $pdo->rollBack();
-                    $errors[] = 'That appointment could not be found.';
-                }
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
+                if($pdo->inTransaction())$pdo->rollBack();
                 error_log('Appointment status update failed: ' . $e->getMessage());
-                $errors[] = 'We could not update this appointment.';
+                $errors[]=$e instanceof PDOException?'We could not update this appointment.':$e->getMessage();
             }
         }
     }
@@ -74,6 +67,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'up
     }
 }
 
+require_once __DIR__ . '/../includes/physician-save-feedback.php';
+$feedbackRedirect = physicianSaveFeedback($flash, $errors, HQ_BASE_URL . '/physician/dashboard.php');
+if ($feedbackRedirect !== null) { header('Location: ' . $feedbackRedirect, true, 303); exit; }
+
 $stats = ['earnings' => 0, 'today_earnings' => 0, 'paid_count' => 0, 'upcoming' => 0, 'total' => 0];
 $upcoming = [];
 $scheduledAppointments = [];
@@ -81,18 +78,22 @@ $recentEarnings = [];
 $nextPatient = null;
 $availabilityStatus = 'Available';
 $dataError = null;
+$clinicalStats=['today'=>0,'completed'=>0,'waiting'=>0];
 
 if ($pdo) {
     try {
+        $clinical=$pdo->prepare("SELECT COUNT(CASE WHEN AppointmentDate=CURDATE() THEN 1 END) AS today,COUNT(CASE WHEN Status='Completed' THEN 1 END) AS completed,(SELECT COUNT(*) FROM Queue q JOIN Appointments a ON a.AppointmentID=q.AppointmentID WHERE a.PhysicianID=? AND DATE(q.CreatedAt)=CURDATE() AND q.Status='Waiting' AND a.Status='Confirmed') AS waiting FROM Appointments WHERE PhysicianID=?");$clinical->execute([$user['UserID'],$user['UserID']]);$clinicalStats=$clinical->fetch();
+        $revenueWhere=demoRevenueEligibility();
         $availabilityStmt = $pdo->prepare('SELECT AvailabilityStatus FROM Users WHERE UserID = ?');
         $availabilityStmt->execute([$user['UserID']]);
         $availabilityStatus = $availabilityStmt->fetchColumn() ?: 'Available';
 
+        if($isMain){
         $earningsStmt = $pdo->prepare(
             "SELECT COALESCE(SUM(p.PhysicianRevenue), 0) AS total, COUNT(*) AS paid_count
              FROM AppointmentPayments p
              JOIN Appointments a ON a.AppointmentID = p.AppointmentID
-             WHERE a.PhysicianID = ? AND p.PaymentStatus = 'Paid'"
+             WHERE p.FinancialOwnerUserID = ? AND {$revenueWhere}"
         );
         $earningsStmt->execute([$user['UserID']]);
         $earningsRow = $earningsStmt->fetch();
@@ -103,11 +104,12 @@ if ($pdo) {
             "SELECT COALESCE(SUM(p.PhysicianRevenue), 0)
              FROM AppointmentPayments p
              JOIN Appointments a ON a.AppointmentID = p.AppointmentID
-             WHERE a.PhysicianID = ? AND p.PaymentStatus = 'Paid' AND DATE(p.PaidAt) = CURDATE()"
+             WHERE p.FinancialOwnerUserID = ? AND {$revenueWhere} AND DATE(p.PaidAt) = CURDATE()"
         );
         $todayEarningsStmt->execute([$user['UserID']]);
         $stats['today_earnings'] = (float) $todayEarningsStmt->fetchColumn();
 
+        }
         $upcomingCountStmt = $pdo->prepare(
             "SELECT COUNT(*) FROM Appointments
              WHERE PhysicianID = ? AND Status IN ('Pending', 'Confirmed')
@@ -128,7 +130,7 @@ if ($pdo) {
              JOIN Clinic c ON c.ClinicID = a.ClinicID
              JOIN Users pat ON pat.UserID = a.PatientID
              WHERE a.ClinicID = ?
-               AND (a.PhysicianID = ? OR a.PhysicianID IS NULL)
+               AND a.PhysicianID = ?
                AND TIMESTAMP(a.AppointmentDate, a.AppointmentTime) > NOW()
                AND a.AppointmentTime IS NOT NULL AND a.AppointmentTime <> '00:00:00'
                AND a.BookingFeePaid = 1
@@ -170,24 +172,26 @@ if ($pdo) {
         $nextStmt->execute([$user['UserID']]);
         $nextPatient = $nextStmt->fetch() ?: null;
 
+        if($isMain){
         $earningsListStmt = $pdo->prepare(
             "SELECT p.PhysicianRevenue, p.PaidAt, c.ClinicName, pat.FirstName, pat.LastName
              FROM AppointmentPayments p
              JOIN Appointments a ON a.AppointmentID = p.AppointmentID
              JOIN Clinic c ON c.ClinicID = a.ClinicID
              JOIN Users pat ON pat.UserID = a.PatientID
-             WHERE a.PhysicianID = ? AND p.PaymentStatus = 'Paid'
+             WHERE p.FinancialOwnerUserID = ? AND {$revenueWhere}
              ORDER BY p.PaidAt DESC
              LIMIT 8"
         );
         $earningsListStmt->execute([$user['UserID']]);
         $recentEarnings = $earningsListStmt->fetchAll();
+        }
     } catch (PDOException $e) {
         error_log('Physician dashboard failed: ' . $e->getMessage());
-        $dataError = 'Your appointment and earnings information is temporarily unavailable.';
+        $dataError = 'Your dashboard information is temporarily unavailable.';
     }
 } else {
-    $dataError = 'Your appointment and earnings information is temporarily unavailable.';
+    $dataError = 'Your dashboard information is temporarily unavailable.';
 }
 
 $pageTitle = 'Physician Dashboard — HealthQueue';
@@ -208,12 +212,13 @@ $pdMetrics = [
     ['Upcoming appointments', (string) $stats['upcoming'], '', $pdCalendar],
     ['Total assigned', (string) $stats['total'], '', '<circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M17 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5v2"/>'],
 ];
+if(!$isMain)$pdMetrics=[["Today's appointments",(string)$clinicalStats['today'],'',$pdCalendar],['Waiting patients',(string)$clinicalStats['waiting'],'',$pdCalendar],['Completed consultations',(string)$clinicalStats['completed'],'',$pdCalendar],['Upcoming appointments',(string)$stats['upcoming'],'',$pdCalendar]];
 ?>
-<main class="portal-shell physician-dashboard">
+<main class="portal-shell physician-dashboard<?= !$isMain?' pd-sub-account':'' ?>">
   <div class="container pd-container">
     <header class="pd-heading">
       <div>
-        <h1>Welcome back, Dr. <?= htmlspecialchars($user['LastName']) ?>.</h1>
+        <h1>Welcome back, Dr. <?= htmlspecialchars($user['LastName']) ?>.</h1><p><?= htmlspecialchars($account['ClinicName']??'') ?></p>
       </div>
       <div class="pd-heading-tools">
         <details class="pd-status-dropdown">
@@ -262,7 +267,7 @@ $pdMetrics = [
       <?php endif; ?>
     </section>
 
-    <section class="pd-metrics" aria-label="Earnings and appointment overview">
+    <section class="pd-metrics" aria-label="Appointment overview">
       <?php foreach ($pdMetrics as [$label, $value, $note, $icon]): ?>
         <article class="pd-metric">
           <div class="pd-metric-label"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><?= $icon ?></svg><span><?= htmlspecialchars($label) ?></span></div>
@@ -337,8 +342,8 @@ $pdMetrics = [
         </section>
       </div>
 
-      <aside class="pd-side-column" aria-label="Earnings and availability">
-        <section class="pd-panel" aria-labelledby="pdEarningsHeading">
+      <aside class="pd-side-column" aria-label="Clinic tools and availability">
+        <?php if($isMain): ?><section class="pd-panel" aria-labelledby="pdEarningsHeading">
           <div class="pd-panel-heading"><div><h2 id="pdEarningsHeading">Recent earnings</h2><p>Physician share from paid bookings</p></div><a class="text-link" href="<?= HQ_BASE_URL ?>/physician/withdrawals.php">View withdrawals</a></div>
           <?php if ($recentEarnings): ?>
             <ul class="pd-earnings-list">
@@ -348,6 +353,7 @@ $pdMetrics = [
             </ul>
           <?php else: ?><div class="pd-empty"><h3>No earnings yet</h3><p>Paid consultations will appear here.</p></div><?php endif; ?>
         </section>
+        <?php else: ?><section class="pd-panel"><div class="pd-panel-heading"><div><h2>Clinical tools</h2><p>Record with patient consent and review AI drafts before finalizing.</p></div></div><div class="pd-empty"><a class="btn btn-primary" href="consultations.php">Open consultations</a></div></section><?php endif; ?>
         <section class="pd-availability-card" aria-labelledby="pdAvailabilityHeading">
           <span class="pd-availability-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><?= $pdCalendar ?></svg></span>
           <div><h2 id="pdAvailabilityHeading">Manage your availability</h2><p>Keep your clinic schedule up to date.</p><a class="pd-text-link" href="<?= HQ_BASE_URL ?>/physician/availability.php">Update availability <span aria-hidden="true">&rarr;</span></a></div>

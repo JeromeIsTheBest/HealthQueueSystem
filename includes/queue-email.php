@@ -5,12 +5,16 @@ require_once __DIR__ . '/notification-preferences.php';
 /** Only due, confirmed patients participate in the clinic waiting order. */
 function eligibleQueueEmails(PDO $pdo): array
 {
-    return $pdo->query("SELECT q.QueueID, q.ClinicID, q.Status, q.AppointmentID, a.PatientID
-        FROM Queue q JOIN Appointments a ON a.AppointmentID=q.AppointmentID
-        WHERE DATE(q.CreatedAt)=CURDATE() AND a.Status='Confirmed' AND q.Status IN ('Waiting','Calling')
-          AND (a.AppointmentTime IS NULL OR TIMESTAMP(a.AppointmentDate,a.AppointmentTime)<=NOW())
-        ORDER BY q.ClinicID, CASE WHEN a.AppointmentTime IS NOT NULL THEN 0 ELSE 1 END,
-          TIMESTAMP(a.AppointmentDate,a.AppointmentTime), COALESCE(q.Position,q.QueueNumber*10), q.QueueNumber, q.QueueID")->fetchAll();
+    require_once __DIR__.'/queue-estimates.php';
+    $rows=[];
+    foreach($pdo->query("SELECT DISTINCT ClinicID FROM Queue WHERE DATE(CreatedAt)=CURDATE() AND Status IN ('Waiting','Calling','Serving')")->fetchAll(PDO::FETCH_COLUMN) as $clinic){
+        foreach(clinicTimeQueue($pdo,(int)$clinic) as $row){
+            if(!empty($row['GraceHeld'])||!in_array($row['Status'],['Waiting','Calling'],true))continue;
+            if($row['AppointmentTime'] && $row['AppointmentTime']!=='00:00:00' && strtotime($row['AppointmentDate'].' '.$row['AppointmentTime'])>time())continue;
+            $rows[]=$row;
+        }
+    }
+    return $rows;
 }
 
 function enqueueQueueEmail(PDO $pdo, int $queueId, int $patientId, int $appointmentId, string $event): void
@@ -25,7 +29,7 @@ function collectQueueEmails(PDO $pdo): array
 {
     $ahead=[];$eligible=[];
     foreach (eligibleQueueEmails($pdo) as $row) {
-        $clinic=(int)$row['ClinicID'];
+        $clinic=$row['ClinicID'].':'.($row['PhysicianID']??0);
         $event=$row['Status']==='Calling' ? 'called' : 'near';
         if ($event==='near' && ($ahead[$clinic]??0)>2) { $ahead[$clinic]++; continue; }
         if ($event==='near') $ahead[$clinic]=($ahead[$clinic]??0)+1;

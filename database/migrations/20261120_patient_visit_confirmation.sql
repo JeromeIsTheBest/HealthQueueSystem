@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS VisitCompletionReviews (
+ AppointmentID INT PRIMARY KEY,
+ PatientID INT NOT NULL,
+ ClinicID INT NOT NULL,
+ FinalizedVersionID INT NOT NULL,
+ Status VARCHAR(24) NOT NULL DEFAULT 'AwaitingPatient',
+ IssueText TEXT NULL,
+ RequestedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PatientRespondedAt DATETIME NULL,
+ CompletedAt DATETIME NULL,
+ CompletedByUserID INT NULL,
+ CompletionSource VARCHAR(20) NULL,
+ StaffResolution TEXT NULL,
+ INDEX idx_visit_completion_clinic (ClinicID,Status),
+ INDEX idx_visit_completion_patient (PatientID,Status),
+ FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID) ON DELETE CASCADE,
+ FOREIGN KEY (PatientID) REFERENCES Users(UserID),
+ FOREIGN KEY (ClinicID) REFERENCES Clinic(ClinicID),
+ FOREIGN KEY (FinalizedVersionID) REFERENCES ConsultationVersions(VersionID),
+ FOREIGN KEY (CompletedByUserID) REFERENCES Users(UserID)
+) ENGINE=InnoDB;

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/availability.php';
+require_once __DIR__ . '/../includes/clinic-fees.php';
 require_once __DIR__ . '/../includes/patient-booking-lock.php';
 
 define('HQ_BASE_URL', '..');
@@ -13,7 +14,7 @@ $clinics = [];
 $physicians = [];
 $errors = [];
 $isAjax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
-$values = ['clinic_id' => (string) ($_GET['clinic'] ?? ''), 'physician_id' => '', 'appointment_date' => '', 'appointment_time' => '', 'concern' => ''];
+$values = ['clinic_id' => (string) ($_GET['clinic'] ?? ''), 'physician_id' => (string)(filter_input(INPUT_GET,'physician',FILTER_VALIDATE_INT)?:''), 'appointment_date' => (string)($_GET['date']??''), 'appointment_time' => (string)($_GET['time']??''), 'concern' => ''];
 
 if ($pdo) {
     try {
@@ -49,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$validPhysician) $errors[] = 'Please choose a physician from the selected clinic.';
     }
 
+    if(!$errors&&$values['appointment_time']===''&&!queueBookingDateAvailable($pdo,(int)$values['clinic_id'],$values['physician_id']!==''?(int)$values['physician_id']:null,$values['appointment_date']))$errors[]='The clinic or physician is unavailable on this date. Choose a working day.';
+
     // Serialize the one-active-booking rule across devices and clinics.
     if (!$errors && $pdo) {
         try {$pdo->beginTransaction();lockPatientBooking($pdo,(int)$user['UserID']);}
@@ -78,17 +81,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $clinicPhysicians = $onlyPhysician->fetchAll(PDO::FETCH_COLUMN);
                 if (count($clinicPhysicians) === 1) $bookingPhysicianId = (int) $clinicPhysicians[0];
             }
-            $stmt = $pdo->prepare('INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern) VALUES (?, ?, ?, ?, ?, ?)');
-            $stmt->execute([$user['UserID'], (int) $values['clinic_id'], $bookingPhysicianId, $values['appointment_date'], $values['appointment_time'] !== '' ? $values['appointment_time'] : null, $values['concern'] ?: null]);
+            $bookingFee=currentClinicFee($pdo,(int)$values['clinic_id']);
+            $stmt = $pdo->prepare('INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern, BookingFeeAmount) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$user['UserID'], (int) $values['clinic_id'], $bookingPhysicianId, $values['appointment_date'], $values['appointment_time'] !== '' ? $values['appointment_time'] : null, $values['concern'] ?: null,$bookingFee]);
             $newAppointmentId = (int) $pdo->lastInsertId();
             $pdo->commit();
 
             if ($isAjax) {
                 $clinicRow = array_values(array_filter($clinics, static fn(array $c): bool => (string) $c['ClinicID'] === $values['clinic_id']))[0] ?? null;
                 $physRow = array_values(array_filter($physicians, static fn(array $p): bool => (int) $p['UserID'] === $bookingPhysicianId))[0] ?? null;
-                $feeStmt = $pdo->prepare('SELECT BaseConsultationFee FROM Clinic WHERE ClinicID = ?');
-                $feeStmt->execute([(int) $values['clinic_id']]);
-                $fee = (float) $feeStmt->fetchColumn();
+                $fee = (float)$bookingFee;
 
                 $walletStmt = $pdo->prepare('SELECT WalletBalance FROM Users WHERE UserID = ?');
                 $walletStmt->execute([$user['UserID']]);

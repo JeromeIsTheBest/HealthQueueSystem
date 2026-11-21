@@ -1,5 +1,63 @@
 <?php
+require_once __DIR__.'/relationship-links.php';
 /** textbee SMS outbox. No network calls are made by web requests. */
+require_once __DIR__.'/queue-estimates.php';
+function appointmentApprovalSms(array $appointment): string
+{
+    $singleLine = static fn(string $value): string => trim(preg_replace('/\s+/u', ' ', $value));
+    $doctor = $singleLine((string) $appointment['DoctorName']);
+    $clinic = $singleLine((string) $appointment['ClinicName']);
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $appointment['AppointmentDate']);
+    if (!$date || $doctor === '' || $clinic === '') throw new InvalidArgumentException('Appointment confirmation details are incomplete.');
+    $time = (string) ($appointment['AppointmentTime'] ?? '');
+    $scheduled=$time!==''&&$time!=='00:00:00';
+    $timeLabel=$scheduled?date('g:i A',strtotime($time))
+        : (!empty($appointment['EstimatedTurnAt'])?date('g:i A',strtotime($appointment['EstimatedTurnAt'])) . ' (approx.)':'To be confirmed by the clinic');
+    return "HealthQueue: Appointment confirmed.\nDoctor: Dr. {$doctor}\nClinic: {$clinic}\nDate: "
+        . $date->format('M j, Y') . ($scheduled?"\nTime: {$timeLabel}":"\nEstimated turn: {$timeLabel}") . "\nQueue: " . $singleLine((string) $appointment['ticket']);
+}
+
+function nearTurnSms(array $entry):string
+{
+    $clean=static fn($v)=>trim(preg_replace('/\s+/u',' ',(string)$v));
+    $scheduled=!empty($entry['AppointmentTime'])&&$entry['AppointmentTime']!=='00:00:00';
+    $time=$scheduled?'Appointment time: '.date('g:i A',strtotime($entry['AppointmentTime']))
+        :'Estimated turn: '.date('g:i A',strtotime($entry['EstimatedTurnAt'])).' (approx.)';
+    $wait=(int)$entry['EstimatedWaitMinutes'];
+    $alert=$wait>0?'Your turn is near (about '.$wait.' min).':'You are next or due now.';
+    return 'HealthQueue: '.$alert."\nDr. ".$clean($entry['DoctorName']).' at '.$clean($entry['ClinicName'])."\n".$time."\nQueue: ".smsQueueTicket($entry).'. Please be ready at the clinic.';
+}
+
+/** About one consultation ahead; timed bookings can be reminded before their scheduled start. */
+function collectQueueSmsReminders(PDO $pdo,?DateTimeImmutable $now=null):array
+{
+    $now=$now??new DateTimeImmutable((string)$pdo->query('SELECT NOW()')->fetchColumn());$eligible=[];
+    foreach(queueSmsEstimates($pdo,$now->format('Y-m-d'),$now) as $entry){
+        if(!empty($entry['GraceHeld']))continue;
+        if($entry['Status']==='Calling'){$event='called';$message='HealthQueue: You are being called now. Please proceed to the clinic counter.';}
+        elseif($entry['Status']==='Waiting'&&(int)$entry['EstimatedWaitMinutes']<=HQ_NEAR_TURN_MINUTES){$event='near';$message=nearTurnSms($entry);}
+        else continue;
+        if(!smsEnabled()||!smsRecipient($pdo,(int)$entry['PatientID']))continue;
+        $key=$event.':'.$entry['QueueID'];$eligible[$key]=$message;
+        queuePatientSms($pdo,(int)$entry['PatientID'],(int)$entry['AppointmentID'],$key,$event,$message);
+        // Only revive a never-attempted alert, not one accepted by textbee or with an uncertain result.
+        $pdo->prepare("UPDATE SmsOutbox SET Status='pending',ProviderStatus=NULL,Message=? WHERE EventKey=? AND Status='skipped' AND Attempts=0")->execute([$message,$key]);
+    }
+    return $eligible;
+}
+
+/** Recheck the current line immediately before handing an alert to textbee. */
+function currentQueueReminderMessage(PDO $pdo,array $outbox,?DateTimeImmutable $now=null):?string
+{
+    if(!preg_match('/\A(near|called):([1-9][0-9]*)\z/',(string)$outbox['EventKey'],$key)||$key[1]!==$outbox['EventType'])return null;
+    $now=$now??new DateTimeImmutable((string)$pdo->query('SELECT NOW()')->fetchColumn());
+    $s=$pdo->prepare('SELECT ClinicID,PhysicianID FROM Queue WHERE QueueID=?');$s->execute([(int)$key[2]]);$scope=$s->fetch();if(!$scope)return null;
+    $timeline=queueSmsEstimates($pdo,$now->format('Y-m-d'),$now,(int)$scope['ClinicID'],(int)$scope['PhysicianID']);$entry=$timeline[(int)$key[2]]??null;
+    if(!$entry||!empty($entry['GraceHeld'])||(int)$entry['AppointmentID']!==(int)$outbox['AppointmentID']||(int)$entry['PatientID']!==(int)$outbox['PatientID'])return null;
+    if($key[1]==='called')return $entry['Status']==='Calling'?'HealthQueue: You are being called now. Please proceed to the clinic counter.':null;
+    return $entry['Status']==='Waiting'&&(int)$entry['EstimatedWaitMinutes']<=HQ_NEAR_TURN_MINUTES?nearTurnSms($entry):null;
+}
+
 function smsEnabled(): bool
 {
     return getenv('HQ_SMS_ENABLED') === '1'
@@ -29,8 +87,7 @@ function queuePatientSms(PDO $pdo, int $patientId, int $appointmentId, string $e
     if (!smsEnabled()) return;
     try {
         if (!smsRecipient($pdo, $patientId)) return;
-        $stmt = $pdo->prepare('INSERT INTO SmsOutbox (PatientID, AppointmentID, EventKey, EventType, Message) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE EventKey = EventKey');
-        $stmt->execute([$patientId, $appointmentId, $eventKey, $event, $message]);
+        insertReferencedSms($pdo,$patientId,$appointmentId,$eventKey,$event,$message);
     } catch (Throwable $e) {
         error_log('HealthQueue SMS enqueue failed; check SMS migrations.');
     }

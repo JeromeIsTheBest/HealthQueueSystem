@@ -1,0 +1,6 @@
+<?php
+if(PHP_SAPI!=='cli')exit;
+require __DIR__.'/../includes/clinic-location.php';
+function locationCheck($v,$label){if(!$v)throw new LogicException($label);echo "PASS: $label\n";}
+locationCheck(clinicMapPoint(['Latitude'=>null,'Longitude'=>123])===null,'Missing latitude is unavailable');locationCheck(clinicMapPoint(['Latitude'=>'','Longitude'=>''])===null,'Blank coordinates are unavailable');locationCheck(clinicMapPoint(['Latitude'=>91,'Longitude'=>123])===null,'Invalid range is unavailable');locationCheck(clinicMapPoint(['Latitude'=>0,'Longitude'=>0])===['lat'=>0.0,'lng'=>0.0],'Valid zero coordinates are retained');
+$c=['ClinicID'=>1,'ClinicName'=>'Fixture & Clinic','Address'=>'Cebu City','Latitude'=>'10.3157','Longitude'=>'123.8854'];parse_str(parse_url(clinicDirectionsUrl($c),PHP_URL_QUERY),$params);locationCheck($params===['api'=>'1','destination'=>'10.3157,123.8854'],'Directions use actual clinic coordinates without patient origin');unset($c['Latitude'],$c['Longitude']);parse_str(parse_url(clinicDirectionsUrl($c),PHP_URL_QUERY),$params);locationCheck($params['destination']==='Fixture & Clinic Cebu City','Unknown coordinates fall back to address');locationCheck(str_contains(clinicNearbyAttributes($c),'data-lat=""'),'Missing coordinates do not become zero in HTML');

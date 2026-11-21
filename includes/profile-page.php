@@ -19,13 +19,13 @@ $roleName = $user['RoleName'];
 $logClinicId = $user['ClinicID'] ? (int) $user['ClinicID'] : null;
 $profile = [
     'IDNumber' => null, 'FirstName' => $user['FirstName'], 'LastName' => $user['LastName'], 'Email' => $user['Email'],
-    'ContactNumber' => '', 'ProfilePhoto' => null, 'CreatedAt' => null, 'ClinicName' => null, 'AvailabilityStatus' => null,
+    'PhysicianSpecialty'=>'', 'ContactNumber' => '', 'ProfilePhoto' => null, 'CreatedAt' => null, 'ClinicName' => null, 'AvailabilityStatus' => null,
 ];
 
 if ($pdo) {
     try {
         $stmt = $pdo->prepare(
-            'SELECT u.IDNumber, u.FirstName, u.LastName, u.Email, u.ContactNumber, u.ProfilePhoto, u.CreatedAt, u.AvailabilityStatus, c.ClinicName
+            'SELECT u.IDNumber, u.FirstName, u.LastName, u.Email, u.ContactNumber, u.ProfilePhoto, u.CreatedAt, u.AvailabilityStatus,u.PhysicianSpecialty, c.ClinicName
              FROM Users u LEFT JOIN Clinic c ON c.ClinicID = u.ClinicID WHERE u.UserID = ?'
         );
         $stmt->execute([$user['UserID']]);
@@ -51,6 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email     = trim((string) ($_POST['email'] ?? ''));
         $contact   = trim((string) ($_POST['contact_number'] ?? ''));
 
+        $specialty=$roleName==='Physician'?trim((string)($_POST['specialty']??'')):'';
+        if(mb_strlen($specialty)>100)$errors[]='Specialty must be 100 characters or fewer.';
         if (!hqValidMobile($contact)) $errors[] = 'Enter a valid mobile number';
         if ($firstName === '' || $lastName === '') $errors[] = 'First and last name are required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
@@ -62,9 +64,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $dupe->execute([$email, $user['UserID']]);
                 if ($dupe->fetch()) {
                     $errors[] = 'Another account already uses that email address.';
+                } elseif (hqMobileInUse($pdo,$contact,(int)$user['UserID'])) {
+                    $errors[] = 'This mobile number is already registered to another account.';
                 } else {
                     $pdo->prepare('UPDATE Users SET FirstName = ?, LastName = ?, Email = ?, ContactNumber = ? WHERE UserID = ?')
                         ->execute([$firstName, $lastName, $email, $contact ?: null, $user['UserID']]);
+                    if($roleName==='Physician'){$pdo->prepare('UPDATE Users SET PhysicianSpecialty=? WHERE UserID=?')->execute([$specialty,$user['UserID']]);$profile['PhysicianSpecialty']=$specialty;}
                     loginUser(['UserID' => $user['UserID'], 'ClinicID' => $user['ClinicID'], 'RoleID' => $user['RoleID'], 'RoleName' => $user['RoleName'], 'FirstName' => $firstName, 'LastName' => $lastName, 'Email' => $email]);
                     logActivity($pdo, $user['UserID'], $logClinicId, 'Updated profile', $roleName . ' updated their own account details.');
                     $flash = 'Profile updated.';
@@ -76,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } catch (PDOException $e) {
                 error_log($roleName . ' profile update failed: ' . $e->getMessage());
-                $errors[] = 'We could not update your profile right now.';
+                $errors[] = hqDuplicateMobileError($e)?'This mobile number is already registered to another account.':'We could not update your profile right now.';
             }
         }
     } elseif ($formType === 'change_password') {
@@ -146,6 +151,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
+
+if ($roleName === 'Physician') {
+    require_once __DIR__ . '/physician-save-feedback.php';
+    $feedbackRedirect = physicianSaveFeedback($flash, $errors, HQ_BASE_URL . '/physician/profile.php');
+    if ($feedbackRedirect !== null) { header('Location: ' . $feedbackRedirect, true, 303); exit; }
 }
 
 // On a validation error, reopen the modal the user was working in and keep
@@ -267,6 +278,7 @@ require __DIR__ . '/header.php';
       <div class="form-stack">
         <label>First name<input type="text" name="first_name" value="<?= $formValue('first_name', $profile['FirstName']) ?>" required></label>
         <label>Last name<input type="text" name="last_name" value="<?= $formValue('last_name', $profile['LastName']) ?>" required></label>
+        <?php if($roleName==='Physician'): ?><label>Specialty <span class="optional">(optional)</span><input name="specialty" maxlength="100" value="<?= $formValue('specialty',$profile['PhysicianSpecialty']??'') ?>"></label><?php endif; ?>
         <label>Email address<input type="email" name="email" value="<?= $formValue('email', $profile['Email']) ?>" required></label>
         <label>Contact number<input type="tel" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= $formValue('contact_number', $profile['ContactNumber']) ?>"<?= $profileContactRequired ? ' required' : '' ?>></label>
       </div>

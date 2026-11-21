@@ -440,6 +440,38 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('notificationDetailMarkRead').hidden = true;
           document.getElementById('notificationDetailMarkRead').disabled = read;
           document.getElementById('notificationDetailMarkRead').textContent = read ? 'Already read' : 'Mark as read';
+          var recordPanel = document.getElementById('notificationRecordAccess');
+          var recordButton = document.getElementById('notificationReviewRecordAccess');
+          var recordState = document.getElementById('notificationRecordAccessState');
+          var recordRequest = row.getAttribute('data-record-access-request');
+          if (recordPanel && recordButton) {
+            recordPanel.hidden = !recordRequest;
+            var recordStatus = row.getAttribute('data-record-access-status');
+            var recordActive = recordStatus === 'Pending' || recordStatus === 'Approved';
+            recordButton.hidden = !recordActive;
+            recordButton.textContent = recordStatus === 'Approved' ? 'Manage access' : 'Review request';
+            recordState.textContent = recordActive ? '' : 'This request is ' + (recordStatus || 'expired').toLowerCase() + '. Access remains locked.';
+            recordButton.onclick = function () {
+              if (!recordRequest || !recordActive) return;
+              window.hqCloseModal(detailModal);
+              document.dispatchEvent(new CustomEvent('hq:review-record-access', {detail:{requestId:recordRequest}}));
+            };
+          }
+          var visitPanel = document.getElementById('notificationVisitCompletion');
+          var visitButton = document.getElementById('notificationReviewVisitCompletion');
+          var visitId = row.getAttribute('data-visit-completion-appointment');
+          if (visitPanel && visitButton) {
+            visitPanel.hidden = !visitId;
+            var visitStatus = row.getAttribute('data-visit-completion-status');
+            var visitPending = visitStatus === 'AwaitingPatient';
+            visitButton.hidden = !visitPending;
+            document.getElementById('notificationVisitCompletionState').textContent = visitPending ? '' : (visitStatus === 'IssueReported' ? 'Your report is awaiting clinic review.' : 'This visit confirmation has already been processed.');
+            visitButton.onclick = function () {
+              if (!visitId || !visitPending) return;
+              window.hqCloseModal(detailModal);
+              document.dispatchEvent(new CustomEvent('hq:review-visit-completion', {detail:{appointmentId:visitId}}));
+            };
+          }
           detailModal.notificationTrigger = row.querySelector('.notif-message-toggle');
           window.hqOpenModal(detailModal);
           document.body.classList.add('is-notification-modal-open');

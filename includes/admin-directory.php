@@ -5,7 +5,7 @@ $dirStatus = in_array($_GET['status'] ?? '', ['Active','Inactive'], true) ? $_GE
 $dirClinic = max(0, (int) ($_GET['clinic'] ?? 0));
 $dirPage = max(1, (int) ($_GET['page'] ?? 1));
 $dirPerPage = 10;
-$dirStats = ['total'=>0,'active'=>0,'inactive'=>0,'archived'=>0,'pending'=>0];
+$dirStats = ['total'=>0,'active'=>0,'inactive'=>0,'archived'=>0,'pending'=>0,'fee_requests'=>0];
 $dirClinicOptions = [];
 try {
  if ($pdo) {
@@ -13,9 +13,14 @@ try {
    $row=$pdo->query("SELECT COUNT(*) AS total,COALESCE(SUM(archived=0 AND Status='Active'),0) AS active,COALESCE(SUM(archived=0 AND Status='Inactive'),0) AS inactive,COALESCE(SUM(archived=1),0) AS archived FROM Clinic")->fetch();
    foreach ($row as $key=>$value) $dirStats[$key]=(int)$value;
    $dirStats['pending']=(int)$pdo->query("SELECT COUNT(*) FROM ClinicRegistrationInquiry WHERE Status='Pending'")->fetchColumn();
+   $dirStats['fee_requests']=(int)$pdo->query("SELECT COUNT(*) FROM ClinicFeeRequests WHERE Status='Pending'")->fetchColumn();
   } else {
    $stmt=$pdo->prepare("SELECT COUNT(*) AS total,COALESCE(SUM(u.Status='Active'),0) AS active,COALESCE(SUM(u.Status='Inactive'),0) AS inactive FROM Users u JOIN Roles r ON r.RoleID=u.RoleID WHERE r.RoleName=? AND u.DeletedAt IS NULL");
    $stmt->execute([ROLE_NAME]);foreach($stmt->fetch() as $key=>$value)$dirStats[$key]=(int)$value;
+   if($directoryKind==='physicians'){
+    $dirStats['main']=(int)$pdo->query("SELECT COUNT(*) FROM PhysicianAccountOwners o JOIN Users u ON u.UserID=o.MainPhysicianID WHERE u.DeletedAt IS NULL")->fetchColumn();
+    $dirStats['sub']=(int)$pdo->query("SELECT COUNT(*) FROM Users u JOIN Roles r ON r.RoleID=u.RoleID JOIN PhysicianAccountOwners o ON o.ClinicID=u.ClinicID WHERE r.RoleName='Physician' AND u.UserID<>o.MainPhysicianID AND u.DeletedAt IS NULL")->fetchColumn();
+   }
    $dirClinicOptions=$pdo->query('SELECT ClinicID,ClinicName FROM Clinic WHERE archived=0 ORDER BY ClinicName')->fetchAll();
   }
  }
@@ -31,20 +36,22 @@ function dirUrl(array $changes=[]): string {
 }
 function dirInitials(array $row): string {return mb_strtoupper(mb_substr($row['FirstName'],0,1).mb_substr($row['LastName'],0,1));}
 function dirIcon(string $name='users'): string {
- $paths=['users'=>'<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M21 21v-3a6 6 0 0 0-4-5"/>','clinic'=>'<path d="M4 21V5h16v16M2 21h20M9 21v-4h6v4M9 9h6M12 6v6M7 14h.01M17 14h.01"/>','check'=>'<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>','inactive'=>'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>'];
+ $paths=['fees'=>'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v5c0 4 16 4 16 0V5M4 10v5c0 4 16 4 16 0v-5M4 15v4c0 4 16 4 16 0v-4"/>','pin'=>'<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2"/>','phone'=>'<path d="m4 3 4-1 3 6-3 2a15 15 0 0 0 6 6l2-3 6 3-1 4C10 24 0 14 4 3Z"/>','users'=>'<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M21 21v-3a6 6 0 0 0-4-5"/>','clinic'=>'<path d="M4 21V5h16v16M2 21h20M9 21v-4h6v4M9 9h6M12 6v6M7 14h.01M17 14h.01"/>','check'=>'<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>','inactive'=>'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>'];
  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$paths[$name].'</svg>';
 }
 function renderDirectoryHeading(string $title,string $description,?string $modalId=null,?string $addLabel=null): void {
- global $directoryKind;
+ global $directoryKind,$dirStats;
  echo '<p class="dr-breadcrumb">Administration <span>/</span> '.htmlspecialchars(ucfirst($directoryKind)).'</p><header class="dr-heading"><div><h1>'.htmlspecialchars($title).'</h1><p>'.htmlspecialchars($description).'</p></div><div class="dr-heading-actions">';
+ if($directoryKind==='clinics')echo '<a class="btn btn-outline ac-fee-link" href="clinic-fees.php">'.dirIcon('fees').'Fee change requests<span class="ac-count">'.(int)($dirStats['fee_requests']??0).'</span></a>';
  if($modalId)echo '<button type="button" class="btn btn-primary" data-directory-open="'.htmlspecialchars($modalId).'">+ '.htmlspecialchars($addLabel).'</button>';
- if(in_array($directoryKind,['clinics','patients'],true))echo '<a class="btn btn-outline" href="export.php?type='.htmlspecialchars($directoryKind).'">Export CSV</a>';
+ if($directoryKind==='patients')echo '<a class="btn btn-outline" href="export.php?type='.htmlspecialchars($directoryKind).'">Export CSV</a>';
  echo '</div></header>';
 }
 function renderDirectoryStats(): void {
  global $dirStats,$directoryKind;
- $cards=$directoryKind==='clinics' ? [['active','Active clinics','clinic'],['inactive','Inactive','inactive'],['archived','Archived','clinic'],['pending','Pending inquiries','clinic']] : [['total','Total '.$directoryKind,'users'],['active','Active','check'],['inactive','Inactive','inactive']];
- echo '<section class="dr-stats'.($directoryKind==='clinics'?' dr-stats-four':'').'" aria-label="Directory totals">';
+ $cards=$directoryKind==='clinics' ? [['active','Active clinics','clinic'],['pending','Pending registration','clinic'],['fee_requests','Fee requests','fees']] : [['total','Total '.$directoryKind,'users'],['active','Active','check'],['inactive','Inactive','inactive']];
+ if($directoryKind==='physicians')$cards=[['main','Main accounts','users'],['sub','Sub accounts','users'],['active','Active physicians','check'],['inactive','Inactive physicians','inactive']];
+ echo '<section class="dr-stats'.($directoryKind==='physicians'?' dr-stats-four':'').'" aria-label="Directory totals">';
  foreach($cards as [$key,$label,$icon])echo '<article><span class="dr-stat-icon">'.dirIcon($icon).'</span><div><h2>'.htmlspecialchars($label).'</h2><strong>'.$dirStats[$key].'</strong></div></article>';
  echo '</section>';
 }
@@ -53,7 +60,8 @@ function renderDirectoryFilters(): void {
  echo '<form method="get" class="dr-filters">';
  if($directoryKind==='clinics'&&!empty($showArchived))echo '<input type="hidden" name="archived" value="1">';
  $placeholder=['clinics'=>'Search clinic name or location','physicians'=>'Search physician name or email','staff'=>'Search staff name or email','patients'=>'Search patient name, ID, or email'][$directoryKind];
- echo '<label class="dr-search"><span class="sr-only">Search directory</span><input type="search" name="q" value="'.htmlspecialchars($search).'" placeholder="'.htmlspecialchars($placeholder).'"></label>';
+ $searchLabel=$directoryKind==='physicians'?'<span class="dr-search-label">Physician name or email</span>':'<span class="sr-only">Search directory</span>';
+ echo '<label class="dr-search">'.$searchLabel.'<input type="search" name="q" value="'.htmlspecialchars($search).'" placeholder="'.htmlspecialchars($placeholder).'"></label>';
  if(in_array($directoryKind,['physicians','staff'],true)) {
   echo '<label class="dr-filter-field"><span>Clinic</span><select name="clinic"><option value="">All clinics</option>';
   foreach($dirClinicOptions as $clinic)echo '<option value="'.(int)$clinic['ClinicID'].'"'.($dirClinic===(int)$clinic['ClinicID']?' selected':'').'>'.htmlspecialchars($clinic['ClinicName']).'</option>';

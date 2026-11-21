@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/queue-estimates.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Staff']);
@@ -21,14 +22,17 @@ if ($pdo && $clinicId) {
         $clinicName = (string) $nameStmt->fetchColumn() ?: $clinicName;
 
         $stmt = $pdo->prepare(
-            "SELECT q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.PhysicianID, phy.LastName AS PhyLastName
+            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.PhysicianID, phy.LastName AS PhyLastName
              FROM Queue q LEFT JOIN Users phy ON phy.UserID = q.PhysicianID
              WHERE q.ClinicID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status IN ('Waiting', 'Calling', 'Serving')
              ORDER BY COALESCE(q.Position, q.QueueNumber * 10), q.QueueNumber"
         );
         $stmt->execute([$clinicId]);
         // One lane per physician (plus "General" for unassigned patients).
-        foreach ($stmt->fetchAll() as $row) {
+        $boardRows=$stmt->fetchAll();$ranks=[];$heldIds=[];foreach(clinicTimeQueue($pdo,$clinicId) as $rank=>$item){$ranks[(int)$item['QueueID']]=$rank;if(!empty($item['GraceHeld']))$heldIds[(int)$item['QueueID']]=true;}
+        usort($boardRows,static fn($a,$b)=>[$ranks[(int)$a['QueueID']]??PHP_INT_MAX,(int)$a['QueueID']]<=>[$ranks[(int)$b['QueueID']]??PHP_INT_MAX,(int)$b['QueueID']]);
+        foreach ($boardRows as $row) {
+            if(isset($heldIds[(int)$row['QueueID']]))continue;
             $key = $row['PhysicianID'] ?: 0;
             $lanes[$key] ??= ['name' => $row['PhyLastName'] ? 'Dr. ' . $row['PhyLastName'] : 'General', 'current' => [], 'next' => []];
             if ($row['Status'] === 'Waiting') {

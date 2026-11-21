@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/../includes/clinic-fees.php';
 require_once __DIR__.'/../includes/csv.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
@@ -30,11 +31,11 @@ if ($type === 'patients') {
     }
 } elseif ($type === 'clinics') {
     safeCsvRow($out, ['Clinic Name', 'Address', 'Contact Number', 'Consultation Fee (PHP)', 'Status', 'Archived', 'Registered On']);
-    $stmt = $pdo->query('SELECT ClinicName, Address, ContactNumber, BaseConsultationFee, Status, archived, RegistrationDate FROM Clinic ORDER BY ClinicName');
+    $stmt = $pdo->query('SELECT ClinicID, ClinicName, Address, ContactNumber, BaseConsultationFee, Status, archived, RegistrationDate FROM Clinic ORDER BY ClinicName');
     foreach ($stmt as $row) {
         safeCsvRow($out, [
             $row['ClinicName'], $row['Address'], $row['ContactNumber'],
-            number_format((float) $row['BaseConsultationFee'], 2, '.', ''),
+            number_format((float) currentClinicFee($pdo,(int)$row['ClinicID']), 2, '.', ''),
             $row['Status'], $row['archived'] ? 'Yes' : 'No', $row['RegistrationDate'],
         ]);
     }

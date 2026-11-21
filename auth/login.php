@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($user['RoleName'] === 'Patient' && empty($user['EmailVerifiedAt'])) {
                 $emailUnverified = true;
             } else {
+                try{linkRequestLimitActor($pdo,'login-ip',requestClientAddress(),(int)$user['UserID']);}catch(PDOException $trackingError){error_log('Authenticated request tracking unavailable.');}
                 clearRequestLimit($pdo,'login-account',requestClientAddress().'|'.$email);
                 loginUser($user);
                 header('Location: ' . HQ_BASE_URL . '/' . dashboardPathFor($user['RoleName']));

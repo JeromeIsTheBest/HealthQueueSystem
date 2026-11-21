@@ -46,13 +46,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$errors) {
             try {
+                $pdo->beginTransaction();
                 $stmt = $pdo->prepare('INSERT INTO Announcements (PostedByUserID, ClinicID, Title, Category, Message, PhotoPath, Audience, AffectsDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
                 $stmt->execute([$user['UserID'], $values['clinic_id'] !== '' ? (int) $values['clinic_id'] : null, $values['title'], $values['category'], $values['message'], $photo, $values['audience'], $values['affects_date'] ?: null]);
+                notifyAnnouncementAudience($pdo,(int)$pdo->lastInsertId());
                 logActivity($pdo, $user['UserID'], null, 'Posted announcement', $values['title'] . ' (' . $values['audience'] . ')');
+                $pdo->commit();
                 $_SESSION['admin_success'][basename(__FILE__)] = $flash !== '' ? $flash : 'Announcement published.';
                 header('Location: ' . HQ_BASE_URL . '/admin/announcements.php');
                 exit;
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
+                if($pdo->inTransaction())$pdo->rollBack();
                 deleteAnnouncementPhoto($photo);
                 error_log('Announcement save failed: ' . $e->getMessage());
                 $errors[] = 'We could not post this announcement.';

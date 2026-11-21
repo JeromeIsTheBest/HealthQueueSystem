@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__.'/../includes/clinic-fees.php';
+require_once __DIR__.'/../includes/walk-in-patient.php';
 require_once __DIR__ . '/../includes/input-validation.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
@@ -22,7 +24,8 @@ const QUEUE_ORDER_SQL = "CASE WHEN a.AppointmentTime IS NOT NULL AND TIMESTAMP(a
 $user = currentUser();
 $pdo = getDbConnection();
 $errors = [];
-$flash = '';
+$flash = (string)($_SESSION['queue_arrival_feedback']??'');
+unset($_SESSION['queue_arrival_feedback']);
 if (isset($_GET['registered'])) $flash = 'Walk-in registered successfully.';
 $clinicId = (int) $user['ClinicID'];
 $physicianFilter = filter_var($_GET['physician'] ?? null, FILTER_VALIDATE_INT) ?: null;
@@ -31,16 +34,9 @@ $walkInValues = ['first_name' => '', 'last_name' => '', 'contact_number' => '', 
 /** Today's waiting entries for the clinic (optionally one physician), in line order. */
 function waitingLine(PDO $pdo, int $clinicId, ?int $physicianId): array
 {
-    $sql = "SELECT q.QueueID, COALESCE(q.Position, q.QueueNumber * 10) AS Pos FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID
-            WHERE q.ClinicID = ? AND DATE(q.CreatedAt) = CURDATE() AND q.Status = 'Waiting' AND (a.AppointmentTime IS NULL OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW()) AND NOT EXISTS (SELECT 1 FROM Queue activeQ WHERE activeQ.ClinicID = q.ClinicID AND DATE(activeQ.CreatedAt)=CURDATE() AND activeQ.Status IN ('Calling', 'Serving'))";
-    $params = [$clinicId];
-    if ($physicianId) {
-        $sql .= ' AND q.PhysicianID = ?';
-        $params[] = $physicianId;
-    }
-    $stmt = $pdo->prepare($sql . ' ORDER BY ' . QUEUE_ORDER_SQL);
-    $stmt->execute($params);
-    return $stmt->fetchAll();
+    $next=nextTimeQueuePatient($pdo,$clinicId,$physicianId);
+    if(!$next)return [];
+    return [['QueueID'=>$next['QueueID'],'Pos'=>$next['Position']??((int)$next['QueueNumber']*10)]];
 }
 
 /** Marks a waiting entry as Calling and notifies the patient. */
@@ -88,16 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     if (!$errors && !$patientId) {
-                        $email = $walkInValues['email'] !== '' ? $walkInValues['email'] : ('walkin.' . bin2hex(random_bytes(5)) . '@healthqueue.local');
-                        $insertPatient = $pdo->prepare(
-                            'INSERT INTO Users (RoleID, FirstName, LastName, Email, ContactNumber, PasswordHash, Status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-                        );
-                        $insertPatient->execute([
-                            $patientRoleId, $walkInValues['first_name'], $walkInValues['last_name'], $email,
-                            $walkInValues['contact_number'], password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), 'Active',
-                        ]);
-                        $patientId = (int) $pdo->lastInsertId();
-                        assignUserIdNumber($pdo, $patientId);
+                        $patientId=createWalkInPatient($pdo,$walkInValues);
                     }
 
                     if (!$errors) {
@@ -108,13 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $clinicPhysicians = $singlePhysician->fetchAll(PDO::FETCH_COLUMN);
                             if (count($clinicPhysicians) === 1) $physicianId = (int) $clinicPhysicians[0];
                         }
+                        if(!$physicianId)throw new RuntimeException('Choose an active physician before registering this walk-in.');
                         lockPatientBooking($pdo,(int)$patientId);
                         assertClinicPhysician($pdo,$clinicId,$physicianId);
                         $insertAppt = $pdo->prepare(
-                            "INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern, Status)
-                             VALUES (?, ?, ?, CURDATE(), NULL, ?, 'Confirmed')"
+                            "INSERT INTO Appointments (PatientID, ClinicID, PhysicianID, AppointmentDate, AppointmentTime, Concern, Status, BookingFeeAmount)
+                             VALUES (?, ?, ?, CURDATE(), NULL, ?, 'Confirmed', ?)"
                         );
-                        $insertAppt->execute([$patientId, $clinicId, $physicianId, $walkInValues['concern'] ?: null]);
+                        $insertAppt->execute([$patientId, $clinicId, $physicianId, $walkInValues['concern'] ?: null,currentClinicFee($pdo,$clinicId)]);
                         $appointmentId = (int) $pdo->lastInsertId();
 
                         $queueNumStmt = $pdo->prepare('SELECT COALESCE(MAX(QueueNumber), 0) + 1 FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = CURDATE()');
@@ -137,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         $insertQueue = $pdo->prepare(
-                            "INSERT INTO Queue (ClinicID, AppointmentID, PhysicianID, QueueNumber, RegularNumber, Position, Priority, Status, CreatedByStaffID) VALUES (?, ?, ?, ?, ?, ?, ?, 'Waiting', ?)"
+                            "INSERT INTO Queue (ClinicID, AppointmentID, PhysicianID, QueueNumber, RegularNumber, Position, Priority, Status, CreatedByStaffID,ArrivedAt) VALUES (?, ?, ?, ?, ?, ?, ?, 'Waiting', ?,NOW())"
                         );
                         $insertQueue->execute([$clinicId, $appointmentId, $physicianId, $queueNumber, $regularNumber, $position, $walkInValues['priority'] ?: null, $user['UserID']]);
 
@@ -151,9 +139,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) $pdo->rollBack();
                     error_log('Walk-in registration failed: ' . $e->getMessage());
-                    $errors[] = $e instanceof RuntimeException && !($e instanceof PDOException) ? $e->getMessage() : 'We could not register this walk-in. Please try again.';
+                    $errors[] = hqDuplicateMobileError($e)?'This mobile number is already registered to another account.':($e instanceof RuntimeException && !($e instanceof PDOException) ? $e->getMessage() : 'We could not register this walk-in. Please try again.');
                 }
             }
+        } elseif ($formType === 'confirm_arrival' && $queueId) {
+            try {
+                $changed=confirmQueueArrival($pdo,$queueId,$clinicId,(int)$user['UserID']);
+                $_SESSION['queue_arrival_feedback']=$changed?'Patient arrival confirmed. The visit can be called when eligible.':'Arrival was already confirmed.';
+                header('Location: '.HQ_BASE_URL.'/staff/queue.php'.($physicianFilter?'?physician='.$physicianFilter:''),true,303);exit;
+            } catch(Throwable $e) {$errors[]=$e instanceof PDOException?'We could not confirm arrival.':$e->getMessage();}
         } elseif ($formType === 'call_next') {
             try {
                 $filterPhysician = filter_input(INPUT_POST, 'physician_filter', FILTER_VALIDATE_INT) ?: null;
@@ -187,34 +181,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } elseif (in_array($formType, ['move_up', 'move_down', 'move_last'], true) && $queueId) {
             try {
-                // Reorder within the line currently shown (all, or one physician's).
-                $filterPhysician = filter_input(INPUT_POST, 'physician_filter', FILTER_VALIDATE_INT) ?: null;
-                $line = waitingLine($pdo, $clinicId, $filterPhysician);
-                $ids = array_map(static fn($r) => (int) $r['QueueID'], $line);
-                $index = array_search($queueId, $ids, true);
-                $setPos = $pdo->prepare('UPDATE Queue SET Position = ? WHERE QueueID = ? AND ClinicID = ?');
-
-                if ($index === false) {
-                    $errors[] = 'That patient is no longer waiting.';
-                } elseif ($formType === 'move_last') {
-                    $allLine = waitingLine($pdo, $clinicId, null);
-                    $setPos->execute([(int) end($allLine)['Pos'] + 10, $queueId, $clinicId]);
-                    $flash = 'Moved to the end of the line.';
-                } else {
-                    $swapWith = $formType === 'move_up' ? $index - 1 : $index + 1;
-                    if (isset($line[$swapWith])) {
-                        $a = $line[$index];
-                        $b = $line[$swapWith];
-                        // Equal positions can't be swapped meaningfully, so nudge.
-                        $posA = (int) $b['Pos'];
-                        $posB = (int) $a['Pos'] === (int) $b['Pos'] ? (int) $a['Pos'] + ($formType === 'move_up' ? 1 : -1) : (int) $a['Pos'];
-                        $setPos->execute([$posA, $a['QueueID'], $clinicId]);
-                        $setPos->execute([$posB, $b['QueueID'], $clinicId]);
-                    }
-                }
-            } catch (PDOException $e) {
+                reorderTimeQueue($pdo,$clinicId,$queueId,$formType);
+                $flash='Queue order updated. Scheduled appointment times remain protected.';
+            } catch (Throwable $e) {
                 error_log('Queue reorder failed: ' . $e->getMessage());
-                $errors[] = 'We could not reorder the queue.';
+                $errors[] = $e instanceof PDOException ? 'We could not reorder the queue.' : $e->getMessage();
             }
         } elseif (in_array($formType, ['call_patient', 'mark_serving', 'skip_forfeit', 'remove_from_queue'], true)) {
             $transitions = [
@@ -238,6 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         } else {
                             $errors[] = 'That queue entry could not be updated (it may have already changed).';
                         }
+                    } elseif ($formType === 'skip_forfeit') {
+                        $lookup=$pdo->prepare('SELECT AppointmentID FROM Queue WHERE QueueID=? AND ClinicID=?');$lookup->execute([$queueId,$clinicId]);$targetId=$lookup->fetchColumn();if(!$targetId)throw new RuntimeException('Queue entry not found.');
+                        markClinicNoShow($pdo,(int)$targetId,$clinicId,(int)$user['UserID'],null,(int)$queueId);$flash='Marked as no-show. Any paid booking fee is retained.';
                     } elseif ($formType === 'remove_from_queue') {
                         $reason = mb_substr(trim((string) $_POST['removal_reason']), 0, 255);
                         $pdo->beginTransaction();
@@ -270,71 +244,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $errors[] = 'That queue entry could not be updated (it may have already changed).';
                         }
                     }
-                } catch (PDOException $e) {
+                } catch (Throwable $e) {
+                    if($pdo->inTransaction())$pdo->rollBack();
                     error_log('Queue transition failed: ' . $e->getMessage());
-                    $errors[] = 'We could not update the queue.';
+                    $errors[] = $e instanceof PDOException?'We could not update the queue.':$e->getMessage();
                 }
             }
         } elseif ($formType === 'confirm_complete') {
-            $appointmentId = filter_input(INPUT_POST, 'appointment_id', FILTER_VALIDATE_INT);
-            if (!$appointmentId) {
-                $errors[] = 'Invalid appointment.';
-            } else {
-                try {
-                    // Only allowed once the physician has actually finalized
-                    // their notes -- staff confirm the visit is over, they
-                    // don't write the notes.
-                    $checkStmt = $pdo->prepare(
-                        "SELECT a.PatientID, a.Status,
-                                (SELECT COUNT(*) FROM ConsultationVersions v
-                                 JOIN Consultations cons ON cons.ConsultationID = v.ConsultationID
-                                 WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized') AS FinalizedCount
-                         FROM Appointments a
-                         WHERE a.AppointmentID = ? AND a.ClinicID = ?"
-                    );
-                    $checkStmt->execute([$appointmentId, $clinicId]);
-                    $target = $checkStmt->fetch();
-
-                    if (!$target || $target['Status'] !== 'Confirmed') {
-                        $errors[] = 'That consultation could not be found or is no longer awaiting confirmation.';
-                    } elseif ((int) $target['FinalizedCount'] === 0) {
-                        $errors[] = 'The physician has not finalized their notes for this visit yet.';
-                    } else {
-                        $pdo->prepare("UPDATE Appointments SET Status = 'Completed' WHERE AppointmentID = ? AND ClinicID = ?")
-                            ->execute([$appointmentId, $clinicId]);
-                        $pdo->prepare("UPDATE Queue SET Status = 'Completed' WHERE AppointmentID = ? AND Status IN ('Waiting', 'Calling', 'Serving')")
-                            ->execute([$appointmentId]);
-                        logActivity($pdo, $user['UserID'], $clinicId, 'Confirmed consultation complete', "Appointment #{$appointmentId}");
-                        notifyPatient($pdo, (int) $target['PatientID'], 'Your consultation record is ready to view.', $appointmentId);
-                        $flash = 'Visit marked as done.';
-                    }
-                } catch (PDOException $e) {
-                    error_log('Confirm consultation complete failed: ' . $e->getMessage());
-                    $errors[] = 'We could not confirm this consultation right now.';
-                }
-            }
+            try{$appointmentId=filter_input(INPUT_POST,'appointment_id',FILTER_VALIDATE_INT);if(!$appointmentId)throw new RuntimeException('Invalid appointment.');$changed=completeClinicVisit($pdo,(int)$appointmentId,$clinicId,(int)$user['UserID'],($_POST['attendance_verified']??'')==='1',(string)($_POST['resolution']??''));$flash=$changed?'Visit marked as done.':'This visit is already complete.';}
+            catch(Throwable $e){error_log('Queue completion failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not complete this consultation.':$e->getMessage();}
         } elseif ($formType === 'reschedule_from_queue') {
-            $appointmentId = filter_input(INPUT_POST, 'appointment_id', FILTER_VALIDATE_INT);
-            $newDate = trim((string) ($_POST['appointment_date'] ?? ''));
-            $newTime = trim((string) ($_POST['appointment_time'] ?? ''));
-
-            if (!$queueId || !$appointmentId || $newDate === '' || $newDate < date('Y-m-d') || $newTime === '') {
-                $errors[] = 'Please choose a valid future date and time.';
-            } else {
-                try {
-                    $pdo->beginTransaction();
-                    $pdo->prepare('UPDATE Queue SET Status = ? WHERE QueueID = ? AND ClinicID = ?')->execute(['Removed', $queueId, $clinicId]);
-                    $pdo->prepare('UPDATE Appointments SET AppointmentDate = ?, AppointmentTime = ? WHERE AppointmentID = ? AND ClinicID = ?')
-                        ->execute([$newDate, $newTime, $appointmentId, $clinicId]);
-                    $pdo->commit();
-                    logActivity($pdo, $user['UserID'], $clinicId, 'Rescheduled from queue', "Appointment #{$appointmentId} to {$newDate} {$newTime}");
-                    $flash = 'Appointment rescheduled and removed from today\'s queue.';
-                } catch (PDOException $e) {
-                    if ($pdo->inTransaction()) $pdo->rollBack();
-                    error_log('Reschedule from queue failed: ' . $e->getMessage());
-                    $errors[] = 'We could not reschedule this appointment.';
-                }
-            }
+            try{$appointmentId=filter_input(INPUT_POST,'appointment_id',FILTER_VALIDATE_INT);if(!$appointmentId||!$queueId)throw new RuntimeException('Invalid appointment or queue entry.');rescheduleClinicVisit($pdo,(int)$appointmentId,$clinicId,(int)$user['UserID'],trim((string)($_POST['appointment_date']??'')),trim((string)($_POST['appointment_time']??'')),null,(int)$queueId);$flash='Appointment and queue rescheduled.';}
+            catch(Throwable $e){error_log('Queue reschedule failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not reschedule this visit.':$e->getMessage();}
         }
     }
 }
@@ -348,15 +269,13 @@ $dataError = null;
 if ($pdo && $clinicId) {
     try {
         $stmt = $pdo->prepare(
-            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.Priority, q.PhysicianID, q.AppointmentID,
+            "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.Priority, q.PhysicianID, q.AppointmentID,q.ArrivedAt,q.GraceExtendedAt,q.GraceRescheduleRequestedAt,
                     TIMESTAMPDIFF(MINUTE, q.CreatedAt, NOW()) AS WaitingMinutes,
                     TIMESTAMPDIFF(MINUTE, COALESCE(q.ServedAt, q.CalledAt), NOW()) AS ActiveMinutes,
                     a.AppointmentDate, a.AppointmentTime, a.Concern, a.BookingFeePaid,
                     pat.FirstName, pat.LastName,
                     phy.LastName AS PhyLastName,
-                    (SELECT COUNT(*) FROM ConsultationVersions v
-                     JOIN Consultations cons ON cons.ConsultationID = v.ConsultationID
-                     WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized') AS FinalizedCount
+                    (SELECT v.Status='Finalized' FROM ConsultationVersions v JOIN Consultations cons ON cons.ConsultationID=v.ConsultationID WHERE cons.AppointmentID=a.AppointmentID ORDER BY v.RevisionNumber DESC,v.VersionID DESC LIMIT 1) AS FinalizedCount
              FROM Queue q
              JOIN Appointments a ON a.AppointmentID = q.AppointmentID
              JOIN Users pat ON pat.UserID = a.PatientID
@@ -395,11 +314,18 @@ if ($pdo && $clinicId) {
     }
 }
 
+$timeLine=$pdo?clinicTimeQueue($pdo,$clinicId,$physicianFilter):[];$timeRank=[];$turnTimes=[];
+foreach($timeLine as $rank=>$predicted){$timeRank[(int)$predicted['QueueID']]=$rank;$turnTimes[(int)$predicted['QueueID']]=$predicted;}
+foreach($entries as &$entry){$entry['EstimatedTurnAt']=$turnTimes[(int)$entry['QueueID']]['EstimatedTurnAt']??null;$entry['EstimatedWaitMinutes']=$turnTimes[(int)$entry['QueueID']]['EstimatedWaitMinutes']??null;$entry['GraceHeld']=!empty($turnTimes[(int)$entry['QueueID']]['GraceHeld']);$entry['GraceDeadline']=$turnTimes[(int)$entry['QueueID']]['GraceDeadline']??null;}
+unset($entry);
+usort($entries,static fn($a,$b)=>[$timeRank[(int)$a['QueueID']]??PHP_INT_MAX,(int)$a['QueueID']]<=>[$timeRank[(int)$b['QueueID']]??PHP_INT_MAX,(int)$b['QueueID']]);
+
 // Split today's entries for the selected physician tab.
 $visible = array_filter($entries, static fn($e) => !$physicianFilter || (int) $e['PhysicianID'] === $physicianFilter);
-$active = array_values(array_filter($visible, static fn($e) => in_array($e['Status'], ['Calling', 'Serving'], true)));
-$waiting = array_values(array_filter($visible, static fn($e) => $e['Status'] === 'Waiting'));
-$canCallNext = $pdo ? (bool) waitingLine($pdo, $clinicId, $physicianFilter) : false;
+$active = array_values(array_filter($visible, static fn($e) => empty($e['GraceHeld'])&&in_array($e['Status'], ['Calling', 'Serving'], true)));
+$waiting = array_values(array_filter($visible, static fn($e) => empty($e['GraceHeld'])&&$e['Status'] === 'Waiting'));
+$awaitingArrival=array_values(array_filter($visible,static fn($e)=>!empty($e['GraceHeld'])));
+$eligibleLine=$pdo?waitingLine($pdo,$clinicId,$physicianFilter):[];$canCallNext=(bool)$eligibleLine;$nextQueueId=$eligibleLine?(int)$eligibleLine[0]['QueueID']:0;
 $finished = array_values(array_filter($visible, static fn($e) => in_array($e['Status'], ['Completed', 'Forfeited_Late', 'Removed'], true)));
 $finishedCounts = ['Completed' => 0, 'Forfeited_Late' => 0, 'Removed' => 0];
 foreach ($finished as $entry) $finishedCounts[$entry['Status']]++;
@@ -417,6 +343,7 @@ $minutesLabel = static function (int $minutes): string {
 $nextPatient = null;
 foreach ($waiting as $candidate) {
     if (!$candidate['AppointmentTime'] || strtotime($candidate['AppointmentDate'] . ' ' . $candidate['AppointmentTime']) <= time()) {
+        if((int)$candidate['QueueID']!==$nextQueueId)continue;
         $nextPatient = $candidate;
         break;
     }
@@ -426,9 +353,9 @@ foreach ($waiting as $candidate) {
 ob_start();
 ?>
   <div class="qm-metrics">
-    <div><span class="qm-metric-icon" aria-hidden="true">&#9678;</span><div><span>Waiting</span><strong><?= count($waiting) ?></strong></div></div>
-    <div><span class="qm-metric-icon" aria-hidden="true">&#10010;</span><div><span>In consultation</span><strong><?= count(array_filter($active, static fn($e) => $e['Status'] === 'Serving')) ?></strong></div></div>
-    <div><span class="qm-metric-icon" aria-hidden="true">&#10003;</span><div><span>Completed today</span><strong><?= $finishedCounts['Completed'] ?></strong></div></div>
+    <div><span class="qm-metric-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M17 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 4 5v2"/></svg></span><div><span>Waiting</span><strong><?= count($waiting) ?></strong></div></div>
+    <div><span class="qm-metric-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a5 5 0 0 0 10 0V3M4 3h4M14 3h4M11 14v3a4 4 0 0 0 8 0v-2"/><circle cx="19" cy="12" r="3"/></svg></span><div><span>In consultation</span><strong><?= count(array_filter($active, static fn($e) => $e['Status'] === 'Serving')) ?></strong></div></div>
+    <div><span class="qm-metric-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/></svg></span><div><span>Completed today</span><strong><?= $finishedCounts['Completed'] ?></strong></div></div>
   </div>
   <div class="qm-workspace"><div class="qm-main-column">
   <section class="qm-current-panel"><h3 class="qm-section-title">Now serving</h3>
@@ -447,14 +374,13 @@ ob_start();
           <?php if (!$isServing): ?>
             <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="recall"><input type="hidden" name="queue_id" value="<?= (int) $entry['QueueID'] ?>">
               <button class="btn btn-outline btn-sm"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Recall</button></form>
-            <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="mark_serving"><input type="hidden" name="queue_id" value="<?= (int) $entry['QueueID'] ?>">
-              <button class="btn btn-outline btn-sm">Patient arrived</button></form>
+            <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="confirm_arrival"><input type="hidden" name="queue_id" value="<?= (int) $entry['QueueID'] ?>">
+              <button class="btn btn-outline btn-sm"<?= !empty($entry['ArrivedAt'])?' disabled':'' ?>><?= !empty($entry['ArrivedAt'])?'Arrival confirmed':'Patient arrived' ?></button></form>
           <?php endif; ?>
-          <form method="post" onsubmit="return confirm('Mark #<?= (int) $entry['QueueNumber'] ?> as a no-show?');"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="skip_forfeit"><input type="hidden" name="queue_id" value="<?= (int) $entry['QueueID'] ?>">
+          <form method="post" onsubmit="return confirm('Mark this visit as no-show? Any paid booking fee is retained.');"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="skip_forfeit"><input type="hidden" name="queue_id" value="<?= (int) $entry['QueueID'] ?>">
             <button class="btn btn-outline btn-sm qm-danger">No-show</button></form>
           <?php if ($isServing): ?>
-            <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="confirm_complete"><input type="hidden" name="appointment_id" value="<?= (int) $entry['AppointmentID'] ?>">
-              <button class="btn btn-outline btn-sm"<?= (int) $entry['FinalizedCount'] > 0 ? '' : ' disabled title="Waiting for the physician to finalize their notes"' ?>>Mark done</button></form>
+            <a class="btn btn-outline btn-sm" href="appointments.php?tab=confirm">Review completion</a>
           <?php endif; ?>
 
         </div>
@@ -463,7 +389,7 @@ ob_start();
     <?php endforeach; ?>
   <?php else: ?>
     <section class="qm-serving qm-serving-empty">
-      <p>No one is being served right now.</p>
+      <h2>No active consultation</h2><p>Call the next eligible patient to begin.</p>
 
     </section>
   <?php endif; ?>
@@ -471,28 +397,32 @@ ob_start();
   </section>
   <section class="qm-waiting-panel">
   <div class="qm-panel-heading"><h3 class="qm-section-title">Waiting queue <span class="qm-count"><?= count($waiting) ?></span></h3><input class="qm-search" type="search" placeholder="Find patient" aria-label="Find patient in waiting queue"></div>
-  <div class="qm-column-labels" aria-hidden="true"><span>Ticket</span><span>Patient / visit</span><span>Waiting</span><span>Queue controls</span></div>
+  <div class="qm-column-labels" aria-hidden="true"><span>Ticket</span><span>Patient / physician</span><span>Estimated turn</span><span>Actions</span></div>
   <?php if ($waiting): ?>
     <div class="qm-list">
       <?php foreach ($waiting as $i => $entry): ?>
         <?php $mins = (int) $entry['WaitingMinutes']; $qid = (int) $entry['QueueID']; ?>
         <article class="qm-row" data-patient="<?= htmlspecialchars(mb_strtolower($entry['FirstName'] . ' ' . $entry['LastName'])) ?>">
           <span class="qm-num"><?= htmlspecialchars($ticketLabel($entry)) ?></span>
-          <div class="qm-row-main">
+          <div class="qm-row-main"><span class="qm-patient-avatar" aria-hidden="true"><?= htmlspecialchars(mb_strtoupper(mb_substr($entry['FirstName'],0,1).mb_substr($entry['LastName'],0,1))) ?></span><div>
             <strong><?= htmlspecialchars($entry['FirstName'] . ' ' . $entry['LastName']) ?><?php if ($entry['Priority']): ?> <span class="qm-priority">Priority · <?= htmlspecialchars($entry['Priority']) ?></span><?php endif; ?></strong>
             <p><?= htmlspecialchars($sourceLabel($entry)) ?> · <?= htmlspecialchars($concern($entry)) ?><?= !$physicianFilter && $entry['PhyLastName'] ? ' · Dr. ' . htmlspecialchars($entry['PhyLastName']) : '' ?></p>
-          </div>
-          <span class="qm-wait<?= $mins >= LONG_WAIT_MINUTES ? ' is-long' : '' ?>">waiting <?= $minutesLabel($mins) ?></span>
+          </div></div>
+          <span class="qm-turn"><strong><?= $entry['EstimatedTurnAt'] ? htmlspecialchars(date('g:i A',strtotime($entry['EstimatedTurnAt']))) : 'To be confirmed' ?></strong><small><?= $entry['AppointmentTime'] && $entry['AppointmentTime']!=='00:00:00' ? 'Scheduled '.htmlspecialchars(date('g:i A',strtotime($entry['AppointmentTime']))) : 'Approximate' ?></small><small>Waiting <?= $minutesLabel(max(0,$mins)) ?></small></span>
           <div class="qm-icons">
             <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="move_up"><input type="hidden" name="queue_id" value="<?= $qid ?>"><?= $filterInput ?>
               <button class="qm-icon" aria-label="Move up" title="Move up"<?= $i === 0 ? ' disabled' : '' ?>><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button></form>
             <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="move_down"><input type="hidden" name="queue_id" value="<?= $qid ?>"><?= $filterInput ?>
               <button class="qm-icon" aria-label="Move down" title="Move down"<?= $i === count($waiting) - 1 ? ' disabled' : '' ?>><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button></form>
-            <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="move_last"><input type="hidden" name="queue_id" value="<?= $qid ?>"><?= $filterInput ?>
-              <button class="qm-icon" aria-label="Send to end of line" title="Send to end of line"<?= $i === count($waiting) - 1 ? ' disabled' : '' ?>><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 5 8 7-8 7V5zM18 5v14"/></svg></button></form>
-            <form method="post" onsubmit="return confirm('Remove this booking from the queue and cancel the appointment?');"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="remove_from_queue"><input type="hidden" name="queue_id" value="<?= $qid ?>">
-              <input type="text" name="removal_reason" maxlength="255" required aria-label="Reason for removal" placeholder="Reason required" class="qm-remove-reason">
-              <button class="qm-icon qm-icon-danger" aria-label="Remove from queue" title="Remove from queue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>
+            <details class="qm-more"><summary aria-label="More actions for <?= htmlspecialchars($entry['FirstName'].' '.$entry['LastName']) ?>"><span aria-hidden="true">&bull;&bull;&bull;</span></summary><div class="qm-more-panel">
+              <?php if (empty($entry['ArrivedAt'])): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="confirm_arrival"><input type="hidden" name="queue_id" value="<?= $qid ?>"><?= $filterInput ?><button class="qm-menu-action">Patient arrived</button></form><?php else: ?><p class="qm-arrival-confirmed">Arrival confirmed</p><?php endif; ?>
+
+              <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="move_last"><input type="hidden" name="queue_id" value="<?= $qid ?>"><?= $filterInput ?><button class="qm-menu-action"<?= $i === count($waiting)-1 ? ' disabled' : '' ?>>Send to end of line</button></form>
+              <form method="post" class="qm-remove-form" onsubmit="return confirm('Remove this booking from the queue and cancel the appointment?');"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="remove_from_queue"><input type="hidden" name="queue_id" value="<?= $qid ?>"><?= $filterInput ?>
+                <label>Reason for removal<input type="text" name="removal_reason" maxlength="255" required placeholder="Enter reason" class="qm-remove-reason"></label>
+                <button class="qm-menu-action qm-icon-danger">Remove booking</button>
+              </form>
+            </div></details>
           </div>
         </article>
       <?php endforeach; ?>
@@ -503,11 +433,18 @@ ob_start();
 
   <p class="qm-search-empty" hidden>No waiting patients match your search.</p>
   </section>
+  <?php if ($awaitingArrival): ?>
+  <section class="qm-waiting-panel qm-arrival-panel"><h3 class="qm-section-title">Awaiting arrival <span class="qm-count"><?= count($awaitingArrival) ?></span></h3><p class="qm-upcoming-help">These scheduled patients do not block the queue. Confirm arrival when they reach the clinic.</p>
+    <?php foreach ($awaitingArrival as $absent): ?>
+    <article class="qm-absent-row"><div><strong><?= htmlspecialchars($ticketLabel($absent)) ?> &middot; <?= htmlspecialchars($absent['FirstName'].' '.$absent['LastName']) ?></strong><p>Scheduled <?= htmlspecialchars(date('g:i A',strtotime($absent['AppointmentTime']))) ?> &middot; <?= $absent['PhyLastName']?'Dr. '.htmlspecialchars($absent['PhyLastName']):'Physician' ?></p><small><?= !empty($absent['GraceRescheduleRequestedAt']) ? 'Reschedule requested: staff review required' : ('Arrival deadline: '.htmlspecialchars(date('g:i A',strtotime($absent['GraceDeadline']))).(!empty($absent['GraceExtendedAt'])?' (extended)':'')) ?></small></div>
+      <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="confirm_arrival"><input type="hidden" name="queue_id" value="<?= (int)$absent['QueueID'] ?>"><?= $filterInput ?><button class="btn btn-outline btn-sm">Patient arrived</button></form>
+    </article><?php endforeach; ?>
+  </section><?php endif; ?>
   <details class="qm-finished">
     <summary>
       <span>Finished today</span>
       <span class="qm-finished-pills">
-        <span class="ma-pill ma-pill-approved"><?= $finishedCounts['Completed'] ?> done</span>
+        <span class="ma-pill ma-pill-approved"><?= $finishedCounts['Completed'] ?> completed</span>
         <span class="ma-pill ma-pill-declined"><?= $finishedCounts['Forfeited_Late'] ?> no-show</span>
         <span class="ma-pill ma-pill-completed"><?= $finishedCounts['Removed'] ?> removed</span>
       </span>
@@ -524,14 +461,16 @@ ob_start();
   </details>
   </div>
   <aside class="qm-side-column">
-    <section class="qm-next-panel"><h3>Next patient</h3>
+    <section class="qm-next-panel"><div class="qm-next-heading"><h3>Next patient</h3><?php if ($nextPatient && $canCallNext): ?><span class="qm-ready">Ready to call</span><?php endif; ?></div>
       <?php if ($nextPatient): ?>
-      <div class="qm-next-person"><span class="qm-next-avatar"><?= htmlspecialchars(mb_substr($nextPatient['FirstName'],0,1) . mb_substr($nextPatient['LastName'],0,1)) ?></span><div><h2><?= htmlspecialchars($nextPatient['FirstName'] . ' ' . $nextPatient['LastName']) ?></h2><span class="qm-count"><?= htmlspecialchars($ticketLabel($nextPatient)) ?></span><p><?= htmlspecialchars($sourceLabel($nextPatient)) ?></p><p><?= $nextPatient['PhyLastName'] ? 'Dr. ' . htmlspecialchars($nextPatient['PhyLastName']) : 'No physician assigned' ?></p></div></div>
+      <div class="qm-next-person"><span class="qm-next-avatar"><?= htmlspecialchars(mb_substr($nextPatient['FirstName'],0,1) . mb_substr($nextPatient['LastName'],0,1)) ?></span><div><h2><?= htmlspecialchars($nextPatient['FirstName'] . ' ' . $nextPatient['LastName']) ?></h2><span class="qm-count"><?= htmlspecialchars($ticketLabel($nextPatient)) ?></span><p><?= htmlspecialchars($sourceLabel($nextPatient)) ?></p></div></div>
       <?php else: ?><p class="qm-empty">No patient is ready to be called.</p><?php endif; ?>
+      <?php if ($nextPatient): ?><p class="qm-next-doctor"><span>Physician</span><strong><?= $nextPatient['PhyLastName'] ? 'Dr. '.htmlspecialchars($nextPatient['PhyLastName']) : 'No physician assigned' ?></strong></p><?php endif; ?>
       <form method="post"><input type="hidden" name="csrf_token" value="<?= $csrf ?>"><input type="hidden" name="form_type" value="call_next"><?= $filterInput ?><button class="btn btn-primary qm-next-button"<?= $canCallNext ? '' : ' disabled' ?>>Call next patient</button></form>
+      <?php if ($canCallNext && $nextPatient): ?><p class="qm-next-hint">Calls this patient for Dr. <?= htmlspecialchars($nextPatient['PhyLastName']) ?>.</p><?php endif; ?>
       <?php if (!$canCallNext): ?><p class="qm-next-hint"><?= $active || array_filter($entries, static fn($e) => in_array($e['Status'], ['Calling','Serving'], true)) ? 'A patient is currently being called or seen.' : 'No eligible patient is waiting. Scheduled visits can be called when their time arrives.' ?></p><?php endif; ?>
     </section>
-    <section class="qm-guide"><h3>Managing the queue</h3><p>Register walk-ins as they arrive.</p><p>Approve online requests in Appointments.</p><a href="appointments.php">Open appointments</a></section>
+    <a class="qm-appointments-link" href="appointments.php">View appointments</a>
   </aside></div>
   <?php if ($upcomingVisits): ?>
   <section class="qm-upcoming-panel">
@@ -565,7 +504,7 @@ require __DIR__ . '/../includes/header.php';
     <div>
       <span class="an-eyebrow">Front desk</span>
       <h1>Queue Management</h1>
-      <p>Today?s queue: <?= htmlspecialchars(date('F j, Y')) ?>. Future approved visits appear below.</p>
+      <p>Manage today&rsquo;s patients by physician. Future approved visits appear below.</p>
     </div>
     <div class="sd-hero-actions"><span class="qm-date"><?= htmlspecialchars(date('j F Y')) ?></span>
       <a href="<?= HQ_BASE_URL ?>/staff/display-board.php" class="btn sd-btn-ghost" target="_blank" rel="noopener">
@@ -611,11 +550,11 @@ require __DIR__ . '/../includes/header.php';
         <label>Email <span class="optional">(optional)</span><input type="email" name="email" value="<?= htmlspecialchars($walkInValues['email']) ?>"></label>
       </div>
       <div class="form-stack form-cols-2">
-        <label>Physician <span class="optional">(optional)</span>
-          <select name="physician_id">
-            <option value="">No preference</option>
+        <label>Physician
+          <select name="physician_id" required>
+            <option value="">Choose a physician</option>
             <?php foreach ($physicians as $physician): ?>
-              <option value="<?= (int) $physician['UserID'] ?>" <?= $walkInValues['physician_id'] === (string) $physician['UserID'] || (!$walkInHasData && $physicianFilter === (int) $physician['UserID']) ? 'selected' : '' ?>>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?></option>
+              <option value="<?= (int) $physician['UserID'] ?>" <?= $walkInValues['physician_id'] === (string) $physician['UserID'] || count($physicians)===1 || (!$walkInHasData && $physicianFilter === (int) $physician['UserID']) ? 'selected' : '' ?>>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?></option>
             <?php endforeach; ?>
           </select>
         </label>
@@ -660,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(function () {
     if (container.contains(document.activeElement) || container.querySelector('.qm-search').value || Array.from(container.querySelectorAll('.qm-remove-reason')).some(function (input) { return input.value.trim(); }) || document.querySelector('.modal-overlay.is-open')) return;
     var finished = container.querySelector('.qm-finished');
-    if (finished && finished.open) return;
+    if ((finished && finished.open) || container.querySelector('.qm-more[open]')) return;
     fetch(window.location.href, { headers: { 'X-Requested-With': 'fetch' } })
       .then(function (res) { return res.text(); })
       .then(function (html) { container.innerHTML = html; })

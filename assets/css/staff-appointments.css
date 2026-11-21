@@ -125,3 +125,32 @@
     font-size:11px;
   }
 }
+
+/* Compact, labeled appointment filters and clearer review states. */
+.sa-page .sa-filters { display:flex; align-items:flex-end; flex-wrap:wrap; gap:14px; margin-bottom:24px; }
+.sa-page .sa-filter-field { display:flex; flex-direction:column; gap:8px; margin:0; min-width:0; color:var(--teal-900); font-size:12px; font-weight:700; }
+.sa-page .sa-name-filter { flex:1 1 300px; max-width:620px; }
+.sa-page .sa-date-filter { flex:0 1 230px; }
+.sa-page .sa-filter-field .sa-search { display:flex; align-items:center; flex:auto; gap:9px; width:100%; min-height:44px; border:1px solid var(--slate-200); border-radius:9px; padding:0 12px; background:#fff; color:var(--slate-400); }
+.sa-page .sa-filter-field .sa-search svg { flex-shrink:0; }
+.sa-page .sa-filter-field input[type=date] { display:block; width:100%; min-width:0; height:44px; margin:0; padding:9px 12px; border:1px solid var(--slate-200); border-radius:9px; font:inherit; font-size:12px; font-weight:400; background:#fff; color:var(--teal-900); }
+.sa-page .sa-filter-btn { margin:0 0 0 auto; flex-shrink:0; }
+.sa-page .sa-clear { display:inline-flex; align-items:center; min-height:44px; white-space:nowrap; }
+.sa-page .sa-tab.needs-attention:not(.is-active) { background:#fff8eb; color:#946000; }
+.sa-page .sa-count.is-amber { background:#ffebbf; color:#946000; }
+.sa-page .sa-hero-actions .btn-primary { gap:8px; background:var(--gradient-brand); border-color:var(--teal-600); color:#fff; box-shadow:none; }
+.sa-page .sa-hero-actions .btn-primary:hover { background:var(--teal-700); color:#fff; }
+.sa-page .sa-list-heading p { line-height:1.7; }
+.sa-page .sa-empty-requests { padding:28px 20px; background:linear-gradient(115deg,#f1f9ff,#f8fcff); border:1px solid #d5e8f3; }
+.sa-page .sa-empty-requests > svg { display:block; margin:0 auto 14px; color:#079baa; }
+@media(max-width:760px) {
+  .sa-page .sa-name-filter { flex:1 1 100%; max-width:none; }
+  .sa-page .sa-date-filter { flex:1 1 180px; }
+  .sa-page .sa-filter-btn { margin-left:0; }
+  .sa-page .sa-tabs { flex-wrap:nowrap; }
+  .sa-page .sa-tab { flex-shrink:0; white-space:nowrap; }
+}
+@media(max-width:380px) {
+  .sa-page .sa-date-filter { flex:1 1 100%; }
+  .sa-page .sa-filter-btn { flex:1; }
+}

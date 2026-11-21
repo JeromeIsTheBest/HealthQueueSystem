@@ -31,11 +31,11 @@ require __DIR__ . '/../includes/header.php';
 <label class="dr-filter-field"><span>Review status</span><select name="status"><?php foreach(['Pending'=>'Pending','Approved'=>'Approved','Rejected'=>'Declined','All'=>'All requests'] as $value=>$label): ?><option value="<?= $value ?>"<?= $status===$value?' selected':'' ?>><?= $label ?></option><?php endforeach; ?></select></label>
 <button class="btn btn-primary" type="submit">Apply filters</button>
 </form>
-<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Clinic</th><th>Contact details</th><th>Physicians</th><th>Submitted</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Clinic</th><th>Contact details</th><th>Staff</th><th>Submitted</th><th>Status</th><th>Actions</th></tr></thead><tbody>
 <?php foreach($requests as $request): ?>
 <tr><td><strong><?= htmlspecialchars($request['ClinicName']) ?></strong><br><?= htmlspecialchars($request['City']) ?></td>
 <td><?= htmlspecialchars($request['ContactName']) ?><br><?= htmlspecialchars($request['Email']) ?><br><?= htmlspecialchars($request['Phone']) ?></td>
-<td><?= $request['PhysiciansCount']?(int)$request['PhysiciansCount']:'Not specified' ?></td>
+<td><?= $request['StaffCount']?(int)$request['StaffCount']:'Not specified' ?></td>
 <td><?= htmlspecialchars(date('j M Y',strtotime($request['SubmittedAt']))) ?></td>
 <td><span class="status-badge status-<?= $request['Status']==='Approved'?'active':'inactive' ?>"><?= $request['Status']==='Rejected'?'Declined':htmlspecialchars($request['Status']) ?></span></td>
 <td><div class="dr-actions"><button type="button" class="btn btn-outline" data-directory-open="clinicRequest<?= (int)$request['InquiryID'] ?>">View Request</button></div></td></tr>
@@ -54,7 +54,8 @@ require __DIR__ . '/../includes/header.php';
 <?php foreach(['ClinicName'=>'Clinic name','ContactName'=>'Contact person','Email'=>'Email address','Phone'=>'Phone number','City'=>'City / location'] as $field=>$label): ?>
 <div><dt><?= $label ?></dt><dd><?= htmlspecialchars($request[$field]) ?></dd></div>
 <?php endforeach; ?>
-<div><dt>Number of physicians</dt><dd><?= $request['PhysiciansCount']?(int)$request['PhysiciansCount']:'Not specified' ?></dd></div>
+<div><dt>Base price of consultation</dt><dd><?= $request['BaseConsultationFee'] !== null ? 'PHP '.number_format((float)$request['BaseConsultationFee'],2) : 'Not specified (older inquiry)' ?></dd></div>
+<div><dt>Number of staff</dt><dd><?= $request['StaffCount']?(int)$request['StaffCount']:'Not specified' ?></dd></div>
 <div><dt>Submitted</dt><dd><?= htmlspecialchars(date('j M Y, g:i A',strtotime($request['SubmittedAt']))) ?></dd></div>
 <div><dt>Status</dt><dd><?= $request['Status']==='Rejected'?'Declined':htmlspecialchars($request['Status']) ?></dd></div>
 </dl>

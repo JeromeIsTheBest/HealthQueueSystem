@@ -29,99 +29,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$appointmentId) {
             $errors[] = 'Invalid appointment.';
-        } elseif (in_array($formType, ['approve_reschedule', 'decline_reschedule'], true)) {
-            $requestId = filter_input(INPUT_POST, 'request_id', FILTER_VALIDATE_INT);
-            if (!$requestId) {
-                $errors[] = 'Invalid reschedule request.';
-            } else {
-                $clinicLocked = lockClinicBooking($pdo, $clinicId);
-                if (!$clinicLocked) {
-                    $errors[] = 'The clinic is busy right now. Please try again in a moment.';
-                } else {
-                try {
-                    $pdo->beginTransaction();
-                    lockQueueClinic($pdo,$clinicId);
-                    $lookup = $pdo->prepare(
-                        "SELECT r.RequestID, r.PatientID, r.RequestedDate, r.RequestedTime,
-                                a.ClinicID, a.PhysicianID, a.Status AS AppointmentStatus,
-                                a.AppointmentDate AS OriginalDate, a.AppointmentTime AS OriginalTime,
-                                c.CloseTime
-                         FROM AppointmentRescheduleRequests r
-                         JOIN Appointments a ON a.AppointmentID = r.AppointmentID
-                         JOIN Clinic c ON c.ClinicID = a.ClinicID
-                         WHERE r.RequestID = ? AND r.AppointmentID = ? AND r.ClinicID = ?
-                           AND r.Status = 'Pending'
-                         FOR UPDATE"
-                    );
-                    $lookup->execute([$requestId, $appointmentId, $clinicId]);
-                    $request = $lookup->fetch();
-                    if (!$request || !in_array($request['AppointmentStatus'], ['Pending', 'Confirmed'], true)) {
-                        $errors[] = 'That reschedule request is no longer active.';
-                    } elseif ($formType === 'decline_reschedule') {
-                        $pdo->prepare("UPDATE AppointmentRescheduleRequests SET Status = 'Declined', ReviewedBy = ?, ReviewedAt = NOW() WHERE RequestID = ? AND Status = 'Pending'")
-                            ->execute([$user['UserID'], $requestId]);
-                        $pdo->commit();
-                        notifyPatient($pdo, (int) $request['PatientID'], 'The clinic declined your reschedule request. Your original appointment remains active.', $appointmentId);
-                        logActivity($pdo, $user['UserID'], $clinicId, 'Declined appointment reschedule request', "Appointment #{$appointmentId}");
-                        $flash = 'Reschedule request declined. The original appointment remains active.';
-                    } elseif (strtotime($request['RequestedDate'] . ' ' . $request['RequestedTime']) <= time()) {
-                        $errors[] = 'The requested time has already passed.';
-                    } elseif (!isBookable($pdo, $clinicId, $request['PhysicianID'] ? (int) $request['PhysicianID'] : null, $request['RequestedDate'], $request['RequestedTime'], $appointmentId)) {
-                        $errors[] = 'The requested time is no longer available. Decline this request so the patient can choose another time.';
-                        unlockClinicBooking($pdo, $clinicId);
-                        $clinicLocked = false;
-                    } else {
-                        $again = $pdo->prepare("SELECT RequestID FROM AppointmentRescheduleRequests WHERE RequestID = ? AND Status = 'Pending' FOR UPDATE");
-                        $again->execute([$requestId]);
-                        if (!$again->fetchColumn()) {
-                            $pdo->rollBack();
-                            $errors[] = 'That reschedule request has already been reviewed.';
-                        } else {
-                            $pdo->prepare('UPDATE Appointments SET AppointmentDate = ?, AppointmentTime = ? WHERE AppointmentID = ? AND ClinicID = ?')
-                                ->execute([$request['RequestedDate'], $request['RequestedTime'], $appointmentId, $clinicId]);
-                            $pdo->prepare("UPDATE Queue SET Status = 'Removed' WHERE AppointmentID = ? AND Status IN ('Waiting', 'Calling', 'Serving')")
-                                ->execute([$appointmentId]);
-                            if ($request['AppointmentStatus'] === 'Confirmed') {
-                                $numbers = $pdo->prepare('SELECT COALESCE(MAX(QueueNumber), 0) + 1 FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = ?');
-                                $numbers->execute([$clinicId, $request['RequestedDate']]);
-                                $queueNumber = (int) $numbers->fetchColumn();
-                                $scheduled = $pdo->prepare("SELECT COALESCE(MAX(ScheduledNumber), 0) + 1 FROM Queue q JOIN Appointments a ON a.AppointmentID = q.AppointmentID WHERE q.ClinicID = ? AND a.AppointmentDate = ? AND q.ScheduledNumber IS NOT NULL");
-                                $scheduled->execute([$clinicId, $request['RequestedDate']]);
-                                $scheduledNumber = (int) $scheduled->fetchColumn();
-                                $insert = $pdo->prepare("INSERT INTO Queue (ClinicID, AppointmentID, PhysicianID, QueueNumber, ScheduledNumber, Status, CreatedByStaffID, CreatedAt) VALUES (?, ?, ?, ?, ?, 'Waiting', ?, GREATEST(NOW(), TIMESTAMP(?, ?)))");
-                                $insert->execute([$clinicId, $appointmentId, $request['PhysicianID'], $queueNumber, $scheduledNumber, $user['UserID'], $request['RequestedDate'], $request['RequestedTime']]);
-                            }
-                            $pdo->prepare("UPDATE AppointmentRescheduleRequests SET Status = 'Approved', ReviewedBy = ?, ReviewedAt = NOW() WHERE RequestID = ?")
-                                ->execute([$user['UserID'], $requestId]);
-                            $pdo->commit();
-                            notifyPatient($pdo, (int) $request['PatientID'], 'Your reschedule request was approved. Your appointment is now ' . $request['RequestedDate'] . ' at ' . date('g:i A', strtotime($request['RequestedTime'])) . '.', $appointmentId);
-                            logActivity($pdo, $user['UserID'], $clinicId, 'Approved appointment reschedule request', "Appointment #{$appointmentId} to {$request['RequestedDate']} {$request['RequestedTime']}");
-                            $flash = 'Reschedule request approved.';
-                        }
-                        unlockClinicBooking($pdo, $clinicId);
-                        $clinicLocked = false;
-                    }
-                    if ($pdo->inTransaction()) {
-                        if ($errors) $pdo->rollBack();
-                        else $pdo->commit();
-                    }
-                } catch (Throwable $e) {
-                    if ($pdo->inTransaction()) $pdo->rollBack();
-                    error_log('Reschedule review failed: ' . $e->getMessage());
-                    $errors[] = 'We could not review this reschedule request.';
-                    if (!empty($clinicLocked)) {
-                        unlockClinicBooking($pdo, $clinicId);
-                        $clinicLocked = false;
-                    }
-                }
-                if ($clinicLocked) unlockClinicBooking($pdo, $clinicId);
-                }
-            }
+        } elseif ($formType === 'approve_reschedule') {
+            try{$requestId=filter_input(INPUT_POST,'request_id',FILTER_VALIDATE_INT);if(!$requestId)throw new RuntimeException('Invalid reschedule request.');rescheduleClinicVisit($pdo,(int)$appointmentId,$clinicId,(int)$user['UserID'],'','',(int)$requestId);$flash='Reschedule request approved.';}catch(Throwable $e){error_log('Reschedule review failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not review this reschedule request.':$e->getMessage();}
+        } elseif ($formType === 'decline_reschedule') {
+            try{
+                $requestId=filter_input(INPUT_POST,'request_id',FILTER_VALIDATE_INT);if(!$requestId)throw new RuntimeException('Invalid reschedule request.');
+                $pdo->beginTransaction();lockQueueClinic($pdo,$clinicId);
+                $r=$pdo->prepare("SELECT r.PatientID FROM AppointmentRescheduleRequests r JOIN Appointments a ON a.AppointmentID=r.AppointmentID WHERE r.RequestID=? AND r.AppointmentID=? AND r.ClinicID=? AND r.Status='Pending' AND a.Status IN ('Pending','Confirmed') FOR UPDATE");$r->execute([$requestId,$appointmentId,$clinicId]);$patient=$r->fetchColumn();if(!$patient)throw new RuntimeException('This reschedule request is no longer pending.');
+                $pdo->prepare("UPDATE AppointmentRescheduleRequests SET Status='Declined',ReviewedBy=?,ReviewedAt=NOW() WHERE RequestID=?")->execute([$user['UserID'],$requestId]);
+                notifyPatient($pdo,(int)$patient,'The clinic declined your reschedule request. Your original appointment remains active.',(int)$appointmentId);$pdo->commit();$flash='Reschedule request declined.';
+            }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Reschedule decline failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not review this request.':$e->getMessage();}
         } elseif ($formType === 'accept_request') {
             try {
                 $physicianId=filter_input(INPUT_POST,'physician_id',FILTER_VALIDATE_INT)?:null;
                 $approved=approveClinicAppointment($pdo,(int)$appointmentId,$clinicId,$physicianId,(int)$user['UserID']);
-                queuePatientSms($pdo,(int)$approved['PatientID'],(int)$appointmentId,'confirmed:'.$appointmentId,'confirmed','HealthQueue: Your appointment on '.$approved['AppointmentDate'].' is confirmed. Queue '.$approved['ticket'].'. Check your account for details.');
+                queuePatientSms($pdo,(int)$approved['PatientID'],(int)$appointmentId,'confirmed:'.$appointmentId,'confirmed',appointmentApprovalSms($approved));
                 notifyPatient($pdo,(int)$approved['PatientID'],'Your appointment on '.$approved['AppointmentDate'].' has been confirmed. Your queue number is '.$approved['ticket'].'.',(int)$appointmentId);
                 logActivity($pdo,(int)$user['UserID'],$clinicId,'Accepted appointment request','Appointment #'.$appointmentId.', queue '.$approved['ticket']);
                 $flash='Appointment request accepted as queue '.$approved['ticket'].'.';
@@ -139,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->beginTransaction();
                     lockQueueClinic($pdo,$clinicId);
                 $lookup = $pdo->prepare(
-                    "SELECT a.PatientID, a.BookingFeePaid, c.ClinicName, c.BaseConsultationFee
+                    "SELECT a.PatientID, a.BookingFeePaid, c.ClinicName, COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) AS BaseConsultationFee
                      FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID
                      WHERE a.AppointmentID = ? AND a.ClinicID = ? AND a.Status = 'Pending' FOR UPDATE"
                 );
@@ -176,68 +98,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             }
         } elseif ($formType === 'reschedule_request') {
-            $newDate = trim((string) ($_POST['appointment_date'] ?? ''));
-            $newTime = trim((string) ($_POST['appointment_time'] ?? ''));
-            if ($newDate === '' || $newDate < date('Y-m-d') || $newTime === '') {
-                $errors[] = 'Please choose a valid future date and time.';
-            } else {
-                try {
-                    $patientStmt = $pdo->prepare('SELECT PatientID FROM Appointments WHERE AppointmentID = ? AND ClinicID = ?');
-                    $patientStmt->execute([$appointmentId, $clinicId]);
-                    $patientId = (int) $patientStmt->fetchColumn();
-
-                    $stmt = $pdo->prepare('UPDATE Appointments SET AppointmentDate = ?, AppointmentTime = ? WHERE AppointmentID = ? AND ClinicID = ?');
-                    $stmt->execute([$newDate, $newTime, $appointmentId, $clinicId]);
-                    if ($stmt->rowCount()) {
-                        logActivity($pdo, $user['UserID'], $clinicId, 'Rescheduled appointment', "Appointment #{$appointmentId} to {$newDate} {$newTime}");
-                        if ($patientId) notifyPatient($pdo, $patientId, 'Your appointment was rescheduled to ' . $newDate . ' ' . $newTime . '.', $appointmentId);
-                        $flash = 'Appointment rescheduled.';
-                    } else {
-                        $errors[] = 'That appointment could not be found.';
-                    }
-                } catch (PDOException $e) {
-                    error_log('Reschedule failed: ' . $e->getMessage());
-                    $errors[] = 'We could not reschedule this appointment.';
-                }
-            }
+            try{rescheduleClinicVisit($pdo,(int)$appointmentId,$clinicId,(int)$user['UserID'],trim((string)($_POST['appointment_date']??'')),trim((string)($_POST['appointment_time']??'')));$flash='Appointment rescheduled.';}
+            catch(Throwable $e){error_log('Reschedule failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not reschedule this appointment.':$e->getMessage();}
         } elseif ($formType === 'confirm_complete') {
-            try {
-                $pdo->beginTransaction();
-                    lockQueueClinic($pdo,$clinicId);
-                // Scoped to this staff member's own clinic, and only allowed
-                // once the physician has actually finalized their notes --
-                // staff confirm the visit is over, they don't write the notes.
-                $checkStmt = $pdo->prepare(
-                    "SELECT a.PatientID, a.Status,
-                            (SELECT COUNT(*) FROM ConsultationVersions v
-                             JOIN Consultations cons ON cons.ConsultationID = v.ConsultationID
-                             WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized') AS FinalizedCount
-                     FROM Appointments a
-                     WHERE a.AppointmentID = ? AND a.ClinicID = ? FOR UPDATE"
-                );
-                $checkStmt->execute([$appointmentId, $clinicId]);
-                $target = $checkStmt->fetch();
-
-                if (!$target || $target['Status'] !== 'Confirmed') {
-                    $errors[] = 'That consultation could not be found or is no longer awaiting confirmation.';
-                } elseif ((int) $target['FinalizedCount'] === 0) {
-                    $errors[] = 'The physician has not finalized their notes for this visit yet.';
-                } else {
-                    $pdo->prepare("UPDATE Appointments SET Status = 'Completed' WHERE AppointmentID = ? AND ClinicID = ?")
-                        ->execute([$appointmentId, $clinicId]);
-                    $pdo->prepare("UPDATE Queue SET Status = 'Completed' WHERE AppointmentID = ? AND Status IN ('Waiting', 'Calling', 'Serving')")
-                        ->execute([$appointmentId]);
-                    recordCompletedDemoPayment($pdo, (int)$appointmentId);
-                    logActivity($pdo, $user['UserID'], $clinicId, 'Confirmed consultation complete', "Appointment #{$appointmentId}");
-                    notifyPatient($pdo, (int) $target['PatientID'], 'Your consultation record is ready to view.', $appointmentId);
-                    $flash = 'Consultation confirmed as complete.';
-                }
-                if ($errors) $pdo->rollBack(); else $pdo->commit();
-            } catch (PDOException $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                error_log('Confirm consultation complete failed: ' . $e->getMessage());
-                $errors[] = 'We could not confirm this consultation right now.';
-            }
+            try{$changed=completeClinicVisit($pdo,(int)$appointmentId,$clinicId,(int)$user['UserID'],($_POST['attendance_verified']??'')==='1',(string)($_POST['resolution']??''));$flash=$changed?'Consultation confirmed as complete.':'This consultation is already complete.';}
+            catch(Throwable $e){error_log('Completion failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not complete this consultation.':$e->getMessage();}
+        } elseif ($formType === 'mark_no_show') {
+            try{markClinicNoShow($pdo,(int)$appointmentId,$clinicId,(int)$user['UserID']);$flash='Appointment marked as no-show. Any paid booking fee is retained.';}
+            catch(Throwable $e){error_log('No-show failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not update this visit.':$e->getMessage();}
         }
     }
 
@@ -249,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$tabs = ['requests' => 'Requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today', 'confirm' => 'To confirm', 'all' => 'All'];
+$tabs = ['requests' => 'Requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today', 'confirm' => 'Confirm completion', 'expired'=>'Needs review', 'all' => 'All'];
 $activeTab = isset($tabs[$_GET['tab'] ?? '']) ? $_GET['tab'] : 'requests';
 $search = trim((string) ($_GET['q'] ?? ''));
 $dateFilter = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['date'] ?? '')) ? $_GET['date'] : '';
@@ -259,6 +127,7 @@ $requests = [];
 $rescheduleRequests = [];
 $todayList = [];
 $pendingConfirmations = [];
+$expiredList=[];
 $allList = [];
 $physicians = [];
 $physicianSchedule = [];
@@ -287,7 +156,7 @@ if ($pdo && $clinicId) {
             "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern, a.PhysicianID, a.BookingFeePaid,
                     TIMESTAMPDIFF(MINUTE, a.CreatedAt, NOW()) AS MinutesAgo,
                     pat.UserID AS PatientUserID, pat.FirstName, pat.LastName, pat.Email, pat.ContactNumber,
-                    c.BaseConsultationFee,
+                    COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) AS BaseConsultationFee,
                     (SELECT CONCAT('Dr. ', ph.FirstName, ' ', ph.LastName) FROM Users ph WHERE ph.UserID = a.PhysicianID) AS PhysicianName,
                     (SELECT COUNT(*) FROM Appointments h WHERE h.PatientID = a.PatientID AND h.ClinicID = a.ClinicID) AS VisitCount
              FROM Appointments a
@@ -373,9 +242,11 @@ if ($pdo && $clinicId) {
         $confirmStmt = $pdo->prepare(
             "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime,
                     pat.FirstName, pat.LastName, phy.LastName AS PhyLastName,
+                    (SELECT cr.Status FROM VisitCompletionReviews cr WHERE cr.AppointmentID=a.AppointmentID) AS CompletionReviewStatus,
+                    (SELECT cr.IssueText FROM VisitCompletionReviews cr WHERE cr.AppointmentID=a.AppointmentID) AS CompletionIssue,
                     (SELECT v.UpdatedAt FROM ConsultationVersions v
                      JOIN Consultations cons ON cons.ConsultationID = v.ConsultationID
-                     WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized'
+                     WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized' AND v.VersionID=(SELECT newest.VersionID FROM ConsultationVersions newest WHERE newest.ConsultationID=cons.ConsultationID ORDER BY newest.RevisionNumber DESC,newest.VersionID DESC LIMIT 1)
                      ORDER BY v.RevisionNumber DESC LIMIT 1) AS FinalizedAt
              FROM Appointments a
              JOIN Users pat ON pat.UserID = a.PatientID
@@ -384,7 +255,7 @@ if ($pdo && $clinicId) {
                AND EXISTS (
                    SELECT 1 FROM ConsultationVersions v
                    JOIN Consultations cons ON cons.ConsultationID = v.ConsultationID
-                   WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized'
+                   WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized' AND v.VersionID=(SELECT newest.VersionID FROM ConsultationVersions newest WHERE newest.ConsultationID=cons.ConsultationID ORDER BY newest.RevisionNumber DESC,newest.VersionID DESC LIMIT 1)
                )
              ORDER BY a.AppointmentDate, a.AppointmentTime"
         );
@@ -404,7 +275,8 @@ if ($pdo && $clinicId) {
         $allStmt->execute(array_merge([$clinicId], $filterParams));
         $allList = $allStmt->fetchAll();
 
-        $tabCounts = ['requests' => count($requests), 'reschedules' => count($rescheduleRequests), 'today' => count($todayList), 'confirm' => count($pendingConfirmations), 'all' => count($allList)];
+        $expired=$pdo->prepare("SELECT a.AppointmentID,a.AppointmentDate,a.Status,pat.FirstName,pat.LastName,CONCAT('Dr. ',phy.FirstName,' ',phy.LastName) AS PhysicianName,(SELECT v.Status FROM Consultations c JOIN ConsultationVersions v ON v.ConsultationID=c.ConsultationID WHERE c.AppointmentID=a.AppointmentID ORDER BY v.RevisionNumber DESC,v.VersionID DESC LIMIT 1) AS LastNoteStatus,(SELECT COUNT(*) FROM Consultations c JOIN ConsultationVersions v ON v.ConsultationID=c.ConsultationID WHERE c.AppointmentID=a.AppointmentID AND v.Status='Finalized') AS HasFinalized FROM Appointments a JOIN Users pat ON pat.UserID=a.PatientID LEFT JOIN Users phy ON phy.UserID=a.PhysicianID WHERE a.ClinicID=? AND a.Status IN ('Pending','Confirmed') AND a.AppointmentDate<CURDATE() ORDER BY a.AppointmentDate LIMIT 100");$expired->execute([$clinicId]);$expiredList=$expired->fetchAll();
+        $tabCounts = ['requests' => count($requests), 'reschedules' => count($rescheduleRequests), 'today' => count($todayList), 'confirm' => count($pendingConfirmations),'expired'=>count($expiredList), 'all' => count($allList)];
     } catch (PDOException $e) {
         error_log('Appointments list load failed: ' . $e->getMessage());
         $dataError = 'Appointments are temporarily unavailable.';
@@ -427,14 +299,14 @@ $statusPill = static function (array $row): array {
     if ($row['Status'] === 'Cancelled') {
         return !empty($row['DeclineReason']) || empty($row['CancellationReason']) ? ['Declined', 'ma-pill-declined'] : ['Cancelled', 'ma-pill-declined'];
     }
-    return ['Pending' => ['Pending', 'ma-pill-pending'], 'Confirmed' => ['Approved', 'ma-pill-approved'], 'Completed' => ['Completed', 'ma-pill-completed']][$row['Status']] ?? [$row['Status'], 'ma-pill-completed'];
+    return ['Pending' => ['Pending', 'ma-pill-pending'], 'Confirmed' => ['Approved', 'ma-pill-approved'], 'Completed' => ['Completed', 'ma-pill-completed'], 'NoShow' => ['No-show','ma-pill-declined']][$row['Status']] ?? [$row['Status'], 'ma-pill-completed'];
 };
 $tabUrl = static function (string $tab) use ($search, $dateFilter): string {
     return '?' . http_build_query(array_filter(['tab' => $tab, 'q' => $search, 'date' => $dateFilter], 'strlen'));
 };
 
 $pageTitle = 'Appointments — HealthQueue';
-$isStaffAppointments = true;
+$isStaffAppointments = true;$isVisitCompletionPage=true;
 require __DIR__ . '/../includes/header.php';
 ?>
 
@@ -444,7 +316,7 @@ require __DIR__ . '/../includes/header.php';
     <h1>Appointments</h1>
     <p>Review requests and keep your clinic schedule moving.</p>
 
-    <div class="sa-hero-actions"><span class="sa-current-date"><?= htmlspecialchars(date('j F Y')) ?></span><a class="btn btn-outline" href="queue.php#walk-in">Register walk-in</a></div>
+    <div class="sa-hero-actions"><span class="sa-current-date"><?= htmlspecialchars(date('j F Y')) ?></span><a class="btn btn-primary" href="queue.php#walk-in"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M19 8v6M16 11h6"/></svg>Register walk-in</a></div>
   </section>
 
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
@@ -454,23 +326,23 @@ require __DIR__ . '/../includes/header.php';
   <section class="sa-workspace">
   <nav class="sa-tabs" aria-label="Appointment lists">
     <?php foreach ($tabs as $key => $label): ?>
-      <a href="<?= htmlspecialchars($tabUrl($key)) ?>" class="sa-tab<?= $activeTab === $key ? ' is-active' : '' ?>"<?= $activeTab === $key ? ' aria-current="page"' : '' ?>>
+      <a href="<?= htmlspecialchars($tabUrl($key)) ?>" class="sa-tab<?= ($activeTab === $key ? ' is-active' : '') . ($key === 'expired' && $tabCounts[$key] > 0 ? ' needs-attention' : '') ?>"<?= $activeTab === $key ? ' aria-current="page"' : '' ?>>
         <?= $key === 'today' && $dateFilter && $dateFilter !== $today ? htmlspecialchars(date('M j', strtotime($dateFilter))) : $label ?>
-        <?php if ($key !== 'all'): ?><span class="sa-count<?= $key === 'confirm' && $tabCounts[$key] ? ' is-amber' : '' ?>"><?= $tabCounts[$key] ?></span><?php endif; ?>
+        <?php if ($key !== 'all'): ?><span class="sa-count<?= in_array($key,['confirm','expired'],true) && $tabCounts[$key] ? ' is-amber' : '' ?>"><?= $tabCounts[$key] ?></span><?php endif; ?>
       </a>
     <?php endforeach; ?>
   </nav>
     <form method="get" class="sa-filters">
       <input type="hidden" name="tab" value="<?= htmlspecialchars($activeTab) ?>">
-      <label class="sa-search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="search" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Search patient name" aria-label="Search patient name">
-      </label>
-      <input type="date" name="date" value="<?= htmlspecialchars($dateFilter) ?>" aria-label="Filter by date">
+      <label class="sa-filter-field sa-name-filter"><span>Patient name</span><span class="sa-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Search patient name">
+      </span></label>
+      <label class="sa-filter-field sa-date-filter"><span>Appointment date</span><input type="date" name="date" value="<?= htmlspecialchars($dateFilter) ?>"></label>
       <button type="submit" class="btn sa-filter-btn">Apply filters</button>
-      <?php if ($search !== '' || $dateFilter !== ''): ?><a href="?tab=<?= htmlspecialchars($activeTab) ?>" class="sa-clear">Reset</a><?php endif; ?>
+      <?php if ($search !== '' || $dateFilter !== ''): ?><a href="?tab=<?= htmlspecialchars($activeTab) ?>" class="sa-clear">Clear filters</a><?php endif; ?>
     </form>
-  <header class="sa-list-heading"><h2><?= htmlspecialchars(['requests' => 'Appointment requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today’s appointments', 'confirm' => 'Visits to confirm', 'all' => 'All appointments'][$activeTab]) ?></h2><p><?= $activeTab === 'requests' ? 'Paid bookings awaiting your clinic’s approval' : 'Review and manage your clinic appointments.' ?></p></header>
+  <header class="sa-list-heading"><h2><?= htmlspecialchars(['requests' => 'Appointment requests', 'reschedules' => 'Reschedule requests', 'today' => 'Today’s appointments', 'confirm' => 'Visits to confirm', 'expired'=>'Past visits needing review', 'all' => 'All appointments'][$activeTab]) ?></h2><p><?= $activeTab === 'requests' ? 'Paid bookings awaiting approval. Approve to add a patient to the queue; assign a physician when needed.' : 'Review and manage your clinic appointments.' ?></p></header>
 
   <?php if ($activeTab === 'reschedules'): ?>
     <?php if ($rescheduleRequests): ?>
@@ -579,7 +451,7 @@ require __DIR__ . '/../includes/header.php';
         <?php endforeach; ?>
       </div>
     <?php else: ?>
-      <div class="ma-empty"><h3>No requests waiting</h3><p><?= $search !== '' || $dateFilter !== '' ? 'No requests match your search.' : 'New appointment requests for your clinic will appear here.' ?></p></div>
+      <div class="ma-empty sa-empty-requests"><svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H5v18h14V4h-4"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="m8 13 3 3 5-6"/></svg><h3>No requests waiting</h3><p><?= $search !== '' || $dateFilter !== '' ? 'No requests match your search.' : 'New appointment requests for your clinic will appear here.' ?></p></div>
     <?php endif; ?>
 
   <?php elseif ($activeTab === 'today'): ?>
@@ -601,22 +473,26 @@ require __DIR__ . '/../includes/header.php';
       <div class="ma-empty"><h3>Nothing scheduled</h3><p>No approved appointments on <?= htmlspecialchars(date('M j, Y', strtotime($dateFilter ?: ($today ?? 'now')))) ?>.</p></div>
     <?php endif; ?>
 
+  <?php elseif ($activeTab === 'expired'): ?>
+    <?php require __DIR__.'/../includes/expired-visit-review.php'; ?>
   <?php elseif ($activeTab === 'confirm'): ?>
     <?php if ($pendingConfirmations): ?>
       <div class="sa-list">
         <?php foreach ($pendingConfirmations as $item): ?>
-          <article class="sa-item sa-row">
+          <article class="sa-item sa-row" id="completion-<?= (int)$item['AppointmentID'] ?>">
             <span class="sa-avatar"><?= htmlspecialchars($initials($item)) ?></span>
             <div class="sa-row-main">
               <strong><?= htmlspecialchars($item['FirstName'] . ' ' . $item['LastName']) ?></strong>
               <p><?= $item['PhyLastName'] ? 'Dr. ' . htmlspecialchars($item['PhyLastName']) : 'No physician' ?> · <?= htmlspecialchars(date('M j, Y', strtotime($item['AppointmentDate']))) ?><?= $item['FinalizedAt'] ? ' · notes finalized ' . htmlspecialchars(date('M j, g:i A', strtotime($item['FinalizedAt']))) : '' ?></p>
             </div>
-            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="confirm_complete"><input type="hidden" name="appointment_id" value="<?= (int) $item['AppointmentID'] ?>"><button class="btn btn-primary btn-sm">Confirm complete</button></form>
+            <div class="vc-staff-review"><span class="status-badge"><?= $item['CompletionReviewStatus']==='IssueReported'?'Issue reported - needs review':'Awaiting patient response' ?></span><?php if($item['CompletionIssue']): ?><p class="vc-issue-text"><?= nl2br(htmlspecialchars($item['CompletionIssue'])) ?></p><?php endif; ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="confirm_complete"><input type="hidden" name="appointment_id" value="<?= (int)$item['AppointmentID'] ?>">
+<?php if($item['CompletionReviewStatus']==='IssueReported'): ?><label>Review outcome<textarea name="resolution" minlength="10" maxlength="2000" rows="3" required placeholder="Explain how you reviewed the report and verified completion."></textarea></label><?php endif; ?>
+<label class="vc-verify"><input type="checkbox" name="attendance_verified" value="1" required> <?= $item['CompletionReviewStatus']==='IssueReported'?'I reviewed the report and verified that the visit was completed.':'I verified that this consultation took place.' ?></label><button class="btn btn-primary btn-sm">Confirm completion as Staff</button></form><small>No automatic completion for non-response. Leave unresolved issues under review.</small></div>
           </article>
         <?php endforeach; ?>
       </div>
     <?php else: ?>
-      <div class="ma-empty"><h3>Nothing to confirm</h3><p>Once a physician finalizes a visit's notes, it will appear here for you to confirm.</p></div>
+      <div class="ma-empty"><h3>Nothing to confirm</h3><p>Finalized visits awaiting patient response or Staff follow-up appear here.</p></div>
     <?php endif; ?>
 
   <?php else: ?>
@@ -638,10 +514,10 @@ require __DIR__ . '/../includes/header.php';
       <div class="ma-empty"><h3>No appointments found</h3><p>Try a different name or date.</p></div>
     <?php endif; ?>
   <?php endif; ?>
+  <?php if ($tabCounts[$activeTab] > 0): ?>
   <p class="sa-list-total"><?= (int) $tabCounts[$activeTab] ?> <?= $activeTab === 'requests' ? 'requests awaiting review' : 'appointments' ?></p>
+  <?php endif; ?>
   </section>
-  <p class="sa-guidance"><span aria-hidden="true">&#9432;</span> Approve to add a patient to the clinic queue. Assign a physician when needed.</p>
-  <div class="sa-completed"><strong>Need to review completed visits?</strong><a href="<?= htmlspecialchars($tabUrl('confirm')) ?>">Open To confirm</a></div>
 </div></main>
 
 <script>

@@ -14,8 +14,8 @@ $pdo = getDbConnection();
 $errors = [];
 $emailVerificationSent = false;
 $emailVerified = false;
-$signupToken = trim((string) ($_GET['email_verified_token'] ?? $_POST['email_verification_token'] ?? ''));
-$pendingSignupToken = trim((string) ($_POST['email_verification_token'] ?? ''));
+$signupToken = (string) ($_SESSION['signup_code']['token'] ?? '');
+$pendingSignupToken = $signupToken;
 $values = ['first_name' => '', 'last_name' => '', 'email' => '', 'contact_number' => ''];
 
 if ($signupToken !== '' && $pdo) {
@@ -30,7 +30,7 @@ if ($signupToken !== '' && $pdo) {
                 }
             }
         } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            $errors[] = 'This email verification has expired or was already used. Please request a new link.';
+            $errors[] = 'This email verification has expired or was already used. Please request a new code.';
             $signupToken = '';
         }
     } catch (PDOException $e) {
@@ -84,6 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existing->execute([$values['email']]);
             if ($existing->fetch()) {
                 $errors[] = 'An account with that email already exists. Try signing in instead.';
+            } elseif (hqMobileInUse($pdo,$values['contact_number'])) {
+                $errors[] = 'This mobile number is already registered to another account.';
             }
         } catch (PDOException $e) {
             error_log('Register lookup failed: ' . $e->getMessage());
@@ -96,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $recent = $pdo->prepare('SELECT COUNT(*) FROM SignupEmailVerifications WHERE Email = ? AND CreatedAt > DATE_SUB(NOW(), INTERVAL 1 MINUTE)');
             $recent->execute([$values['email']]);
             if ((int) $recent->fetchColumn() > 0) {
-                $errors[] = 'A verification link was just requested. Check your inbox or wait one minute before requesting another.';
+                $errors[] = 'A verification code was just requested. Check your inbox or wait one minute before requesting another.';
             } else {
                 $_SESSION['signup_draft'] = [
                     'first_name' => $values['first_name'],
@@ -104,14 +106,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'contact_number' => $values['contact_number'],
                 ];
                 $token = createSignupEmailVerification($pdo, $values['email']);
-                $url = healthQueueUrl('auth/verify-signup-email.php?token=' . urlencode($token));
-                $emailVerificationSent = sendSignupEmailVerificationEmail($values['email'], $url);
+                $code = sprintf('%06d', random_int(0, 999999));
+                $_SESSION['signup_code'] = ['token' => $token, 'email' => $values['email'], 'hash' => password_hash($code, PASSWORD_DEFAULT), 'expires' => time() + 600, 'attempts' => 0];
+                $emailVerified = false;
+                $signupToken = '';
+                $emailVerificationSent = sendSignupEmailVerificationEmail($values['email'], $code);
                 $pendingSignupToken = $token;
                 if (!$emailVerificationSent) $errors[] = 'We could not send the verification email. Check the Gmail setup and try again in one minute.';
             }
         } catch (Throwable $e) {
             error_log('Signup verification email request failed: ' . $e->getMessage());
-            $errors[] = 'We could not send a verification link right now. Please try again later.';
+            $errors[] = 'We could not send a verification code right now. Please try again later.';
+        }
+    }
+
+    if (!$errors && $pdo && $intent === 'verify_email_code') {
+        $codeError = verifySignupCode($pdo, $values['email'], trim((string) ($_POST['verification_code'] ?? '')));
+        if ($codeError !== null) {
+            $errors[] = $codeError;
+        } else {
+            $signupToken = $_SESSION['signup_code']['token'];
+            $emailVerified = true;
         }
     }
 
@@ -142,9 +157,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $newUserId = (int) $pdo->lastInsertId();
             assignUserIdNumber($pdo, $newUserId);
-            $pdo->prepare('UPDATE SignupEmailVerifications SET UsedAt = NOW() WHERE TokenHash = ?')->execute([hash('sha256', $signupToken)]);
+            linkSignupVerificationToUser($pdo,$signupToken,$newUserId);
             $pdo->commit();
-            unset($_SESSION['signup_draft']);
+            unset($_SESSION['signup_draft'], $_SESSION['signup_code']);
             loginUser([
                 'UserID' => $newUserId, 'ClinicID' => null, 'RoleID' => $role['RoleID'],
                 'RoleName' => 'Patient', 'FirstName' => $values['first_name'],
@@ -155,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('Registration failed: ' . $e->getMessage());
-            $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'We could not create your account right now. Please try again later.';
+            $errors[] = hqDuplicateMobileError($e)?'This mobile number is already registered to another account.':($e instanceof RuntimeException && !($e instanceof PDOException) ? $e->getMessage() : 'We could not create your account right now. Please try again later.');
         }
     }
 }
@@ -181,7 +196,7 @@ require __DIR__ . '/../includes/header.php';
     <?php endif; ?>
 
     <?php if ($emailVerificationSent): ?>
-      <div class="form-message success" role="status">Verification link sent. Open it from your inbox, then return here to finish creating your account.</div>
+      <div class="form-message success" role="status">Verification code sent. Enter the six-digit code below within 10 minutes. Keep this registration page open.</div>
     <?php endif; ?>
     <?php if ($emailVerified): ?>
       <div class="form-message success" role="status">Email verified. Complete the form to create your account.</div>
@@ -205,7 +220,7 @@ require __DIR__ . '/../includes/header.php';
             <input id="signupEmailInput" type="email" name="email" value="<?= htmlspecialchars($values['email']) ?>" <?= $emailVerified ? 'readonly' : '' ?> required>
           </label>
           <?php if (!$emailVerified): ?>
-            <button type="submit" name="intent" value="send_email_verification" formnovalidate class="btn btn-outline signup-email-verify">Verify email</button>
+            <button type="submit" name="intent" value="send_email_verification" formnovalidate class="btn btn-outline signup-email-verify">Send code</button>
           <?php endif; ?>
           <span id="signupEmailVerifiedMark" class="signup-email-verified-mark" <?= $emailVerified ? '' : 'hidden' ?> aria-live="polite">✓ Verified</span>
         </div>
@@ -213,6 +228,13 @@ require __DIR__ . '/../includes/header.php';
           <input type="hidden" name="email_verification_token" value="<?= htmlspecialchars($signupToken) ?>">
         <?php elseif ($pendingSignupToken !== ''): ?>
           <input type="hidden" id="pendingSignupEmailToken" name="email_verification_token" value="<?= htmlspecialchars($pendingSignupToken) ?>">
+        <?php endif; ?>
+        <?php if (!$emailVerified && $pendingSignupToken !== ''): ?>
+          <label>Verification code
+            <input type="text" name="verification_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit code">
+          </label>
+          <button type="submit" name="intent" value="verify_email_code" formnovalidate class="btn btn-outline">Verify code</button>
+          <small>Expires in 10 minutes. Maximum 5 attempts. Use Send code to request a replacement after one minute.</small>
         <?php endif; ?>
         <label>Contact number
           <input type="tel" name="contact_number" inputmode="numeric" maxlength="11" pattern="09[0-9]{9}" title="Enter a valid mobile number" value="<?= htmlspecialchars($values['contact_number']) ?>" placeholder="09123456789" required>
@@ -233,35 +255,5 @@ require __DIR__ . '/../includes/header.php';
     </p>
   </div>
 </section>
-
-<?php if (!$emailVerified && $pendingSignupToken !== ''): ?>
-<script>
-(function () {
-  var token = <?= json_encode($pendingSignupToken) ?>;
-  var input = document.getElementById('signupEmailInput');
-  var button = document.querySelector('.signup-email-verify');
-  var mark = document.getElementById('signupEmailVerifiedMark');
-  var checking = false;
-  function checkVerification() {
-    if (checking || document.hidden) return;
-    checking = true;
-    fetch('<?= HQ_BASE_URL ?>/auth/signup-email-status.php?token=' + encodeURIComponent(token), { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
-      .then(function (response) { return response.json(); })
-      .then(function (data) {
-        if (data.verified) {
-          input.readOnly = true;
-          if (button) button.hidden = true;
-          mark.hidden = false;
-        }
-      })
-      .catch(function () {})
-      .finally(function () { checking = false; });
-  }
-  checkVerification();
-  window.setInterval(checkVerification, 3000);
-  window.addEventListener('focus', checkVerification);
-})();
-</script>
-<?php endif; ?>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

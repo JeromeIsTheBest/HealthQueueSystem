@@ -2689,3 +2689,39 @@ button.pp-security-row { cursor:pointer; }
 
 .cw-summary-approval {display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid var(--slate-200);border-radius:10px;font-size:12px;line-height:1.7;}
 .cw-summary-approval input {flex-shrink:0;margin-top:4px;}
+
+/* Physician selection shows active main and sub-account physicians equally. */
+.cdp-physician-section{margin-bottom:28px}
+.cdp-physician-section .cdp-physicians{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px}
+.cdp-physician-section .cdp-physicians li{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px 16px;padding:22px;border:1px solid #dce8f2;border-radius:14px;background:#fbfdff;align-items:center}
+.cdp-physician-section .cdp-avatar{width:64px;height:64px;grid-row:1/4;overflow:hidden;font-size:20px}
+.cdp-physician-section .cdp-physicians strong{font-size:16px;min-width:0}
+.cdp-physician-section .cdp-physicians small,.cdp-physician-section .cdp-availability{grid-column:2}
+.cdp-physician-section .cdp-physicians .btn{grid-column:1/-1;margin-top:8px}
+@media(max-width:1150px){.cdp-physician-section .cdp-physicians{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.cdp-physician-section .cdp-physicians{grid-template-columns:1fr}}
+
+.admin-sidebar:not(.is-collapsed) .hq-finance-nav{white-space:normal;line-height:1.4;max-width:180px}
+.cdp{min-width:0;max-width:100%}.cdp-header,.cdp-card,.cdp-grid,.cdp-col{min-width:0;max-width:100%}
+@media(max-width:650px){.cdp-header-main{min-width:0;flex-basis:100%}.cdp-book{min-width:0;flex-wrap:wrap}.cdp-book .btn{padding:12px 18px}.cdp-card{padding:20px 18px}.cdp-physician-section .cdp-physicians li{min-width:0;padding:18px 14px}.cdp-physician-section .cdp-physicians strong{overflow-wrap:anywhere}}
+
+/* Empty queue content is styled separately for desktop and mobile. */
+.pd-queue-empty-content { display:none; }
+
+.pd-care-mobile { display:none; }
+
+@media (min-width:761px) {
+  .patient-dashboard-page .pd-queue-empty { display:grid; grid-template-columns:40px minmax(0,1fr); align-content:start; gap:12px; }
+  .patient-dashboard-page .pd-queue-empty > .pd-stat-content { align-self:center; }
+  .patient-dashboard-page .pd-queue-empty .pd-queue-desktop-empty,
+  .patient-dashboard-page .pd-queue-empty .pd-queue-current { display:none; }
+  .patient-dashboard-page .pd-queue-empty-content { display:block; grid-column:1 / -1; position:relative; }
+  .patient-dashboard-page .pd-queue-empty-content h2 { margin:0 45px 7px 0; color:#102c46; font-size:20px; line-height:1.3; }
+  .patient-dashboard-page .pd-queue-empty-content p { margin:0 35px 14px 0; color:#617b8d; font-size:12px; line-height:1.6; }
+  .patient-dashboard-page .pd-queue-calendar { position:absolute; right:0; top:0; width:35px; height:35px; color:#80bec5; }
+  .patient-dashboard-page .pd-queue-book { display:flex; justify-content:center; align-items:center; gap:8px; width:100%; min-height:42px; padding:10px 12px; border-radius:10px; font-size:12px; line-height:1.4; white-space:normal; text-align:center; box-shadow:none; }
+}
+
+@media (min-width:1051px) { .patient-dashboard-page .patient-dash-stats { grid-template-columns:1.45fr 1fr 1fr; } }
+
+.patient-dashboard-page .patient-dash-main-grid.pd-main-single-column { grid-template-columns:minmax(0,1fr); }

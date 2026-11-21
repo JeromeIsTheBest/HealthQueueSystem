@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__.'/physician-accounts.php';
+require_once __DIR__.'/platform-bank-demo.php';
 /** School demo only: recognize wallet-backed completed visits, never send money. */
 function demoRevenueEligibility(): string
 {
@@ -13,19 +15,22 @@ function demoRevenueEligibility(): string
 function recordCompletedDemoPayment(PDO $pdo, int $appointmentId): bool
 {
     if (!$pdo->inTransaction()) throw new LogicException('Commission recognition requires a transaction.');
-    $stmt = $pdo->prepare('SELECT PatientID, PhysicianID, Status, BookingFeePaid, BookingPaymentMethod FROM Appointments WHERE AppointmentID = ? FOR UPDATE');
+    $stmt = $pdo->prepare('SELECT PatientID, PhysicianID, ClinicID, Status, BookingFeePaid, BookingPaymentMethod FROM Appointments WHERE AppointmentID = ? FOR UPDATE');
     $stmt->execute([$appointmentId]);$a=$stmt->fetch();
     if (!$a || $a['Status'] !== 'Completed' || !$a['PhysicianID'] || !(int)$a['BookingFeePaid'] || $a['BookingPaymentMethod'] !== 'wallet') return false;
     $stmt=$pdo->prepare('SELECT PaymentID FROM AppointmentPayments WHERE AppointmentID=?');$stmt->execute([$appointmentId]);
-    if($stmt->fetchColumn()) return false;
+    if($existing=$stmt->fetchColumn()){releaseDemoPayment($pdo,(int)$existing);return false;}
     $stmt=$pdo->prepare("SELECT Amount FROM WalletTransactions WHERE RelatedAppointmentID=? AND PatientID=? AND Type='BookingPayment' ORDER BY TransactionID LIMIT 1 FOR UPDATE");
     $stmt->execute([$appointmentId,$a['PatientID']]);$amount=$stmt->fetchColumn();
     $stmt=$pdo->prepare("SELECT COUNT(*) FROM WalletTransactions WHERE RelatedAppointmentID=? AND Type='Refund'");$stmt->execute([$appointmentId]);
     if($amount===false || (int)$stmt->fetchColumn()) return false;
     $cents=(int)round((float)$amount*100);if($cents<=0)return false;
     $physician=(int)round($cents*0.9);$commission=$cents-$physician;
-    $pdo->prepare("INSERT INTO AppointmentPayments (AppointmentID,GrossAmount,PhysicianRevenue,PlatformCommission,PaymentStatus) VALUES (?,?,?,?,'Paid')")
-      ->execute([$appointmentId,number_format($cents/100,2,'.',''),number_format($physician/100,2,'.',''),number_format($commission/100,2,'.','')]);
+    $ownerStmt=$pdo->prepare('SELECT MainPhysicianID FROM PhysicianAccountOwners WHERE ClinicID=?');$ownerStmt->execute([$a['ClinicID']]);$financialOwnerId=$ownerStmt->fetchColumn();
+    if(!$financialOwnerId)throw new RuntimeException('This clinic needs a Main Physician before revenue can be recorded.');
+    $pdo->prepare("INSERT INTO AppointmentPayments (AppointmentID,GrossAmount,PhysicianRevenue,PlatformCommission,PaymentStatus,FinancialOwnerUserID) VALUES (?,?,?,?,'Paid',?)")
+      ->execute([$appointmentId,number_format($cents/100,2,'.',''),number_format($physician/100,2,'.',''),number_format($commission/100,2,'.',''),$financialOwnerId]);
+    releaseDemoPayment($pdo,(int)$pdo->lastInsertId());
     return true;
 }
 
@@ -65,4 +70,17 @@ function simulateDemoSettlement(PDO $pdo, int $adminId, string $requestKey): arr
         foreach($ids as $paymentId)$stmt->execute([$id,$paymentId]);
         $pdo->commit();return ['Reference'=>$reference,'GrossAmount'=>$amount];
     } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+}
+
+/** Automatically release one eligible payment. Caller owns the completion transaction. */
+function releaseDemoPayment(PDO $pdo,int $paymentId):bool
+{
+    if(!$pdo->inTransaction())throw new LogicException('Automatic release requires a transaction.');
+    $where=demoRevenueEligibility();
+    $s=$pdo->prepare("SELECT p.PaymentID,p.GrossAmount,p.FinancialOwnerUserID FROM AppointmentPayments p JOIN Appointments a ON a.AppointmentID=p.AppointmentID WHERE p.PaymentID=? AND {$where} FOR UPDATE");$s->execute([$paymentId]);$payment=$s->fetch();if(!$payment)return false;
+    $s=$pdo->prepare('SELECT SettlementID FROM DemoSettlementItems WHERE PaymentID=? FOR UPDATE');$s->execute([$paymentId]);if($s->fetchColumn()){recordPlatformDemoBankTransfer($pdo,$paymentId);return false;}
+    if(!$payment['FinancialOwnerUserID'])throw new RuntimeException('Payment needs a financial owner before release.');
+    $key=hash('sha256','healthqueue-auto-release-v1-'.$paymentId);$reference='DEMO-AUTO-'.$paymentId.'-'.strtoupper(bin2hex(random_bytes(4)));
+    $pdo->prepare('INSERT INTO DemoSettlements(RequestKey,Reference,GrossAmount,CreatedByUserID) VALUES(?,?,?,?)')->execute([$key,$reference,$payment['GrossAmount'],$payment['FinancialOwnerUserID']]);
+    $pdo->prepare('INSERT INTO DemoSettlementItems(SettlementID,PaymentID) VALUES(?,?)')->execute([(int)$pdo->lastInsertId(),$paymentId]);recordPlatformDemoBankTransfer($pdo,$paymentId);return true;
 }

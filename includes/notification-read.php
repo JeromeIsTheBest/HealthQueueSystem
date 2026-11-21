@@ -1,10 +1,10 @@
 <?php
-/** Read only a notification owned by this patient or shared with this staff clinic. */
+/** Read only a personal patient/physician notification or one shared with this staff clinic. */
 function hqMarkNotificationRead(PDO $pdo, string $role, int $scopeId, int $notificationId): ?int
 {
-    if (!in_array($role, ['Patient', 'Staff'], true) || $scopeId <= 0 || $notificationId <= 0) return null;
-    $table = $role === 'Patient' ? 'PatientNotifications' : 'Notifications';
-    $owner = $role === 'Patient' ? 'PatientID' : 'ClinicID';
+    if (!in_array($role, ['Patient', 'Staff', 'Physician'], true) || $scopeId <= 0 || $notificationId <= 0) return null;
+    $table = ['Patient'=>'PatientNotifications','Staff'=>'Notifications','Physician'=>'PhysicianNotifications'][$role];
+    $owner = ['Patient'=>'PatientID','Staff'=>'ClinicID','Physician'=>'PhysicianID'][$role];
     $stmt = $pdo->prepare("SELECT NotificationID FROM {$table} WHERE {$owner} = ? AND NotificationID = ?");
     $stmt->execute([$scopeId, $notificationId]);
     if (!$stmt->fetchColumn()) return null;

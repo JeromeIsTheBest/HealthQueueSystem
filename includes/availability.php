@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/input-validation.php';
 /**
  * Booking availability, driven by physicians' date-based calendars
  * (PhysicianDateAvailability). A time is bookable when an eligible
@@ -28,6 +29,26 @@ function occupyingAppointmentSql(string $alias = ''): string
     return "({$a}Status = 'Confirmed' OR ({$a}Status = 'Pending' AND ({$a}BookingFeePaid = 1 OR {$a}CreatedAt >= NOW() - INTERVAL " . UNPAID_HOLD_MINUTES . " MINUTE)))";
 }
 
+/** Clinic calendar is an outer bound on every physician schedule. */
+function clinicOperatingWindow(PDO $pdo,int $clinicId,string $date):?array
+{
+    if(!hqValidCalendarValue($date))return null;
+    $s=$pdo->prepare("SELECT OpenDays,OpenTime,CloseTime FROM Clinic WHERE ClinicID=? AND Status='Active' AND archived=0");$s->execute([$clinicId]);$clinic=$s->fetch();
+    if(!$clinic||!in_array((string)date('N',strtotime($date)),array_map('trim',explode(',',$clinic['OpenDays'])),true)||$clinic['OpenTime']>=$clinic['CloseTime'])return null;
+    return $clinic;
+}
+function physicianWorksOnDate(PDO $pdo,int $clinicId,int $physicianId,string $date):bool
+{
+    $window=clinicOperatingWindow($pdo,$clinicId,$date);if(!$window||!in_array($physicianId,clinicPhysicianIds($pdo,$clinicId),true))return false;
+    $s=$pdo->prepare('SELECT COUNT(*) FROM PhysicianDateAvailability WHERE PhysicianID=? AND AvailDate=? AND IsDayOff=0 AND StartTime<? AND EndTime>?');$s->execute([$physicianId,$date,$window['CloseTime'],$window['OpenTime']]);return (int)$s->fetchColumn()>0;
+}
+function queueBookingDateAvailable(PDO $pdo,int $clinicId,?int $physicianId,string $date):bool
+{
+    if($date<date('Y-m-d')||!clinicOperatingWindow($pdo,$clinicId,$date))return false;
+    foreach($physicianId?[$physicianId]:clinicPhysicianIds($pdo,$clinicId) as $id)if(physicianWorksOnDate($pdo,$clinicId,(int)$id,$date))return true;
+    return false;
+}
+
 /** Active physician IDs at a clinic. */
 function clinicPhysicianIds(PDO $pdo, int $clinicId): array
 {
@@ -46,6 +67,7 @@ function clinicPhysicianIds(PDO $pdo, int $clinicId): array
  */
 function bookableTimes(PDO $pdo, int $clinicId, ?int $physicianId, string $date, ?int $excludeAppointmentId = null): array
 {
+    $window=clinicOperatingWindow($pdo,$clinicId,$date);if(!$window)return [];
     $clinicIds = clinicPhysicianIds($pdo, $clinicId);
     if (!$clinicIds || ($physicianId && !in_array($physicianId, $clinicIds, true))) return [];
     $in = implode(',', array_fill(0, count($clinicIds), '?'));
@@ -76,8 +98,8 @@ function bookableTimes(PDO $pdo, int $clinicId, ?int $physicianId, string $date,
     $capacity = []; // time => [physicianId => perHour]
     foreach ($blocks as $block) {
         $limit = $block['PatientsPerHour'] ? (int) $block['PatientsPerHour'] : DEFAULT_PATIENTS_PER_HOUR;
-        $end = strtotime($block['EndTime']);
-        for ($t = strtotime($block['StartTime']); $t + BOOKING_SLOT_MINUTES * 60 <= $end; $t += BOOKING_SLOT_MINUTES * 60) {
+        $end = min(strtotime($block['EndTime']),strtotime($window['CloseTime']));
+        for ($t = max(strtotime($block['StartTime']),strtotime($window['OpenTime'])); $t + BOOKING_SLOT_MINUTES * 60 <= $end; $t += BOOKING_SLOT_MINUTES * 60) {
             $capacity[date('H:i', $t)][(int) $block['PhysicianID']] = $limit;
         }
     }
@@ -129,6 +151,7 @@ function bookableDates(PDO $pdo, int $clinicId, ?int $physicianId, string $from,
 /** Whether a specific date + time ('HH:MM' or 'HH:MM:SS') can be booked. */
 function isBookable(PDO $pdo, int $clinicId, ?int $physicianId, string $date, string $time, ?int $excludeAppointmentId = null): bool
 {
+    if(!preg_match('/\A(?:[01][0-9]|2[0-3]):[0-5][0-9](?::00)?\z/',$time))return false;
     return in_array(substr($time, 0, 5), bookableTimes($pdo, $clinicId, $physicianId, $date, $excludeAppointmentId), true);
 }
 

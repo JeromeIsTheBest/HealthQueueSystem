@@ -3,6 +3,7 @@ require_once __DIR__ . '/../includes/input-validation.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/physician-accounts.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Admin']);
@@ -32,14 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($values['first_name'] === '' || $values['last_name'] === '') $errors[] = 'First and last name are required.';
         if (!filter_var($values['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
-        if ($values['contact_number'] === '') $errors[] = 'Contact number is required.';
-        if (!hqValidMobile($values['contact_number'])) $errors[] = 'Enter a valid mobile number';
+        if ($values['contact_number'] === '' || !hqValidMobile($values['contact_number'])) $errors[] = 'Enter a valid mobile number';
         if (!filter_var($values['clinic_id'], FILTER_VALIDATE_INT)) $errors[] = 'Please select a clinic.';
         if (!$memberId && strlen($password) < 8) $errors[] = 'Password must be at least 8 characters long.';
         if ($memberId && $password !== '' && strlen($password) < 8) $errors[] = 'New password must be at least 8 characters long.';
 
         if (!$errors) {
             try {
+                $pdo->beginTransaction();
+                $pdo->prepare('SELECT ClinicID FROM Clinic WHERE ClinicID=? FOR UPDATE')->execute([(int)$values['clinic_id']]);
+                if($memberId){$old=$pdo->prepare("SELECT ClinicID FROM Users WHERE UserID=? AND RoleID=(SELECT RoleID FROM Roles WHERE RoleName='Physician') FOR UPDATE");$old->execute([$memberId]);if((int)$old->fetchColumn()!==(int)$values['clinic_id'])throw new RuntimeException('Clinic reassignment is restricted to preserve account ownership and clinical history.');}
                 $clinicStmt = $pdo->prepare("SELECT ClinicID FROM Clinic WHERE ClinicID = ? AND archived = 0 AND Status = 'Active'");
                 $clinicStmt->execute([(int) $values['clinic_id']]);
                 $emailStmt = $pdo->prepare('SELECT UserID FROM Users WHERE Email = ? AND UserID <> ?');
@@ -49,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = 'Please select an active clinic.';
                 } elseif ($emailStmt->fetch()) {
                     $errors[] = 'An account with this email already exists.';
+                } elseif (hqMobileInUse($pdo,$values['contact_number'],(int)($memberId?:0))) {
+                    $errors[] = 'This mobile number is already registered to another account.';
                 } elseif ($memberId) {
                     $sql = 'UPDATE Users SET FirstName = ?, LastName = ?, Email = ?, ContactNumber = ?, ClinicID = ?';
                     $params = [$values['first_name'], $values['last_name'], $values['email'], $values['contact_number'], (int) $values['clinic_id']];
@@ -65,18 +70,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $role = $roleStmt->fetch();
                     $stmt = $pdo->prepare('INSERT INTO Users (ClinicID, RoleID, FirstName, LastName, Email, ContactNumber, PasswordHash) VALUES (?, ?, ?, ?, ?, ?, ?)');
                     $stmt->execute([(int) $values['clinic_id'], $role['RoleID'], $values['first_name'], $values['last_name'], $values['email'], $values['contact_number'], password_hash($password, PASSWORD_DEFAULT)]);
-                    assignUserIdNumber($pdo, (int) $pdo->lastInsertId());
+                    $createdId=(int)$pdo->lastInsertId();
+                    assignUserIdNumber($pdo, $createdId);
+                    registerPhysicianOwner($pdo,(int)$values['clinic_id'],$createdId);
                     logActivity($pdo, $user['UserID'], (int) $values['clinic_id'], 'Created physician', $values['first_name'] . ' ' . $values['last_name']);
                     $flash = 'Physician account created.';
                 }
+                if($errors){$pdo->rollBack();}else{$pdo->commit();}
                 if (!$errors) {
                     $_SESSION['admin_success'][basename(__FILE__)] = $flash !== '' ? $flash : 'Account saved.';
                 header('Location: ' . HQ_BASE_URL . '/admin/physicians.php');
                     exit;
                 }
-            } catch (PDOException $e) {
+            } catch (RuntimeException $e) {
+                if($pdo->inTransaction())$pdo->rollBack();
+                $errors[]=hqDuplicateMobileError($e)?'This mobile number is already registered to another account.':($e instanceof PDOException?'We could not save this account.':$e->getMessage());
                 error_log('Physician save failed: ' . $e->getMessage());
-                $errors[] = 'We could not save this account.';
             }
         }
     } elseif (($_POST['form_type'] ?? '') === 'update_status') {
@@ -108,8 +117,8 @@ $editingMember = null;
 if ($pdo) {
     try {
         $activeClinics = $pdo->query("SELECT ClinicID, ClinicName FROM Clinic WHERE archived = 0 AND Status = 'Active' ORDER BY ClinicName")->fetchAll();
-        $sql = "SELECT u.UserID, u.ClinicID, u.FirstName, u.LastName, u.Email, u.ContactNumber, u.Status, c.ClinicName
-                FROM Users u JOIN Roles r ON r.RoleID = u.RoleID LEFT JOIN Clinic c ON c.ClinicID = u.ClinicID
+        $sql = "SELECT u.UserID, u.ClinicID, u.FirstName, u.LastName, u.Email, u.ContactNumber, u.Status, u.CreatedAt, c.ClinicName, o.MainPhysicianID, (SELECT COUNT(*) FROM Users sub JOIN Roles sr ON sr.RoleID=sub.RoleID WHERE sub.ClinicID=u.ClinicID AND sub.UserID<>o.MainPhysicianID AND sr.RoleName='Physician' AND sub.DeletedAt IS NULL) AS SubAccountCount
+                FROM Users u JOIN Roles r ON r.RoleID = u.RoleID LEFT JOIN Clinic c ON c.ClinicID = u.ClinicID LEFT JOIN PhysicianAccountOwners o ON o.ClinicID=u.ClinicID
                 WHERE r.RoleName = ? AND u.DeletedAt IS NULL";
         $params = [ROLE_NAME];
         if ($search !== '') {
@@ -156,9 +165,11 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
   <?php renderDirectoryStats(); ?>
+
   <dialog class="modal-box dr-dialog" id="memberDirectoryModal" aria-labelledby="directoryFormTitle" data-open-on-load="<?= $editingMember || ($errors && ($_POST['form_type'] ?? '') === 'save_member') ? '1' : '0' ?>">
     <button type="button" class="modal-close" data-directory-close aria-label="Close">&times;</button>
     <div class="portal-heading"><div><span class="section-kicker"><?= $editingMember ? 'Edit physician' : 'Add physician' ?></span><h2 id="directoryFormTitle"><?= $editingMember ? htmlspecialchars($editingMember['FirstName'] . ' ' . $editingMember['LastName']) : 'New physician account' ?></h2></div></div>
+    <p>The first physician in a clinic is its Main Account. Additional physicians are Sub Accounts; only Main can access clinic earnings and withdrawals.</p>
     <form class="registration-form" method="post" style="max-width:640px;">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
       <input type="hidden" name="form_type" value="save_member">
@@ -178,17 +189,19 @@ require __DIR__ . '/../includes/header.php';
     </form>
   </dialog>
 
-  <section class="admin-section dr-panel">
+  <section class="admin-section dr-panel dr-physician-directory">
     <div class="portal-heading"><div><span class="section-kicker">Directory</span><h2>Physician directory</h2></div></div>
     <?php renderDirectoryFilters(); ?>
     <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Name</th><th>Clinic</th><th>Email</th><th>Contact</th><th>Status</th><th>Action</th></tr></thead>
+        <thead><tr><th>Name</th><th>Clinic</th><th>Account type</th><th>Sub accounts</th><th>Email</th><th>Contact</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
         <?php foreach ($members as $member): ?>
           <tr>
             <td><span class="dr-person"><span class="dr-avatar"><?= htmlspecialchars(dirInitials($member)) ?></span><strong>Dr. <?= htmlspecialchars($member['FirstName'] . ' ' . $member['LastName']) ?></strong></span></td>
             <td><?= htmlspecialchars($member['ClinicName'] ?? 'Not assigned') ?></td>
+            <td><?= (int)$member['MainPhysicianID']===(int)$member['UserID']?'Main Account':'Sub Account' ?></td>
+            <td><?php if((int)$member['MainPhysicianID']===(int)$member['UserID']): ?><div class="dr-sub-accounts"><span class="dr-sub-count"><?= (int)$member['SubAccountCount'] ?></span><button type="button" class="btn btn-outline btn-sm" data-directory-open="subs<?= (int)$member['UserID'] ?>">View sub-accounts</button></div><?php else: ?>&mdash;<?php endif; ?></td>
             <td><?= htmlspecialchars($member['Email']) ?></td>
             <td><?= htmlspecialchars($member['ContactNumber'] ?? '') ?></td>
             <td><span class="status-badge status-<?= strtolower(htmlspecialchars($member['Status'])) ?>"><?= htmlspecialchars($member['Status']) ?></span></td>
@@ -204,12 +217,16 @@ require __DIR__ . '/../includes/header.php';
             </td>
           </tr>
         <?php endforeach; ?>
-        <?php if (!$members): ?><tr><td colspan="6" class="admin-empty"><?= $search !== '' ? 'No physicians match "' . htmlspecialchars($search) . '".' : 'No physician accounts yet.' ?></td></tr><?php endif; ?>
+        <?php if (!$members): ?><tr><td colspan="8" class="admin-empty"><?= $search !== '' ? 'No physicians match "' . htmlspecialchars($search) . '".' : 'No physician accounts yet.' ?></td></tr><?php endif; ?>
         </tbody>
       </table>
     </div>
     <?php renderDirectoryPagination(); ?>
   </section>
+<?php foreach($members as $main): if((int)$main['MainPhysicianID']!==(int)$main['UserID'])continue;
+ $subStmt=$pdo->prepare("SELECT u.FirstName,u.LastName,u.Status,u.CreatedAt FROM Users u JOIN Roles r ON r.RoleID=u.RoleID WHERE u.ClinicID=? AND u.UserID<>? AND r.RoleName='Physician' AND u.DeletedAt IS NULL ORDER BY u.LastName");$subStmt->execute([$main['ClinicID'],$main['UserID']]); ?>
+<dialog class="modal-box dr-dialog" id="subs<?= (int)$main['UserID'] ?>" aria-labelledby="subsTitle<?= (int)$main['UserID'] ?>"><button type="button" class="modal-close" data-directory-close aria-label="Close">&times;</button><h2 id="subsTitle<?= (int)$main['UserID'] ?>">Sub-accounts</h2><p>Under Dr. <?= htmlspecialchars($main['FirstName'].' '.$main['LastName']) ?> ? <?= htmlspecialchars($main['ClinicName']) ?></p><table class="admin-table"><thead><tr><th>Physician</th><th>Status</th><th>Added</th></tr></thead><tbody><?php $subRows=$subStmt->fetchAll();foreach($subRows as $sub): ?><tr><td>Dr. <?= htmlspecialchars($sub['FirstName'].' '.$sub['LastName']) ?></td><td><?= htmlspecialchars($sub['Status']) ?></td><td><?= htmlspecialchars(date('j M Y',strtotime($sub['CreatedAt']))) ?></td></tr><?php endforeach; ?><?php if(!$subRows): ?><tr><td colspan="3">No sub-accounts yet.</td></tr><?php endif; ?></tbody></table><p>Active sub-accounts appear in patient booking.</p></dialog>
+<?php endforeach; ?>
 <aside class="dr-help"><strong>Clinic assignments</strong><p>Each physician account is assigned to a clinic.</p></aside>
 </div></main>
 

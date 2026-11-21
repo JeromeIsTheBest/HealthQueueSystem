@@ -26,7 +26,7 @@ if (!$appointmentId || !$pdo) {
 $stmt = $pdo->prepare(
     "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern, a.BookingFeePaid, a.PhysicianID, a.Status,
             GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), a.CreatedAt + INTERVAL " . UNPAID_HOLD_MINUTES . " MINUTE)) AS HoldSeconds,
-            c.ClinicID, c.ClinicName, c.BaseConsultationFee,
+            c.ClinicID, c.ClinicName, COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) AS BaseConsultationFee,
             phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName
      FROM Appointments a
      JOIN Clinic c ON c.ClinicID = a.ClinicID
@@ -62,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'su
         $errors[] = 'This request can no longer be paid for.';
     } elseif (!($clinicLocked = lockClinicBooking($pdo, (int) $appointment['ClinicID']))) {
         $errors[] = 'The clinic is busy right now. Please try again in a moment.';
+    } elseif (empty($appointment['AppointmentTime']) && !queueBookingDateAvailable($pdo,(int)$appointment['ClinicID'],$appointment['PhysicianID']?(int)$appointment['PhysicianID']:null,$appointment['AppointmentDate'])) {
+        $errors[]='The clinic or physician is unavailable on this date. Choose another schedule before paying.';
     } elseif ($appointment['AppointmentTime'] !== null && !isBookable($pdo, (int) $appointment['ClinicID'], $appointment['PhysicianID'] ? (int) $appointment['PhysicianID'] : null, $appointment['AppointmentDate'], $appointment['AppointmentTime'], (int) $appointmentId)) {
         // The unpaid hold expired and the slot was taken (or it's no longer open).
         $errors[] = 'Sorry, this time slot was taken while your request was unpaid. Please reschedule it from My Appointments, then pay.';

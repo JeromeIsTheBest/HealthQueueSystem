@@ -94,6 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $dupe->execute([$email, $user['UserID']]);
                 if ($dupe->fetch()) {
                     $errors[] = 'Another account already uses that email address.';
+                } elseif (hqMobileInUse($pdo,$contact,(int)$user['UserID'])) {
+                    $errors[] = 'This mobile number is already registered to another account.';
                 } else {
                     $emailChanged = strcasecmp($email, $profile['Email']) !== 0;
                     $pdo->prepare('UPDATE Users SET FirstName = ?, LastName = ?, EmailVerifiedAt = CASE WHEN Email <> ? THEN NULL ELSE EmailVerifiedAt END, Email = ?, ContactNumber = ? WHERE UserID = ?')
@@ -116,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } catch (PDOException $e) {
                 error_log('Patient profile update failed: ' . $e->getMessage());
-                $errors[] = 'We could not update your profile right now.';
+                $errors[] = hqDuplicateMobileError($e)?'This mobile number is already registered to another account.':'We could not update your profile right now.';
             }
         }
     } elseif (($_POST['form_type'] ?? '') === 'update_medical') {

@@ -1,0 +1,5186 @@
+{
+    "database": "healthqueue_db",
+    "generated_at": "2026-11-21T20:03:52+08:00",
+    "tables": [
+        "aitranscriptevaluations",
+        "aitranscriptversions",
+        "announcementdismissals",
+        "announcements",
+        "appointmentpayments",
+        "appointmentreschedulerequests",
+        "appointments",
+        "auditlogs",
+        "clinic",
+        "clinicfeerequests",
+        "clinicphoto",
+        "clinicregistrationinquiry",
+        "consultations",
+        "consultationversions",
+        "demosettlementitems",
+        "demosettlements",
+        "emailverificationtokens",
+        "feedback",
+        "medicalrecordaccessfiles",
+        "medicalrecordaccessnotifications",
+        "medicalrecordaccessrequests",
+        "medicalrecords",
+        "notifications",
+        "passwordresets",
+        "patientnotifications",
+        "patientprofiledetails",
+        "physicianaccountowners",
+        "physicianavailability",
+        "physiciandateavailability",
+        "physiciannotifications",
+        "physicianwithdrawals",
+        "platformdemobanktransfers",
+        "queue",
+        "queueemailoutbox",
+        "requestratelimits",
+        "roles",
+        "signupemailverifications",
+        "smsoutbox",
+        "users",
+        "visitcompletionnotifications",
+        "visitcompletionreviews",
+        "wallettransactions"
+    ],
+    "columns": [
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "EvaluationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "TranscriptVersionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "Language",
+            "COLUMN_TYPE": "varchar(30)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "ReferenceText",
+            "COLUMN_TYPE": "mediumtext",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "ReferenceHash",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "HypothesisHash",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "ReferenceWords",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "HypothesisWords",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "Substitutions",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "Deletions",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "Insertions",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 13
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "WordErrorRate",
+            "COLUMN_TYPE": "decimal(9,4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 14
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "COLUMN_NAME": "EvaluatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 15
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "TranscriptVersionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "ConsultationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "TranscriptType",
+            "COLUMN_TYPE": "varchar(30)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "TranscriptText",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "WordErrorRate",
+            "COLUMN_TYPE": "decimal(5,2)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "GeneratedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "ApprovedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "ApprovedByPhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "ApprovedVersionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "COLUMN_NAME": "SourceTranscriptVersionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "COLUMN_NAME": "AnnouncementID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "COLUMN_NAME": "DismissedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "AnnouncementID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "PostedByUserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "Title",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "Category",
+            "COLUMN_TYPE": "varchar(30)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "Message",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "PhotoPath",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "Audience",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "AffectsDate",
+            "COLUMN_TYPE": "date",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "PaymentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "GrossAmount",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "PhysicianRevenue",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "PlatformCommission",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "PaymentStatus",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "PaidAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "RefundedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "COLUMN_NAME": "FinancialOwnerUserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "RequestID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "RequestedDate",
+            "COLUMN_TYPE": "date",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "RequestedTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "RequestedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "ReviewedBy",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "COLUMN_NAME": "ReviewedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "AppointmentDate",
+            "COLUMN_TYPE": "date",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "AppointmentTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "Concern",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "BookingFeePaid",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "BookingFeePaidAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "BookingPaymentMethod",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "CancellationReason",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "DeclineReason",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 13
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 14
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "UpdatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 15
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "BookingFeeAmount",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 16
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "COLUMN_NAME": "LogID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "COLUMN_NAME": "ActionExecuted",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "COLUMN_NAME": "Description",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "ClinicName",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "Address",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "ContactNumber",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "BaseConsultationFee",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "PhotoUrl",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "Description",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "Specialties",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "OpenDays",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "OpenTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "CloseTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "RegistrationDate",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "DeletedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 13
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 14
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "archived",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 15
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "Latitude",
+            "COLUMN_TYPE": "decimal(10,7)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 16
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "COLUMN_NAME": "Longitude",
+            "COLUMN_TYPE": "decimal(10,7)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 17
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "RequestID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "RequestedBy",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "CurrentFee",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "ProposedFee",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "EffectiveDate",
+            "COLUMN_TYPE": "date",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "Reason",
+            "COLUMN_TYPE": "varchar(1000)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "enum('Pending','Approved','Declined')",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "RequestedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "ReviewedBy",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "COLUMN_NAME": "ReviewedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "COLUMN_NAME": "PhotoID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "COLUMN_NAME": "Filename",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "COLUMN_NAME": "SortOrder",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "InquiryID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "ClinicName",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "ContactName",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "Email",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "Phone",
+            "COLUMN_TYPE": "varchar(30)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "City",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "PhysiciansCount",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "StaffCount",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "BaseConsultationFee",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "SubmittedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "COLUMN_NAME": "ApprovedClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "ConsultationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "DoctorID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "AudioFilePath",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "AudioDurationSeconds",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "RecordingConsent",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "CompletedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "DeletedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "COLUMN_NAME": "Archived",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "VersionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "ConsultationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "EditedByPhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "RevisionNumber",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "ClinicalNotes",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "PrescriptionText",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "NotesJson",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "UpdatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "DeletedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "COLUMN_NAME": "Archived",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "demosettlementitems",
+            "COLUMN_NAME": "SettlementID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "demosettlementitems",
+            "COLUMN_NAME": "PaymentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "COLUMN_NAME": "SettlementID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "COLUMN_NAME": "RequestKey",
+            "COLUMN_TYPE": "varchar(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "COLUMN_NAME": "Reference",
+            "COLUMN_TYPE": "varchar(40)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "COLUMN_NAME": "GrossAmount",
+            "COLUMN_TYPE": "decimal(12,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "COLUMN_NAME": "CreatedByUserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "COLUMN_NAME": "VerificationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "COLUMN_NAME": "TokenHash",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "COLUMN_NAME": "ExpiresAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "COLUMN_NAME": "UsedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "FeedbackID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "Rating",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "Comment",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessfiles",
+            "COLUMN_NAME": "RequestID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessfiles",
+            "COLUMN_NAME": "RecordID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessnotifications",
+            "COLUMN_NAME": "NotificationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessnotifications",
+            "COLUMN_NAME": "RequestID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "RequestID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "RequestedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "RespondedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "COLUMN_NAME": "EndedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "RecordID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "Title",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "Category",
+            "COLUMN_TYPE": "varchar(30)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "Description",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "FilePath",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "FileType",
+            "COLUMN_TYPE": "varchar(50)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "COLUMN_NAME": "UploadedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "NotificationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "Message",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "IsRead",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "AnnouncementID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "COLUMN_NAME": "ResetID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "COLUMN_NAME": "TokenHash",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "COLUMN_NAME": "ExpiresAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "COLUMN_NAME": "UsedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "COLUMN_NAME": "NotificationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "COLUMN_NAME": "Message",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "COLUMN_NAME": "IsRead",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "COLUMN_NAME": "AnnouncementID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "patientprofiledetails",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "patientprofiledetails",
+            "COLUMN_NAME": "Details",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "patientprofiledetails",
+            "COLUMN_NAME": "UpdatedAt",
+            "COLUMN_TYPE": "timestamp",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "physicianaccountowners",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "physicianaccountowners",
+            "COLUMN_NAME": "MainPhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "physicianaccountowners",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "COLUMN_NAME": "AvailabilityID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "COLUMN_NAME": "DayOfWeek",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "COLUMN_NAME": "StartTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "COLUMN_NAME": "EndTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "COLUMN_NAME": "PatientsPerHour",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "COLUMN_NAME": "Active",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "SlotID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "AvailDate",
+            "COLUMN_TYPE": "date",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "StartTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "EndTime",
+            "COLUMN_TYPE": "time",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "PatientsPerHour",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "IsDayOff",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "COLUMN_NAME": "NotificationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "COLUMN_NAME": "FeeRequestID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "COLUMN_NAME": "Message",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "COLUMN_NAME": "IsRead",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "COLUMN_NAME": "AnnouncementID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "WithdrawalID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "Reference",
+            "COLUMN_TYPE": "varchar(40)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "RequestKey",
+            "COLUMN_TYPE": "varchar(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "Amount",
+            "COLUMN_TYPE": "decimal(12,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "PayoutMethod",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "AccountName",
+            "COLUMN_TYPE": "varchar(150)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "AccountNumber",
+            "COLUMN_TYPE": "varchar(34)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "BankName",
+            "COLUMN_TYPE": "varchar(100)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "ReviewedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "ReviewedByUserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 13
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "COLUMN_NAME": "FinancialOwnerUserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 14
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "TransferID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "PaymentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "Reference",
+            "COLUMN_TYPE": "varchar(50)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "Amount",
+            "COLUMN_TYPE": "decimal(12,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "BankLabel",
+            "COLUMN_TYPE": "varchar(100)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "AccountLastFour",
+            "COLUMN_TYPE": "char(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(30)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "QueueID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "PhysicianID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "QueueNumber",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "Position",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "Priority",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "ScheduledNumber",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "RegularNumber",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "CreatedByStaffID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "CalledAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 13
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "ServedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 14
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "LateAfterQueueID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 15
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "LastLateNoticeAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 16
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "ArrivedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 17
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "GraceExtendedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 18
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "GraceRescheduleRequestedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 19
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "GracePolicyEnabledAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 20
+        },
+        {
+            "TABLE_NAME": "queue",
+            "COLUMN_NAME": "FirstCalledAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 21
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "EmailID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "QueueID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "EventType",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "Attempts",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "LastError",
+            "COLUMN_TYPE": "varchar(200)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "COLUMN_NAME": "UpdatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "COLUMN_NAME": "BucketKey",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "COLUMN_NAME": "WindowStart",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "COLUMN_NAME": "Attempts",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "roles",
+            "COLUMN_NAME": "RoleID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "roles",
+            "COLUMN_NAME": "RoleName",
+            "COLUMN_TYPE": "varchar(50)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "SignupVerificationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "Email",
+            "COLUMN_TYPE": "varchar(100)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "TokenHash",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "ExpiresAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "VerifiedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "UsedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "SmsID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "EventKey",
+            "COLUMN_TYPE": "varchar(120)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "EventType",
+            "COLUMN_TYPE": "varchar(30)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "Message",
+            "COLUMN_TYPE": "varchar(320)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "Attempts",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "ProviderMessageID",
+            "COLUMN_TYPE": "varchar(80)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "ProviderStatus",
+            "COLUMN_TYPE": "varchar(80)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "COLUMN_NAME": "UpdatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "UserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "IDNumber",
+            "COLUMN_TYPE": "char(10)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "RoleID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "FirstName",
+            "COLUMN_TYPE": "varchar(50)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "LastName",
+            "COLUMN_TYPE": "varchar(50)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "Email",
+            "COLUMN_TYPE": "varchar(100)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "EmailVerifiedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "ContactNumber",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "PasswordHash",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "DeletedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 13
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "Archived",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 14
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "AvailabilityStatus",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 15
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "ProfilePhoto",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 16
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "WalletBalance",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 17
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "BloodType",
+            "COLUMN_TYPE": "varchar(5)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 18
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "Allergies",
+            "COLUMN_TYPE": "varchar(500)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 19
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "EmergencyContactName",
+            "COLUMN_TYPE": "varchar(100)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 20
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "EmergencyContactNumber",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 21
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "AnnouncementsSeenAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 22
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "PhysicianSpecialty",
+            "COLUMN_TYPE": "varchar(100)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 23
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "AccountMobileNumber",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 24
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "IsWalkInAccount",
+            "COLUMN_TYPE": "tinyint(4)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 25
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "COLUMN_NAME": "NotificationID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "COLUMN_NAME": "FinalizedVersionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "AppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "ClinicID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "FinalizedVersionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "Status",
+            "COLUMN_TYPE": "varchar(24)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "IssueText",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "RequestedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "PatientRespondedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "CompletedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 9
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "CompletedByUserID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 10
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "CompletionSource",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 11
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "COLUMN_NAME": "StaffResolution",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 12
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "TransactionID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "PRI",
+            "ORDINAL_POSITION": 1
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "PatientID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 2
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "Type",
+            "COLUMN_TYPE": "varchar(20)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 3
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "Amount",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 4
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "BalanceAfter",
+            "COLUMN_TYPE": "decimal(10,2)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 5
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "COLUMN_TYPE": "int(11)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "MUL",
+            "ORDINAL_POSITION": 6
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "Description",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 7
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "CreatedAt",
+            "COLUMN_TYPE": "datetime",
+            "IS_NULLABLE": "NO",
+            "COLUMN_KEY": "",
+            "ORDINAL_POSITION": 8
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "COLUMN_NAME": "RequestKey",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_KEY": "UNI",
+            "ORDINAL_POSITION": 9
+        }
+    ],
+    "foreign_keys": [
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "CONSTRAINT_NAME": "aitranscriptevaluations_ibfk_1",
+            "COLUMN_NAME": "TranscriptVersionID",
+            "REFERENCED_TABLE_NAME": "aitranscriptversions",
+            "REFERENCED_COLUMN_NAME": "TranscriptVersionID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "CONSTRAINT_NAME": "aitranscriptevaluations_ibfk_2",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "CONSTRAINT_NAME": "aitranscriptevaluations_ibfk_3",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "CONSTRAINT_NAME": "fk_aitranscripts_consultation",
+            "COLUMN_NAME": "ConsultationID",
+            "REFERENCED_TABLE_NAME": "consultations",
+            "REFERENCED_COLUMN_NAME": "ConsultationID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "CONSTRAINT_NAME": "fk_ai_approved_physician",
+            "COLUMN_NAME": "ApprovedByPhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "CONSTRAINT_NAME": "fk_ai_approved_version",
+            "COLUMN_NAME": "ApprovedVersionID",
+            "REFERENCED_TABLE_NAME": "consultationversions",
+            "REFERENCED_COLUMN_NAME": "VersionID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "CONSTRAINT_NAME": "fk_ai_source_version",
+            "COLUMN_NAME": "SourceTranscriptVersionID",
+            "REFERENCED_TABLE_NAME": "aitranscriptversions",
+            "REFERENCED_COLUMN_NAME": "TranscriptVersionID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "CONSTRAINT_NAME": "fk_ann_dismiss_announcement",
+            "COLUMN_NAME": "AnnouncementID",
+            "REFERENCED_TABLE_NAME": "announcements",
+            "REFERENCED_COLUMN_NAME": "AnnouncementID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "CONSTRAINT_NAME": "fk_ann_dismiss_user",
+            "COLUMN_NAME": "UserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "CONSTRAINT_NAME": "fk_announcements_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "CONSTRAINT_NAME": "fk_announcements_user",
+            "COLUMN_NAME": "PostedByUserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "CONSTRAINT_NAME": "fk_payments_appointment",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "CONSTRAINT_NAME": "fk_payment_financial_owner",
+            "COLUMN_NAME": "FinancialOwnerUserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "CONSTRAINT_NAME": "fk_reschedule_appointment",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "CONSTRAINT_NAME": "fk_reschedule_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "CONSTRAINT_NAME": "fk_reschedule_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "CONSTRAINT_NAME": "fk_reschedule_reviewer",
+            "COLUMN_NAME": "ReviewedBy",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "CONSTRAINT_NAME": "fk_appointments_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "CONSTRAINT_NAME": "fk_appointments_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "CONSTRAINT_NAME": "fk_appointments_physician",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "CONSTRAINT_NAME": "fk_auditlogs_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "CONSTRAINT_NAME": "fk_auditlogs_user",
+            "COLUMN_NAME": "UserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "CONSTRAINT_NAME": "clinicfeerequests_ibfk_1",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "CONSTRAINT_NAME": "clinicfeerequests_ibfk_2",
+            "COLUMN_NAME": "RequestedBy",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "CONSTRAINT_NAME": "clinicfeerequests_ibfk_3",
+            "COLUMN_NAME": "ReviewedBy",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "CONSTRAINT_NAME": "fk_clinic_photo_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "CONSTRAINT_NAME": "fk_inquiry_approved_clinic",
+            "COLUMN_NAME": "ApprovedClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "SET NULL"
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "CONSTRAINT_NAME": "fk_consultations_appointment",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "CONSTRAINT_NAME": "fk_consultations_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "CONSTRAINT_NAME": "fk_consultations_doctor",
+            "COLUMN_NAME": "DoctorID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "CONSTRAINT_NAME": "fk_consultations_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "CONSTRAINT_NAME": "fk_consultationversions_consultation",
+            "COLUMN_NAME": "ConsultationID",
+            "REFERENCED_TABLE_NAME": "consultations",
+            "REFERENCED_COLUMN_NAME": "ConsultationID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "CONSTRAINT_NAME": "fk_consultationversions_physician",
+            "COLUMN_NAME": "EditedByPhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "demosettlementitems",
+            "CONSTRAINT_NAME": "fk_demo_item_payment",
+            "COLUMN_NAME": "PaymentID",
+            "REFERENCED_TABLE_NAME": "appointmentpayments",
+            "REFERENCED_COLUMN_NAME": "PaymentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "demosettlementitems",
+            "CONSTRAINT_NAME": "fk_demo_item_settlement",
+            "COLUMN_NAME": "SettlementID",
+            "REFERENCED_TABLE_NAME": "demosettlements",
+            "REFERENCED_COLUMN_NAME": "SettlementID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "CONSTRAINT_NAME": "fk_demo_settlement_admin",
+            "COLUMN_NAME": "CreatedByUserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "CONSTRAINT_NAME": "fk_email_verification_user",
+            "COLUMN_NAME": "UserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "CONSTRAINT_NAME": "fk_feedback_appointment",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "CONSTRAINT_NAME": "fk_feedback_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "CONSTRAINT_NAME": "fk_feedback_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "CONSTRAINT_NAME": "fk_feedback_physician",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessfiles",
+            "CONSTRAINT_NAME": "medicalrecordaccessfiles_ibfk_1",
+            "COLUMN_NAME": "RequestID",
+            "REFERENCED_TABLE_NAME": "medicalrecordaccessrequests",
+            "REFERENCED_COLUMN_NAME": "RequestID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessfiles",
+            "CONSTRAINT_NAME": "medicalrecordaccessfiles_ibfk_2",
+            "COLUMN_NAME": "RecordID",
+            "REFERENCED_TABLE_NAME": "medicalrecords",
+            "REFERENCED_COLUMN_NAME": "RecordID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessnotifications",
+            "CONSTRAINT_NAME": "medicalrecordaccessnotifications_ibfk_1",
+            "COLUMN_NAME": "NotificationID",
+            "REFERENCED_TABLE_NAME": "patientnotifications",
+            "REFERENCED_COLUMN_NAME": "NotificationID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessnotifications",
+            "CONSTRAINT_NAME": "medicalrecordaccessnotifications_ibfk_2",
+            "COLUMN_NAME": "RequestID",
+            "REFERENCED_TABLE_NAME": "medicalrecordaccessrequests",
+            "REFERENCED_COLUMN_NAME": "RequestID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "CONSTRAINT_NAME": "medicalrecordaccessrequests_ibfk_1",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "CONSTRAINT_NAME": "medicalrecordaccessrequests_ibfk_2",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "CONSTRAINT_NAME": "medicalrecordaccessrequests_ibfk_3",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "CONSTRAINT_NAME": "fk_medicalrecords_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "CONSTRAINT_NAME": "fk_notifications_appointment",
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "CONSTRAINT_NAME": "fk_notifications_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "CONSTRAINT_NAME": "fk_staff_notice_announcement",
+            "COLUMN_NAME": "AnnouncementID",
+            "REFERENCED_TABLE_NAME": "announcements",
+            "REFERENCED_COLUMN_NAME": "AnnouncementID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "CONSTRAINT_NAME": "fk_password_resets_user",
+            "COLUMN_NAME": "UserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "CONSTRAINT_NAME": "fk_patientnotifications_appointment",
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "CONSTRAINT_NAME": "fk_patientnotifications_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "CONSTRAINT_NAME": "fk_patient_notice_announcement",
+            "COLUMN_NAME": "AnnouncementID",
+            "REFERENCED_TABLE_NAME": "announcements",
+            "REFERENCED_COLUMN_NAME": "AnnouncementID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "patientprofiledetails",
+            "CONSTRAINT_NAME": "patientprofiledetails_ibfk_1",
+            "COLUMN_NAME": "UserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "physicianaccountowners",
+            "CONSTRAINT_NAME": "physicianaccountowners_ibfk_1",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physicianaccountowners",
+            "CONSTRAINT_NAME": "physicianaccountowners_ibfk_2",
+            "COLUMN_NAME": "MainPhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "CONSTRAINT_NAME": "fk_availability_physician",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "CONSTRAINT_NAME": "fk_dateavail_physician",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "CONSTRAINT_NAME": "fk_physician_notice_announcement",
+            "COLUMN_NAME": "AnnouncementID",
+            "REFERENCED_TABLE_NAME": "announcements",
+            "REFERENCED_COLUMN_NAME": "AnnouncementID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "CONSTRAINT_NAME": "physiciannotifications_ibfk_1",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "CONSTRAINT_NAME": "physiciannotifications_ibfk_2",
+            "COLUMN_NAME": "FeeRequestID",
+            "REFERENCED_TABLE_NAME": "clinicfeerequests",
+            "REFERENCED_COLUMN_NAME": "RequestID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "CONSTRAINT_NAME": "fk_withdrawal_financial_owner",
+            "COLUMN_NAME": "FinancialOwnerUserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "CONSTRAINT_NAME": "fk_withdrawal_physician",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "CONSTRAINT_NAME": "fk_withdrawal_reviewer",
+            "COLUMN_NAME": "ReviewedByUserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "CONSTRAINT_NAME": "platformdemobanktransfers_ibfk_1",
+            "COLUMN_NAME": "PaymentID",
+            "REFERENCED_TABLE_NAME": "appointmentpayments",
+            "REFERENCED_COLUMN_NAME": "PaymentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "queue",
+            "CONSTRAINT_NAME": "fk_queue_appointment",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "queue",
+            "CONSTRAINT_NAME": "fk_queue_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "queue",
+            "CONSTRAINT_NAME": "fk_queue_physician",
+            "COLUMN_NAME": "PhysicianID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "queue",
+            "CONSTRAINT_NAME": "fk_queue_staff",
+            "COLUMN_NAME": "CreatedByStaffID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "CONSTRAINT_NAME": "queueemailoutbox_ibfk_1",
+            "COLUMN_NAME": "QueueID",
+            "REFERENCED_TABLE_NAME": "queue",
+            "REFERENCED_COLUMN_NAME": "QueueID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "CONSTRAINT_NAME": "queueemailoutbox_ibfk_2",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "CONSTRAINT_NAME": "queueemailoutbox_ibfk_3",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "CONSTRAINT_NAME": "fk_rate_limit_user",
+            "COLUMN_NAME": "UserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "SET NULL"
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "CONSTRAINT_NAME": "fk_signup_verification_user",
+            "COLUMN_NAME": "UserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "SET NULL"
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "CONSTRAINT_NAME": "fk_sms_appointment",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "SET NULL"
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "CONSTRAINT_NAME": "fk_sms_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "SET NULL"
+        },
+        {
+            "TABLE_NAME": "users",
+            "CONSTRAINT_NAME": "fk_users_clinic",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "users",
+            "CONSTRAINT_NAME": "fk_users_role",
+            "COLUMN_NAME": "RoleID",
+            "REFERENCED_TABLE_NAME": "roles",
+            "REFERENCED_COLUMN_NAME": "RoleID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "CONSTRAINT_NAME": "visitcompletionnotifications_ibfk_1",
+            "COLUMN_NAME": "NotificationID",
+            "REFERENCED_TABLE_NAME": "patientnotifications",
+            "REFERENCED_COLUMN_NAME": "NotificationID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "CONSTRAINT_NAME": "visitcompletionnotifications_ibfk_2",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "CONSTRAINT_NAME": "visitcompletionnotifications_ibfk_3",
+            "COLUMN_NAME": "FinalizedVersionID",
+            "REFERENCED_TABLE_NAME": "consultationversions",
+            "REFERENCED_COLUMN_NAME": "VersionID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "CONSTRAINT_NAME": "visitcompletionreviews_ibfk_1",
+            "COLUMN_NAME": "AppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "CASCADE"
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "CONSTRAINT_NAME": "visitcompletionreviews_ibfk_2",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "CONSTRAINT_NAME": "visitcompletionreviews_ibfk_3",
+            "COLUMN_NAME": "ClinicID",
+            "REFERENCED_TABLE_NAME": "clinic",
+            "REFERENCED_COLUMN_NAME": "ClinicID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "CONSTRAINT_NAME": "visitcompletionreviews_ibfk_4",
+            "COLUMN_NAME": "FinalizedVersionID",
+            "REFERENCED_TABLE_NAME": "consultationversions",
+            "REFERENCED_COLUMN_NAME": "VersionID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "CONSTRAINT_NAME": "visitcompletionreviews_ibfk_5",
+            "COLUMN_NAME": "CompletedByUserID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "CONSTRAINT_NAME": "fk_wallettx_appointment",
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "REFERENCED_TABLE_NAME": "appointments",
+            "REFERENCED_COLUMN_NAME": "AppointmentID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "CONSTRAINT_NAME": "fk_wallettx_patient",
+            "COLUMN_NAME": "PatientID",
+            "REFERENCED_TABLE_NAME": "users",
+            "REFERENCED_COLUMN_NAME": "UserID",
+            "ORDINAL_POSITION": 1,
+            "UPDATE_RULE": "RESTRICT",
+            "DELETE_RULE": "RESTRICT"
+        }
+    ],
+    "indexes": [
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "INDEX_NAME": "idx_ai_evaluation_scope",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "INDEX_NAME": "idx_ai_evaluation_scope",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "INDEX_NAME": "idx_ai_evaluation_scope",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "EvaluatedAt",
+            "SEQ_IN_INDEX": 3
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "INDEX_NAME": "PhysicianID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "EvaluationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptevaluations",
+            "INDEX_NAME": "TranscriptVersionID",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "TranscriptVersionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "INDEX_NAME": "fk_ai_approved_physician",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ApprovedByPhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "INDEX_NAME": "fk_ai_approved_version",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ApprovedVersionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "INDEX_NAME": "idx_aitranscripts_consultation",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ConsultationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "INDEX_NAME": "idx_aitranscripts_consultation",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "TranscriptType",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "INDEX_NAME": "idx_aitranscripts_consultation",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "GeneratedAt",
+            "SEQ_IN_INDEX": 3
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "INDEX_NAME": "idx_ai_source_version",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "SourceTranscriptVersionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "aitranscriptversions",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "TranscriptVersionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "INDEX_NAME": "fk_ann_dismiss_announcement",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "announcementdismissals",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "INDEX_NAME": "fk_announcements_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "INDEX_NAME": "fk_announcements_user",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PostedByUserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "announcements",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "INDEX_NAME": "idx_payments_status_paidat",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PaymentStatus",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "INDEX_NAME": "idx_payments_status_paidat",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PaidAt",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "INDEX_NAME": "idx_payment_financial_owner",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "FinancialOwnerUserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PaymentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentpayments",
+            "INDEX_NAME": "uq_payment_appointment",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "INDEX_NAME": "fk_reschedule_appointment",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "INDEX_NAME": "fk_reschedule_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "INDEX_NAME": "fk_reschedule_reviewer",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ReviewedBy",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "INDEX_NAME": "idx_reschedule_clinic_status",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "INDEX_NAME": "idx_reschedule_clinic_status",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "INDEX_NAME": "idx_reschedule_clinic_status",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RequestedAt",
+            "SEQ_IN_INDEX": 3
+        },
+        {
+            "TABLE_NAME": "appointmentreschedulerequests",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "INDEX_NAME": "fk_appointments_physician",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "INDEX_NAME": "idx_appointments_clinic_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "INDEX_NAME": "idx_appointments_clinic_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AppointmentDate",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "INDEX_NAME": "idx_appointments_patient_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "INDEX_NAME": "idx_appointments_patient_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AppointmentDate",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "INDEX_NAME": "fk_auditlogs_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "INDEX_NAME": "fk_auditlogs_user",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "INDEX_NAME": "idx_auditlogs_created",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CreatedAt",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "auditlogs",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "LogID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinic",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "idx_clinic_fee_effective",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "idx_clinic_fee_effective",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "idx_clinic_fee_effective",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "EffectiveDate",
+            "SEQ_IN_INDEX": 3
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "RequestedBy",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RequestedBy",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "ReviewedBy",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ReviewedBy",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "uq_fee_request_replay",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicfeerequests",
+            "INDEX_NAME": "uq_fee_request_replay",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "INDEX_NAME": "idx_clinic_photo",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "INDEX_NAME": "idx_clinic_photo",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhotoID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "clinicphoto",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PhotoID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "INDEX_NAME": "fk_inquiry_approved_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ApprovedClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "clinicregistrationinquiry",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "InquiryID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "INDEX_NAME": "fk_consultations_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "INDEX_NAME": "fk_consultations_doctor",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "DoctorID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "INDEX_NAME": "fk_consultations_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "ConsultationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultations",
+            "INDEX_NAME": "uq_consultation_appointment",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "INDEX_NAME": "fk_consultationversions_physician",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "EditedByPhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "INDEX_NAME": "idx_consultationversions_consultation",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ConsultationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "INDEX_NAME": "idx_consultationversions_consultation",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RevisionNumber",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "consultationversions",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "VersionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "demosettlementitems",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "SettlementID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "demosettlementitems",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PaymentID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "demosettlementitems",
+            "INDEX_NAME": "uq_demo_settled_payment",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PaymentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "INDEX_NAME": "fk_demo_settlement_admin",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CreatedByUserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "SettlementID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "INDEX_NAME": "uq_demo_settlement_reference",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "Reference",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "demosettlements",
+            "INDEX_NAME": "uq_demo_settlement_request",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestKey",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "INDEX_NAME": "idx_email_verification_user",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "VerificationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "emailverificationtokens",
+            "INDEX_NAME": "TokenHash",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "TokenHash",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "INDEX_NAME": "fk_feedback_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "INDEX_NAME": "fk_feedback_physician",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "INDEX_NAME": "idx_feedback_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "FeedbackID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "feedback",
+            "INDEX_NAME": "uq_feedback_appointment",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessfiles",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessfiles",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RecordID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessfiles",
+            "INDEX_NAME": "RecordID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RecordID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessnotifications",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "NotificationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessnotifications",
+            "INDEX_NAME": "RequestID",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "INDEX_NAME": "idx_record_access_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "INDEX_NAME": "idx_record_access_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "INDEX_NAME": "PhysicianID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "INDEX_NAME": "uq_record_access_visit",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecordaccessrequests",
+            "INDEX_NAME": "uq_record_access_visit",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "INDEX_NAME": "idx_medicalrecords_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "medicalrecords",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RecordID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "fk_notifications_appointment",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "fk_staff_notice_announcement",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "idx_notifications_clinic_read",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "idx_notifications_clinic_read",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "IsRead",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "NotificationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "uq_staff_announcement",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "uq_staff_announcement",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "INDEX_NAME": "fk_password_resets_user",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "ResetID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "passwordresets",
+            "INDEX_NAME": "uq_token_hash",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "TokenHash",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "INDEX_NAME": "fk_patientnotifications_appointment",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "INDEX_NAME": "fk_patient_notice_announcement",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "INDEX_NAME": "idx_patientnotifications_patient_read",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "INDEX_NAME": "idx_patientnotifications_patient_read",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "IsRead",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "NotificationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "INDEX_NAME": "uq_patient_announcement",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "patientnotifications",
+            "INDEX_NAME": "uq_patient_announcement",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "patientprofiledetails",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianaccountowners",
+            "INDEX_NAME": "MainPhysicianID",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "MainPhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianaccountowners",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "INDEX_NAME": "idx_availability_physician",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianavailability",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AvailabilityID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "INDEX_NAME": "idx_dateavail_physician_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "INDEX_NAME": "idx_dateavail_physician_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AvailDate",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "physiciandateavailability",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "SlotID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "fk_physician_notice_announcement",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "idx_physician_notice_unread",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "idx_physician_notice_unread",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "IsRead",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "idx_physician_notice_unread",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CreatedAt",
+            "SEQ_IN_INDEX": 3
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "NotificationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "uq_physician_announcement",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "uq_physician_announcement",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AnnouncementID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "physiciannotifications",
+            "INDEX_NAME": "uq_physician_fee_notice",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "FeeRequestID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "INDEX_NAME": "fk_withdrawal_reviewer",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ReviewedByUserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "INDEX_NAME": "idx_physician_withdrawals_status",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "INDEX_NAME": "idx_physician_withdrawals_status",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "INDEX_NAME": "idx_withdrawal_financial_owner",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "FinancialOwnerUserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "WithdrawalID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "INDEX_NAME": "Reference",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "Reference",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "physicianwithdrawals",
+            "INDEX_NAME": "RequestKey",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestKey",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "TransferID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "INDEX_NAME": "uq_platform_bank_payment",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "PaymentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "platformdemobanktransfers",
+            "INDEX_NAME": "uq_platform_bank_reference",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "Reference",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queue",
+            "INDEX_NAME": "fk_queue_appointment",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queue",
+            "INDEX_NAME": "fk_queue_physician",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PhysicianID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queue",
+            "INDEX_NAME": "fk_queue_staff",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CreatedByStaffID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queue",
+            "INDEX_NAME": "idx_queue_clinic_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queue",
+            "INDEX_NAME": "idx_queue_clinic_date",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CreatedAt",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "queue",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "QueueID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "INDEX_NAME": "AppointmentID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "INDEX_NAME": "idx_queue_email_pending",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "INDEX_NAME": "idx_queue_email_pending",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "UpdatedAt",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "INDEX_NAME": "PatientID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "EmailID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "INDEX_NAME": "uq_queue_email_event",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "QueueID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "queueemailoutbox",
+            "INDEX_NAME": "uq_queue_email_event",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "EventType",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "INDEX_NAME": "fk_rate_limit_user",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "INDEX_NAME": "idx_rate_window",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "WindowStart",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "requestratelimits",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "BucketKey",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "roles",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RoleID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "roles",
+            "INDEX_NAME": "RoleName",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RoleName",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "INDEX_NAME": "fk_signup_verification_user",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "INDEX_NAME": "idx_signup_verification_email",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Email",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "SignupVerificationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "signupemailverifications",
+            "INDEX_NAME": "TokenHash",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "TokenHash",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "INDEX_NAME": "EventKey",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "EventKey",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "INDEX_NAME": "fk_sms_appointment",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "INDEX_NAME": "fk_sms_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "INDEX_NAME": "idx_sms_pending",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "INDEX_NAME": "idx_sms_pending",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CreatedAt",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "smsoutbox",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "SmsID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "Email",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "Email",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "fk_users_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "fk_users_role",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RoleID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "IDNumber",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "IDNumber",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "UserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "uq_users_account_mobile",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AccountMobileNumber",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "uq_users_idnumber",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "IDNumber",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "INDEX_NAME": "FinalizedVersionID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "FinalizedVersionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "NotificationID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "INDEX_NAME": "uq_visit_confirmation_notice",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionnotifications",
+            "INDEX_NAME": "uq_visit_confirmation_notice",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "FinalizedVersionID",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "INDEX_NAME": "CompletedByUserID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CompletedByUserID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "INDEX_NAME": "FinalizedVersionID",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "FinalizedVersionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "INDEX_NAME": "idx_visit_completion_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "ClinicID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "INDEX_NAME": "idx_visit_completion_clinic",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "INDEX_NAME": "idx_visit_completion_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "INDEX_NAME": "idx_visit_completion_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "Status",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "visitcompletionreviews",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "AppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "INDEX_NAME": "fk_wallettx_appointment",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "RelatedAppointmentID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "INDEX_NAME": "idx_wallettx_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "PatientID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "INDEX_NAME": "idx_wallettx_patient",
+            "NON_UNIQUE": 1,
+            "COLUMN_NAME": "CreatedAt",
+            "SEQ_IN_INDEX": 2
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "TransactionID",
+            "SEQ_IN_INDEX": 1
+        },
+        {
+            "TABLE_NAME": "wallettransactions",
+            "INDEX_NAME": "uq_wallet_request_key",
+            "NON_UNIQUE": 0,
+            "COLUMN_NAME": "RequestKey",
+            "SEQ_IN_INDEX": 1
+        }
+    ]
+}

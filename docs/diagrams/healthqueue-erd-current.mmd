@@ -1,0 +1,541 @@
+erDiagram
+    aitranscriptevaluations {
+        int EvaluationID PK
+        int TranscriptVersionID FK,UQ
+        int PhysicianID FK
+        int ClinicID FK
+        varchar Language
+        mediumtext ReferenceText
+        char ReferenceHash
+        char HypothesisHash
+        int ReferenceWords
+        int HypothesisWords
+        int Substitutions
+        int Deletions
+        int Insertions
+        decimal WordErrorRate
+        datetime EvaluatedAt
+    }
+    aitranscriptversions {
+        int TranscriptVersionID PK
+        int ConsultationID FK
+        varchar TranscriptType
+        text TranscriptText
+        decimal WordErrorRate
+        datetime GeneratedAt
+        datetime ApprovedAt
+        int ApprovedByPhysicianID FK
+        int ApprovedVersionID FK
+        int SourceTranscriptVersionID FK
+    }
+    announcementdismissals {
+        int UserID PK,FK
+        int AnnouncementID PK,FK
+        datetime DismissedAt
+    }
+    announcements {
+        int AnnouncementID PK
+        int PostedByUserID FK
+        int ClinicID FK
+        varchar Title
+        varchar Category
+        text Message
+        varchar PhotoPath
+        varchar Audience
+        date AffectsDate
+        datetime CreatedAt
+    }
+    appointmentpayments {
+        int PaymentID PK
+        int AppointmentID FK,UQ
+        decimal GrossAmount
+        decimal PhysicianRevenue
+        decimal PlatformCommission
+        varchar PaymentStatus
+        datetime PaidAt
+        datetime RefundedAt
+        int FinancialOwnerUserID FK
+    }
+    appointmentreschedulerequests {
+        int RequestID PK
+        int AppointmentID FK
+        int PatientID FK
+        int ClinicID FK
+        date RequestedDate
+        time RequestedTime
+        varchar Status
+        datetime RequestedAt
+        int ReviewedBy FK
+        datetime ReviewedAt
+    }
+    appointments {
+        int AppointmentID PK
+        int PatientID FK
+        int ClinicID FK
+        int PhysicianID FK
+        date AppointmentDate
+        time AppointmentTime
+        text Concern
+        varchar Status
+        tinyint BookingFeePaid
+        datetime BookingFeePaidAt
+        varchar BookingPaymentMethod
+        varchar CancellationReason
+        varchar DeclineReason
+        datetime CreatedAt
+        datetime UpdatedAt
+        decimal BookingFeeAmount
+    }
+    auditlogs {
+        int LogID PK
+        int ClinicID FK
+        int UserID FK
+        varchar ActionExecuted
+        varchar Description
+        datetime CreatedAt
+    }
+    clinic {
+        int ClinicID PK
+        varchar ClinicName
+        varchar Address
+        varchar ContactNumber
+        decimal BaseConsultationFee
+        varchar PhotoUrl
+        text Description
+        varchar Specialties
+        varchar OpenDays
+        time OpenTime
+        time CloseTime
+        datetime RegistrationDate
+        datetime DeletedAt
+        varchar Status
+        tinyint archived
+        decimal Latitude
+        decimal Longitude
+    }
+    clinicfeerequests {
+        int RequestID PK
+        int ClinicID FK
+        int RequestedBy FK
+        decimal CurrentFee
+        decimal ProposedFee
+        date EffectiveDate
+        varchar Reason
+        enum Status
+        datetime RequestedAt
+        int ReviewedBy FK
+        datetime ReviewedAt
+    }
+    clinicphoto {
+        int PhotoID PK
+        int ClinicID FK
+        varchar Filename
+        datetime CreatedAt
+        int SortOrder
+    }
+    clinicregistrationinquiry {
+        int InquiryID PK
+        varchar ClinicName
+        varchar ContactName
+        varchar Email
+        varchar Phone
+        varchar City
+        int PhysiciansCount
+        int StaffCount
+        decimal BaseConsultationFee
+        varchar Status
+        datetime SubmittedAt
+        int ApprovedClinicID FK
+    }
+    consultations {
+        int ConsultationID PK
+        int ClinicID FK
+        int AppointmentID FK,UQ
+        int PatientID FK
+        int DoctorID FK
+        varchar AudioFilePath
+        int AudioDurationSeconds
+        tinyint RecordingConsent
+        datetime CompletedAt
+        datetime DeletedAt
+        varchar Status
+        tinyint Archived
+    }
+    consultationversions {
+        int VersionID PK
+        int ConsultationID FK
+        int EditedByPhysicianID FK
+        int RevisionNumber
+        text ClinicalNotes
+        text PrescriptionText
+        text NotesJson
+        datetime UpdatedAt
+        datetime DeletedAt
+        varchar Status
+        tinyint Archived
+    }
+    demosettlementitems {
+        int SettlementID PK,FK
+        int PaymentID PK,FK,UQ
+    }
+    demosettlements {
+        int SettlementID PK
+        varchar RequestKey UQ
+        varchar Reference UQ
+        decimal GrossAmount
+        int CreatedByUserID FK
+        datetime CreatedAt
+    }
+    emailverificationtokens {
+        int VerificationID PK
+        int UserID FK
+        char TokenHash UQ
+        datetime ExpiresAt
+        datetime UsedAt
+        datetime CreatedAt
+    }
+    feedback {
+        int FeedbackID PK
+        int AppointmentID FK,UQ
+        int PatientID FK
+        int ClinicID FK
+        int PhysicianID FK
+        tinyint Rating
+        text Comment
+        datetime CreatedAt
+    }
+    medicalrecordaccessfiles {
+        int RequestID PK,FK
+        int RecordID PK,FK
+    }
+    medicalrecordaccessnotifications {
+        int NotificationID PK,FK
+        int RequestID FK,UQ
+    }
+    medicalrecordaccessrequests {
+        int RequestID PK
+        int AppointmentID FK
+        int PatientID FK
+        int PhysicianID FK
+        varchar Status
+        datetime RequestedAt
+        datetime RespondedAt
+        datetime EndedAt
+    }
+    medicalrecords {
+        int RecordID PK
+        int PatientID FK
+        varchar Title
+        varchar Category
+        text Description
+        varchar FilePath
+        varchar FileType
+        datetime UploadedAt
+    }
+    notifications {
+        int NotificationID PK
+        int ClinicID FK
+        text Message
+        int RelatedAppointmentID FK
+        tinyint IsRead
+        datetime CreatedAt
+        int AnnouncementID FK
+    }
+    passwordresets {
+        int ResetID PK
+        int UserID FK
+        char TokenHash UQ
+        datetime ExpiresAt
+        datetime CreatedAt
+        datetime UsedAt
+    }
+    patientnotifications {
+        int NotificationID PK
+        int PatientID FK
+        text Message
+        int RelatedAppointmentID FK
+        tinyint IsRead
+        datetime CreatedAt
+        int AnnouncementID FK
+    }
+    patientprofiledetails {
+        int UserID PK,FK
+        text Details
+        timestamp UpdatedAt
+    }
+    physicianaccountowners {
+        int ClinicID PK,FK
+        int MainPhysicianID FK,UQ
+        datetime CreatedAt
+    }
+    physicianavailability {
+        int AvailabilityID PK
+        int PhysicianID FK
+        tinyint DayOfWeek
+        time StartTime
+        time EndTime
+        tinyint PatientsPerHour
+        tinyint Active
+    }
+    physiciandateavailability {
+        int SlotID PK
+        int PhysicianID FK
+        date AvailDate
+        time StartTime
+        time EndTime
+        tinyint PatientsPerHour
+        tinyint IsDayOff
+        datetime CreatedAt
+    }
+    physiciannotifications {
+        int NotificationID PK
+        int PhysicianID FK
+        int FeeRequestID FK,UQ
+        text Message
+        tinyint IsRead
+        datetime CreatedAt
+        int AnnouncementID FK
+    }
+    physicianwithdrawals {
+        int WithdrawalID PK
+        varchar Reference UQ
+        varchar RequestKey UQ
+        int PhysicianID FK
+        decimal Amount
+        varchar PayoutMethod
+        varchar AccountName
+        varchar AccountNumber
+        varchar BankName
+        varchar Status
+        datetime CreatedAt
+        datetime ReviewedAt
+        int ReviewedByUserID FK
+        int FinancialOwnerUserID FK
+    }
+    platformdemobanktransfers {
+        int TransferID PK
+        int PaymentID FK,UQ
+        varchar Reference UQ
+        decimal Amount
+        varchar BankLabel
+        char AccountLastFour
+        varchar Status
+        datetime CreatedAt
+    }
+    queue {
+        int QueueID PK
+        int ClinicID FK
+        int AppointmentID FK
+        int PhysicianID FK
+        int QueueNumber
+        int Position
+        varchar Priority
+        int ScheduledNumber
+        int RegularNumber
+        varchar Status
+        int CreatedByStaffID FK
+        datetime CreatedAt
+        datetime CalledAt
+        datetime ServedAt
+        int LateAfterQueueID
+        datetime LastLateNoticeAt
+        datetime ArrivedAt
+        datetime GraceExtendedAt
+        datetime GraceRescheduleRequestedAt
+        datetime GracePolicyEnabledAt
+        datetime FirstCalledAt
+    }
+    queueemailoutbox {
+        int EmailID PK
+        int QueueID FK
+        int PatientID FK
+        int AppointmentID FK
+        varchar EventType
+        varchar Status
+        int Attempts
+        varchar LastError
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+    requestratelimits {
+        char BucketKey PK
+        datetime WindowStart
+        int Attempts
+        int UserID FK
+    }
+    roles {
+        int RoleID PK
+        varchar RoleName UQ
+    }
+    signupemailverifications {
+        int SignupVerificationID PK
+        varchar Email
+        char TokenHash UQ
+        datetime ExpiresAt
+        datetime VerifiedAt
+        datetime UsedAt
+        datetime CreatedAt
+        int UserID FK
+    }
+    smsoutbox {
+        int SmsID PK
+        int PatientID FK
+        int AppointmentID FK
+        varchar EventKey UQ
+        varchar EventType
+        varchar Message
+        varchar Status
+        int Attempts
+        varchar ProviderMessageID
+        varchar ProviderStatus
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+    users {
+        int UserID PK
+        char IDNumber UQ
+        int ClinicID FK
+        int RoleID FK
+        varchar FirstName
+        varchar LastName
+        varchar Email UQ
+        datetime EmailVerifiedAt
+        varchar ContactNumber
+        varchar PasswordHash
+        datetime CreatedAt
+        datetime DeletedAt
+        varchar Status
+        tinyint Archived
+        varchar AvailabilityStatus
+        varchar ProfilePhoto
+        decimal WalletBalance
+        varchar BloodType
+        varchar Allergies
+        varchar EmergencyContactName
+        varchar EmergencyContactNumber
+        datetime AnnouncementsSeenAt
+        varchar PhysicianSpecialty
+        varchar AccountMobileNumber UQ
+        tinyint IsWalkInAccount
+    }
+    visitcompletionnotifications {
+        int NotificationID PK,FK
+        int AppointmentID FK
+        int FinalizedVersionID FK
+    }
+    visitcompletionreviews {
+        int AppointmentID PK,FK
+        int PatientID FK
+        int ClinicID FK
+        int FinalizedVersionID FK
+        varchar Status
+        text IssueText
+        datetime RequestedAt
+        datetime PatientRespondedAt
+        datetime CompletedAt
+        int CompletedByUserID FK
+        varchar CompletionSource
+        text StaffResolution
+    }
+    wallettransactions {
+        int TransactionID PK
+        int PatientID FK
+        varchar Type
+        decimal Amount
+        decimal BalanceAfter
+        int RelatedAppointmentID FK
+        varchar Description
+        datetime CreatedAt
+        char RequestKey UQ
+    }
+    aitranscriptversions ||--o| aitranscriptevaluations : "TranscriptVersionID"
+    users ||--o{ aitranscriptevaluations : "PhysicianID"
+    clinic ||--o{ aitranscriptevaluations : "ClinicID"
+    consultations ||--o{ aitranscriptversions : "ConsultationID"
+    users |o--o{ aitranscriptversions : "ApprovedByPhysicianID"
+    consultationversions |o--o{ aitranscriptversions : "ApprovedVersionID"
+    aitranscriptversions |o--o{ aitranscriptversions : "SourceTranscriptVersionID"
+    announcements ||--o{ announcementdismissals : "AnnouncementID"
+    users ||--o{ announcementdismissals : "UserID"
+    clinic |o--o{ announcements : "ClinicID"
+    users ||--o{ announcements : "PostedByUserID"
+    appointments ||--o| appointmentpayments : "AppointmentID"
+    users |o--o{ appointmentpayments : "FinancialOwnerUserID"
+    appointments ||--o{ appointmentreschedulerequests : "AppointmentID"
+    clinic ||--o{ appointmentreschedulerequests : "ClinicID"
+    users ||--o{ appointmentreschedulerequests : "PatientID"
+    users |o--o{ appointmentreschedulerequests : "ReviewedBy"
+    clinic ||--o{ appointments : "ClinicID"
+    users ||--o{ appointments : "PatientID"
+    users |o--o{ appointments : "PhysicianID"
+    clinic |o--o{ auditlogs : "ClinicID"
+    users |o--o{ auditlogs : "UserID"
+    clinic ||--o{ clinicfeerequests : "ClinicID"
+    users ||--o{ clinicfeerequests : "RequestedBy"
+    users |o--o{ clinicfeerequests : "ReviewedBy"
+    clinic ||--o{ clinicphoto : "ClinicID"
+    clinic |o--o{ clinicregistrationinquiry : "ApprovedClinicID"
+    appointments ||--o| consultations : "AppointmentID"
+    clinic ||--o{ consultations : "ClinicID"
+    users ||--o{ consultations : "DoctorID"
+    users ||--o{ consultations : "PatientID"
+    consultations ||--o{ consultationversions : "ConsultationID"
+    users ||--o{ consultationversions : "EditedByPhysicianID"
+    appointmentpayments ||--o| demosettlementitems : "PaymentID"
+    demosettlements ||--o{ demosettlementitems : "SettlementID"
+    users ||--o{ demosettlements : "CreatedByUserID"
+    users ||--o{ emailverificationtokens : "UserID"
+    appointments ||--o| feedback : "AppointmentID"
+    clinic ||--o{ feedback : "ClinicID"
+    users ||--o{ feedback : "PatientID"
+    users |o--o{ feedback : "PhysicianID"
+    medicalrecordaccessrequests ||--o{ medicalrecordaccessfiles : "RequestID"
+    medicalrecords ||--o{ medicalrecordaccessfiles : "RecordID"
+    patientnotifications ||--o| medicalrecordaccessnotifications : "NotificationID"
+    medicalrecordaccessrequests ||--o| medicalrecordaccessnotifications : "RequestID"
+    appointments ||--o{ medicalrecordaccessrequests : "AppointmentID"
+    users ||--o{ medicalrecordaccessrequests : "PatientID"
+    users ||--o{ medicalrecordaccessrequests : "PhysicianID"
+    users ||--o{ medicalrecords : "PatientID"
+    appointments |o--o{ notifications : "RelatedAppointmentID"
+    clinic ||--o{ notifications : "ClinicID"
+    announcements |o--o{ notifications : "AnnouncementID"
+    users ||--o{ passwordresets : "UserID"
+    appointments |o--o{ patientnotifications : "RelatedAppointmentID"
+    users ||--o{ patientnotifications : "PatientID"
+    announcements |o--o{ patientnotifications : "AnnouncementID"
+    users ||--o| patientprofiledetails : "UserID"
+    clinic ||--o| physicianaccountowners : "ClinicID"
+    users ||--o| physicianaccountowners : "MainPhysicianID"
+    users ||--o{ physicianavailability : "PhysicianID"
+    users ||--o{ physiciandateavailability : "PhysicianID"
+    announcements |o--o{ physiciannotifications : "AnnouncementID"
+    users ||--o{ physiciannotifications : "PhysicianID"
+    clinicfeerequests |o--o| physiciannotifications : "FeeRequestID"
+    users |o--o{ physicianwithdrawals : "FinancialOwnerUserID"
+    users ||--o{ physicianwithdrawals : "PhysicianID"
+    users |o--o{ physicianwithdrawals : "ReviewedByUserID"
+    appointmentpayments ||--o| platformdemobanktransfers : "PaymentID"
+    appointments ||--o{ queue : "AppointmentID"
+    clinic ||--o{ queue : "ClinicID"
+    users |o--o{ queue : "PhysicianID"
+    users |o--o{ queue : "CreatedByStaffID"
+    queue ||--o{ queueemailoutbox : "QueueID"
+    users ||--o{ queueemailoutbox : "PatientID"
+    appointments ||--o{ queueemailoutbox : "AppointmentID"
+    users |o--o{ requestratelimits : "UserID"
+    users |o--o{ signupemailverifications : "UserID"
+    appointments |o--o{ smsoutbox : "AppointmentID"
+    users |o--o{ smsoutbox : "PatientID"
+    clinic |o--o{ users : "ClinicID"
+    roles ||--o{ users : "RoleID"
+    patientnotifications ||--o| visitcompletionnotifications : "NotificationID"
+    appointments ||--o{ visitcompletionnotifications : "AppointmentID"
+    consultationversions ||--o{ visitcompletionnotifications : "FinalizedVersionID"
+    appointments ||--o| visitcompletionreviews : "AppointmentID"
+    users ||--o{ visitcompletionreviews : "PatientID"
+    clinic ||--o{ visitcompletionreviews : "ClinicID"
+    consultationversions ||--o{ visitcompletionreviews : "FinalizedVersionID"
+    users |o--o{ visitcompletionreviews : "CompletedByUserID"
+    appointments |o--o{ wallettransactions : "RelatedAppointmentID"
+    users ||--o{ wallettransactions : "PatientID"

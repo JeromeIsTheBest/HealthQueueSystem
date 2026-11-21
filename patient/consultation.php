@@ -114,7 +114,7 @@ if (!$isAjax) {
   <section class="portal-hero" style="margin-top:18px;">
     <div>
       <h1><?= htmlspecialchars($appointment['ClinicName']) ?></h1>
-      <p>Dr. <?= htmlspecialchars($appointment['DoctorFirstName'] . ' ' . $appointment['DoctorLastName']) ?> &middot; <?= htmlspecialchars(date('l, F j, Y', strtotime($appointment['AppointmentDate']))) ?> at <?= htmlspecialchars(date('g:i A', strtotime($appointment['AppointmentTime']))) ?></p>
+      <p>Dr. <?= htmlspecialchars($appointment['DoctorFirstName'] . ' ' . $appointment['DoctorLastName']) ?> &middot; <?= htmlspecialchars(date('l, F j, Y', strtotime($appointment['AppointmentDate']))) ?> &middot; <?= !empty($appointment['AppointmentTime']) && $appointment['AppointmentTime']!=='00:00:00' ? htmlspecialchars(date('g:i A', strtotime($appointment['AppointmentTime']))) : 'Queue booking &mdash; no specific appointment time' ?></p>
     </div>
   </section>
 
@@ -143,7 +143,7 @@ if (!$isAjax) {
     </section>
   <?php endif; ?>
 
-  <section class="portal-section no-print" id="ai-summary">
+  <section class="portal-section" id="ai-summary">
     <div class="portal-heading"><div><span class="section-kicker">AI visit summary</span><h2>Plain-language summary of your visit</h2></div></div>
     <?php if ($aiSummary): ?>
       <div class="compact-list">
@@ -158,7 +158,7 @@ if (!$isAjax) {
     <?php else: ?>
       <p class="admin-empty">No AI-generated summary is available for this visit yet.</p>
       <div class="dev-note">
-        <strong>Coming soon:</strong> after your consultation, your physician's session recording can be run through an AI transcription and summarization step to produce a plain-language recap here. That AI service isn't connected yet, so this section is currently a placeholder.
+        AI summaries appear here after your physician reviews and approves them. Your finalized consultation notes above remain available.
       </div>
     <?php endif; ?>
   </section>

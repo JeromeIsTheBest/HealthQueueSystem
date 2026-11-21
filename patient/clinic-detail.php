@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__.'/../includes/clinic-location.php';
+require_once __DIR__.'/../includes/clinic-fees.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 
@@ -16,11 +18,12 @@ if (!$clinicId || !$pdo) {
 
 $stmt = $pdo->prepare(
     "SELECT ClinicID, ClinicName, Address, ContactNumber, BaseConsultationFee, PhotoUrl, Description,
-            Specialties, OpenDays, OpenTime, CloseTime
+            Specialties, OpenDays, OpenTime, CloseTime, Latitude, Longitude
      FROM Clinic WHERE ClinicID = ? AND archived = 0 AND Status = 'Active'"
 );
 $stmt->execute([$clinicId]);
 $clinic = $stmt->fetch();
+if($clinic)$clinic['BaseConsultationFee']=currentClinicFee($pdo,(int)$clinic['ClinicID']);
 
 if (!$clinic) {
     header('Location: ' . HQ_BASE_URL . '/patient/clinics.php');
@@ -30,8 +33,8 @@ if (!$clinic) {
 $physicians = [];
 try {
     $physStmt = $pdo->prepare(
-        "SELECT UserID, FirstName, LastName, AvailabilityStatus FROM Users
-         WHERE ClinicID = ? AND RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Physician') AND Status = 'Active'
+        "SELECT UserID, FirstName, LastName, AvailabilityStatus,ProfilePhoto,PhysicianSpecialty FROM Users
+         WHERE ClinicID = ? AND RoleID = (SELECT RoleID FROM Roles WHERE RoleName = 'Physician') AND Status = 'Active' AND DeletedAt IS NULL
          ORDER BY LastName"
     );
     $physStmt->execute([$clinicId]);
@@ -94,14 +97,16 @@ $renderStars = static function (float $rating): string {
     return str_repeat('★', $full) . str_repeat('☆', 5 - $full);
 };
 
+$isClinicNearbyPage=true;
 $pageTitle = $clinic['ClinicName'] . ' — HealthQueue';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="portal-shell"><div class="container cdp">
+<main class="portal-shell" data-nearby-root><div class="container cdp">
   <a href="<?= HQ_BASE_URL ?>/patient/clinics.php" class="back-link">&larr; Back to clinics</a>
 
-  <section class="cdp-header">
+  <?php renderClinicLocationControls(); ?>
+  <section class="cdp-header" <?= clinicNearbyAttributes($clinic) ?>>
     <div class="cdp-cover <?= $isOpen ? 'tint-' . ((int) $clinic['ClinicID'] % 5) : 'tint-closed' ?>">
       <?php if ($photoExists): ?>
         <img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($clinic['PhotoUrl']) ?>" alt="">
@@ -118,6 +123,7 @@ require __DIR__ . '/../includes/header.php';
           <?= htmlspecialchars($clinic['Address']) ?>
           <?php if ($clinic['ContactNumber']): ?>&nbsp;&middot;&nbsp;<?= htmlspecialchars($clinic['ContactNumber']) ?><?php endif; ?>
         </p>
+        <div class="cdp-nearby"><span class="nearby-distance" data-nearby-distance hidden></span><a class="nearby-directions" href="<?= htmlspecialchars(clinicDirectionsUrl($clinic),ENT_QUOTES) ?>" target="_blank" rel="noopener noreferrer">Get directions</a></div>
         <p class="cdp-rating-inline">
           <?php if ($ratingCount): ?>
             <span class="cdp-stars"><?= $renderStars($ratingAvg) ?></span>
@@ -137,6 +143,24 @@ require __DIR__ . '/../includes/header.php';
       </div>
     </div>
   </section>
+
+      <section class="cdp-card cdp-physician-section">
+        <h2>Choose your physician</h2><p class="cdp-muted">Select a physician to view availability and book a visit.</p>
+        <?php if ($physicians): ?>
+          <ul class="cdp-physicians">
+            <?php foreach ($physicians as $physician): ?>
+              <li>
+                <span class="cdp-avatar"><?php if($physician['ProfilePhoto']&&is_file(__DIR__.'/../assets/uploads/avatars/'.basename($physician['ProfilePhoto']))): ?><img src="../assets/uploads/avatars/<?= rawurlencode(basename($physician['ProfilePhoto'])) ?>" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"><?php else: ?><?= htmlspecialchars(strtoupper(substr($physician['FirstName'], 0, 1) . substr($physician['LastName'], 0, 1))) ?><?php endif; ?></span>
+                <strong>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?></strong>
+                <?php if($physician['PhysicianSpecialty']): ?><small><?= htmlspecialchars($physician['PhysicianSpecialty']) ?></small><?php endif; ?>
+                <span class="cdp-availability"><span style="background:<?= $hqStatusDot[$physician['AvailabilityStatus']] ?? '#94a3b8' ?>;"></span><?= htmlspecialchars($physician['AvailabilityStatus']) ?></span><a class="btn btn-outline btn-sm" href="physician-availability.php?clinic=<?= (int)$clinicId ?>&amp;physician=<?= (int)$physician['UserID'] ?>">View availability</a>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        <?php else: ?>
+          <p class="cdp-muted">No physicians are listed for this clinic yet.</p>
+        <?php endif; ?>
+      </section>
 
   <div class="cdp-grid">
     <div class="cdp-col">
@@ -165,22 +189,7 @@ require __DIR__ . '/../includes/header.php';
         </ul>
       </section>
 
-      <section class="cdp-card">
-        <h2>Physicians</h2>
-        <?php if ($physicians): ?>
-          <ul class="cdp-physicians">
-            <?php foreach ($physicians as $physician): ?>
-              <li>
-                <span class="cdp-avatar"><?= htmlspecialchars(strtoupper(substr($physician['FirstName'], 0, 1) . substr($physician['LastName'], 0, 1))) ?></span>
-                <strong>Dr. <?= htmlspecialchars($physician['FirstName'] . ' ' . $physician['LastName']) ?></strong>
-                <span class="cdp-availability"><span style="background:<?= $hqStatusDot[$physician['AvailabilityStatus']] ?? '#94a3b8' ?>;"></span><?= htmlspecialchars($physician['AvailabilityStatus']) ?></span>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-        <?php else: ?>
-          <p class="cdp-muted">No physicians are listed for this clinic yet.</p>
-        <?php endif; ?>
-      </section>
+
     </div>
 
     <div class="cdp-col">

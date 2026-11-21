@@ -2,17 +2,18 @@
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 require_once __DIR__.'/../config/db.php';require_once __DIR__.'/../includes/queue-email.php';
 $p=getDbConnection();if(!$p)exit(1);
-$p->exec('CREATE TEMPORARY TABLE Users (UserID INT PRIMARY KEY,Email VARCHAR(100),FirstName VARCHAR(50),Status VARCHAR(20),DeletedAt DATETIME NULL)');
+$p->exec('CREATE TEMPORARY TABLE Users (UserID INT PRIMARY KEY,Email VARCHAR(100),FirstName VARCHAR(50),LastName VARCHAR(50) NULL,Status VARCHAR(20),DeletedAt DATETIME NULL)');
 $p->exec('CREATE TEMPORARY TABLE PatientProfileDetails (UserID INT PRIMARY KEY,Details TEXT)');
 $p->exec('CREATE TEMPORARY TABLE Clinic (ClinicID INT PRIMARY KEY,ClinicName VARCHAR(60))');
 $p->exec('CREATE TEMPORARY TABLE Appointments (AppointmentID INT PRIMARY KEY,PatientID INT,Status VARCHAR(20),AppointmentDate DATE,AppointmentTime TIME NULL)');
-$p->exec('CREATE TEMPORARY TABLE Queue (QueueID INT PRIMARY KEY,ClinicID INT,AppointmentID INT,Status VARCHAR(20),QueueNumber INT,ScheduledNumber INT NULL,RegularNumber INT NULL,Position INT NULL,CreatedAt DATETIME)');
+$p->exec('CREATE TEMPORARY TABLE Queue (QueueID INT PRIMARY KEY,ClinicID INT,AppointmentID INT,Status VARCHAR(20),QueueNumber INT,ScheduledNumber INT NULL,RegularNumber INT NULL,Position INT NULL,CreatedAt DATETIME,CalledAt DATETIME NULL,ServedAt DATETIME NULL,LateAfterQueueID INT NULL,ArrivedAt DATETIME NULL,GracePolicyEnabledAt DATETIME NULL,GraceExtendedAt DATETIME NULL,GraceRescheduleRequestedAt DATETIME NULL,PhysicianID INT NULL DEFAULT 10)');
 $p->exec("CREATE TEMPORARY TABLE QueueEmailOutbox (EmailID INT AUTO_INCREMENT PRIMARY KEY,QueueID INT,PatientID INT,AppointmentID INT,EventType VARCHAR(20),Status VARCHAR(20) DEFAULT 'pending',Attempts INT DEFAULT 0,LastError VARCHAR(200),CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE(QueueID,EventType))");
 $p->exec("INSERT INTO Clinic VALUES (1,'Test clinic')");
 for($i=1;$i<=5;$i++){
-$p->prepare("INSERT INTO Users VALUES (?,?,'Preview','Active',NULL)")->execute([$i,'preview'.$i.'@example.test']);
+$p->prepare("INSERT INTO Users(UserID,Email,FirstName,Status,DeletedAt) VALUES (?,?,'Preview','Active',NULL)")->execute([$i,'preview'.$i.'@example.test']);
 $p->prepare("INSERT INTO Appointments VALUES (?,?,'Confirmed',CURDATE(),NULL)")->execute([$i,$i]);
-$p->prepare("INSERT INTO Queue VALUES (?,1,?,'Waiting',?,NULL,?,NULL,NOW())")->execute([$i,$i,$i,$i]);}
+$p->prepare("INSERT INTO Queue(QueueID,ClinicID,AppointmentID,Status,QueueNumber,ScheduledNumber,RegularNumber,Position,CreatedAt) VALUES (?,1,?,'Waiting',?,NULL,?,NULL,NOW())")->execute([$i,$i,$i,$i]);}
+$p->exec("INSERT INTO Users(UserID,Email,FirstName,Status) VALUES(10,'doctor@example.test','Doctor','Active')");
 $check=static function($ok,$label){if(!$ok)throw new RuntimeException($label);echo 'PASS: '.$label.PHP_EOL;};
 $attempts=[];$sender=static function($recipient,$ticket,$event)use(&$attempts){$attempts[]=[$ticket,$event];return $ticket!=='#3';};
 $r=dispatchQueueEmails($p,$sender);

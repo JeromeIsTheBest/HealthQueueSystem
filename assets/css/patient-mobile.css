@@ -266,3 +266,116 @@
   .patient-portal .notification-detail-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 14px; }
   .patient-portal .notification-detail-actions .btn { width: 100%; min-width: 0; margin: 0; justify-content: center; }
 }
+
+/* Patient dashboard preview: mobile layout and honest empty queue state. */
+@media (max-width: 760px) {
+  .patient-portal .patient-dashboard-page { padding-top:20px; }
+  .patient-portal .patient-dashboard-page .patient-dash-welcome { min-height:110px; padding:20px; margin-bottom:20px; border-radius:16px; }
+  .patient-portal .patient-dashboard-page .patient-dash-welcome h1 { font-size:clamp(23px,5.8vw,29px); line-height:1.25; }
+  .patient-portal .patient-dashboard-page .patient-dash-welcome p { font-size:14px; line-height:1.5; }
+  .patient-portal .patient-dashboard-page .patient-dash-stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:20px; }
+  .patient-portal .patient-dashboard-page .pd-stat-card { padding:18px 14px; gap:10px; border-radius:16px; box-shadow:0 4px 16px rgba(15,83,107,.045); }
+  .patient-portal .patient-dashboard-page .pd-stat-card:not(.pd-stat-queue):not(.pd-stat-records) { display:grid; grid-template-columns:32px minmax(0,1fr); align-content:start; min-height:142px; }
+  .patient-portal .patient-dashboard-page .pd-stat-content > span { color:#173b50; line-height:1.4; font-size:12px; }
+  .patient-portal .patient-dashboard-page .pd-stat-content strong { font-size:30px; margin:3px 0; }
+  .patient-portal .patient-dashboard-page .pd-stat-content small { font-size:12px; line-height:1.5; }
+  .patient-portal .patient-dashboard-page .pd-stat-queue { grid-column:1 / -1; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty { display:grid; grid-template-columns:34px minmax(0,1fr); gap:12px; padding:20px; background:linear-gradient(120deg,#fff,#f3fbfc); position:relative; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty > .pd-stat-content { align-self:center; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty > .pd-stat-content > span { font-size:16px; font-weight:800; color:#102c46; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty .pd-queue-desktop-empty,
+  .patient-portal .patient-dashboard-page .pd-queue-empty .pd-queue-current { display:none; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty-content { display:block; grid-column:1 / -1; position:relative; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty-content h2 { margin:4px 52px 8px 0; color:#102c46; font-size:24px; line-height:1.25; letter-spacing:-.5px; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty-content p { margin:0 42px 20px 0; font-size:14px; line-height:1.6; color:#617b8d; }
+  .patient-portal .patient-dashboard-page .pd-queue-calendar { position:absolute; top:3px; right:-2px; width:46px; height:46px; color:#80bec5; pointer-events:none; }
+  .patient-portal .patient-dashboard-page .pd-queue-book { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:48px; padding:12px; border-radius:11px; font-size:14px; line-height:1.4; white-space:normal; text-align:center; box-shadow:none; }
+  .patient-portal .patient-dashboard-page .pd-stat-records { grid-column:1 / -1; display:flex; flex-direction:row; align-items:center; min-height:84px; padding:16px; }
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content { flex:1; display:grid; grid-template-columns:auto 1fr auto; gap:2px 5px; align-items:baseline; }
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content > span { grid-column:1 / 3; font-size:14px; font-weight:800; }
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content strong { grid-column:1; font-size:14px; margin:0; }
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content small { grid-column:2; }
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content em { grid-column:3; grid-row:1 / 3; align-self:center; margin:0 0 0 10px; font-size:12px; }
+  .patient-portal .patient-dashboard-page .pd-panel { border-radius:16px; box-shadow:0 4px 16px rgba(15,83,107,.045); }
+  .patient-portal .patient-dashboard-page .pd-next-appointment .pd-empty-inline { text-align:center; align-items:center; padding:24px 18px; gap:8px; font-size:13px; line-height:1.6; }
+  .patient-portal .patient-dashboard-page .pd-next-appointment .pd-empty-inline strong { font-size:16px; }
+  .patient-portal .patient-dashboard-page .pd-next-appointment .pd-empty-inline a { display:inline-flex; align-items:center; justify-content:center; min-height:42px; margin-top:8px; padding:8px 20px; border:1px solid #078e9e; border-radius:9px; text-decoration:none; }
+}
+
+/* Mobile Care near you: native horizontal scrolling, with the next card visible. */
+@media (max-width:760px) {
+  .patient-portal .patient-dashboard-page .pd-care-desktop { display:none; }
+  .patient-portal .patient-dashboard-page .pd-care-mobile { display:block; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel { border:0; background:transparent; box-shadow:none; overflow:visible; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel .pd-panel-heading { padding:4px 0 12px; border:0; align-items:flex-start; gap:12px; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel .pd-panel-heading h2 { font-size:22px; letter-spacing:-.4px; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel .pd-panel-heading p { margin-top:6px; font-size:13px; line-height:1.6; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel .pd-panel-heading > a { flex-shrink:0; align-self:center; font-size:12px; text-decoration:none; }
+  .patient-portal .patient-dashboard-page .pd-clinic-search { margin:0 0 18px; border-radius:12px; box-shadow:0 3px 12px rgba(15,83,107,.04); }
+  .patient-portal .patient-dashboard-page .pd-clinic-search input { height:46px; font-size:13px; }
+  .patient-portal .patient-dashboard-page .pd-clinic-search button { height:46px; width:46px; }
+  .patient-portal .patient-dashboard-page .pd-care-content { min-width:0; }
+  .patient-portal .patient-dashboard-page .pd-care-carousel { display:flex; position:relative; gap:14px; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x mandatory; scrollbar-width:thin; scrollbar-color:#9fced7 transparent; padding:1px 1px 12px; }
+  .patient-portal .patient-dashboard-page .pd-care-card { flex:0 0 86%; min-width:0; display:flex; flex-direction:column; overflow:hidden; border:1px solid #dcecf2; border-radius:17px; background:#fff; color:inherit; text-decoration:none; scroll-snap-align:start; box-shadow:0 4px 16px rgba(15,83,107,.045); }
+  .patient-portal .patient-dashboard-page .pd-care-card:only-child { flex-basis:100%; }
+  .patient-portal .patient-dashboard-page .pd-care-photo { position:relative; height:174px; background:#e7f5f7; }
+  .patient-portal .patient-dashboard-page .pd-care-photo img { width:100%; height:100%; display:block; object-fit:cover; }
+  .patient-portal .patient-dashboard-page .pd-care-photo-placeholder { display:grid; place-items:center; height:100%; color:#569eac; background:linear-gradient(135deg,#e5f6f7,#d1eaf0); }
+  .patient-portal .patient-dashboard-page .pd-care-hours { position:absolute; top:12px; left:12px; padding:6px 10px; border-radius:999px; background:#f1f5f9; color:#475569; font-size:11px; font-weight:800; }
+  .patient-portal .patient-dashboard-page .pd-care-hours.is-open { background:#e4f8df; color:#246939; }
+  .patient-portal .patient-dashboard-page .pd-care-body { display:flex; flex-direction:column; flex:1; gap:9px; padding:16px; }
+  .patient-portal .patient-dashboard-page .pd-care-body h3 { margin:0; font-size:18px; line-height:1.4; color:#102c46; overflow-wrap:anywhere; }
+  .patient-portal .patient-dashboard-page .pd-care-location { display:flex; align-items:flex-start; gap:6px; margin:0; color:#617b8d; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+  .patient-portal .patient-dashboard-page .pd-care-location svg { flex-shrink:0; margin-top:2px; color:#078e9e; }
+  .patient-portal .patient-dashboard-page .pd-care-specialty { margin:0; color:#617b8d; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+  .patient-portal .patient-dashboard-page .pd-care-price { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 10px; margin-top:auto; padding-top:13px; border-top:1px solid #e0edf2; }
+  .patient-portal .patient-dashboard-page .pd-care-price span { color:#617b8d; font-size:12px; }
+  .patient-portal .patient-dashboard-page .pd-care-price strong { color:#102c46; font-size:16px; }
+  .patient-portal .patient-dashboard-page .pd-care-view { display:flex; justify-content:center; align-items:center; min-height:44px; margin-top:4px; padding:10px; border-radius:10px; box-shadow:none; font-size:14px; }
+  .patient-portal .patient-dashboard-page .pd-care-pagination { display:flex; flex-wrap:wrap; gap:0; justify-content:center; margin-top:2px; }
+  .patient-portal .patient-dashboard-page .pd-care-pagination button { display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; background:transparent; cursor:pointer; }
+  .patient-portal .patient-dashboard-page .pd-care-pagination button::after { content:''; width:7px; height:7px; border-radius:50%; background:#c6d8e0; }
+  .patient-portal .patient-dashboard-page .pd-care-pagination button[aria-current]::after { background:#078e9e; }
+  .patient-portal .patient-dashboard-page .pd-care-hint { margin:0 0 16px; text-align:center; color:#71899a; font-size:12px; }
+  .patient-portal .patient-dashboard-page .pd-care-help { display:flex; align-items:center; gap:13px; padding:16px; margin-top:12px; border:1px solid #badfe8; border-radius:13px; background:#f4fbfc; }
+  .patient-portal .patient-dashboard-page .pd-care-help > svg { flex-shrink:0; color:#078e9e; }
+  .patient-portal .patient-dashboard-page .pd-care-help strong { color:#102c46; font-size:14px; }
+  .patient-portal .patient-dashboard-page .pd-care-help p { margin:4px 0 0; font-size:12px; line-height:1.6; color:#617b8d; }
+}
+
+/* Align the two remaining summary cards after removing Notifications. */
+@media (max-width:760px) {
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming,
+  .patient-portal .patient-dashboard-page .pd-stat-records {
+    grid-column:auto; display:grid; grid-template-columns:30px minmax(0,1fr);
+    align-items:start; align-content:stretch; gap:10px; min-height:180px; padding:16px 12px;
+  }
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming .pd-stat-icon,
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-icon { width:30px; height:30px; flex-basis:30px; border-radius:9px; }
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming .pd-stat-content,
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content { display:flex; flex-direction:column; gap:5px; min-width:0; height:100%; align-items:stretch; }
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming .pd-stat-content > span,
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content > span { min-height:34px; font-size:12px; font-weight:700; line-height:1.4; }
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming .pd-stat-content strong,
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content strong { margin:0; font-size:28px; line-height:1.2; }
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming .pd-stat-content small,
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content small { min-height:36px; font-size:12px; line-height:1.5; }
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming .pd-stat-content em,
+  .patient-portal .patient-dashboard-page .pd-stat-records .pd-stat-content em { display:block; align-self:flex-start; margin:auto 0 0; padding-top:5px; font-size:12px; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel .pd-panel-heading { flex-wrap:wrap; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel .pd-panel-heading > div { flex:1 1 170px; min-width:0; }
+  .patient-portal .patient-dashboard-page .pd-clinics-panel .pd-panel-heading > a { white-space:nowrap; }
+}
+@media (max-width:360px) {
+  .patient-portal .patient-dashboard-page .pd-stat-upcoming,
+  .patient-portal .patient-dashboard-page .pd-stat-records { grid-template-columns:1fr; gap:10px; padding:14px; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty { padding:16px; }
+  .patient-portal .patient-dashboard-page .pd-queue-empty-content h2 { font-size:22px; }
+}
+@media (max-width:420px) {
+  .patient-portal .patient-dashboard-page .pd-stat-queue:not(.pd-queue-empty) { display:grid; grid-template-columns:32px minmax(0,1fr); }
+  .patient-portal .patient-dashboard-page .pd-stat-queue:not(.pd-queue-empty) .pd-queue-current { grid-column:1 / -1; flex-direction:row; align-items:center; gap:10px; margin:4px 0 0; padding:12px 0 0; border-left:0; border-top:1px solid #cce9e8; }
+  .patient-portal .patient-dashboard-page .pd-stat-queue:not(.pd-queue-empty) .pd-queue-current a { margin:0 0 0 auto; }
+}
+
+.lq-late-help { display:block; max-width:260px; margin-top:7px; color:var(--slate-500); font-size:11px; line-height:1.5; }

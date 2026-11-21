@@ -1,0 +1,909 @@
+Enum "clinicfeerequests_Status_enum" {
+  "Pending"
+  "Approved"
+  "Declined"
+}
+
+Table "aitranscriptevaluations" {
+  "EvaluationID" int(11) [pk, not null, increment]
+  "TranscriptVersionID" int(11) [not null]
+  "PhysicianID" int(11) [not null]
+  "ClinicID" int(11) [not null]
+  "Language" varchar(30) [not null]
+  "ReferenceText" mediumtext [not null]
+  "ReferenceHash" char(64) [not null]
+  "HypothesisHash" char(64) [not null]
+  "ReferenceWords" int(11) [not null]
+  "HypothesisWords" int(11) [not null]
+  "Substitutions" int(11) [not null]
+  "Deletions" int(11) [not null]
+  "Insertions" int(11) [not null]
+  "WordErrorRate" decimal(9,4) [not null]
+  "EvaluatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    TranscriptVersionID [unique, name: "TranscriptVersionID"]
+    (ClinicID, PhysicianID, EvaluatedAt) [name: "idx_ai_evaluation_scope"]
+    PhysicianID [name: "PhysicianID"]
+  }
+}
+
+Table "aitranscriptversions" {
+  "TranscriptVersionID" int(11) [pk, not null, increment]
+  "ConsultationID" int(11) [not null]
+  "TranscriptType" varchar(30) [not null]
+  "TranscriptText" text [not null]
+  "WordErrorRate" decimal(5,2)
+  "GeneratedAt" datetime [not null, default: `current_timestamp()`]
+  "ApprovedAt" datetime
+  "ApprovedByPhysicianID" int(11)
+  "ApprovedVersionID" int(11)
+  "SourceTranscriptVersionID" int(11)
+
+  Indexes {
+    (ConsultationID, TranscriptType, GeneratedAt) [name: "idx_aitranscripts_consultation"]
+    ApprovedByPhysicianID [name: "fk_ai_approved_physician"]
+    ApprovedVersionID [name: "fk_ai_approved_version"]
+    SourceTranscriptVersionID [name: "idx_ai_source_version"]
+  }
+}
+
+Table "announcementdismissals" {
+  "UserID" int(11) [not null]
+  "AnnouncementID" int(11) [not null]
+  "DismissedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    (UserID, AnnouncementID) [pk]
+    AnnouncementID [name: "fk_ann_dismiss_announcement"]
+  }
+}
+
+Table "announcements" {
+  "AnnouncementID" int(11) [pk, not null, increment]
+  "PostedByUserID" int(11) [not null]
+  "ClinicID" int(11)
+  "Title" varchar(150) [not null]
+  "Category" varchar(30) [not null, default: 'General']
+  "Message" text [not null]
+  "PhotoPath" varchar(255)
+  "Audience" varchar(20) [not null, default: 'Everyone']
+  "AffectsDate" date
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    PostedByUserID [name: "fk_announcements_user"]
+    ClinicID [name: "fk_announcements_clinic"]
+  }
+}
+
+Table "appointmentpayments" {
+  "PaymentID" int(11) [pk, not null, increment]
+  "AppointmentID" int(11) [not null]
+  "GrossAmount" decimal(10,2) [not null]
+  "PhysicianRevenue" decimal(10,2) [not null]
+  "PlatformCommission" decimal(10,2) [not null]
+  "PaymentStatus" varchar(20) [not null, default: 'Paid']
+  "PaidAt" datetime [not null, default: `current_timestamp()`]
+  "RefundedAt" datetime
+  "FinancialOwnerUserID" int(11)
+
+  Indexes {
+    AppointmentID [unique, name: "uq_payment_appointment"]
+    (PaymentStatus, PaidAt) [name: "idx_payments_status_paidat"]
+    FinancialOwnerUserID [name: "idx_payment_financial_owner"]
+  }
+}
+
+Table "appointmentreschedulerequests" {
+  "RequestID" int(11) [pk, not null, increment]
+  "AppointmentID" int(11) [not null]
+  "PatientID" int(11) [not null]
+  "ClinicID" int(11) [not null]
+  "RequestedDate" date [not null]
+  "RequestedTime" time [not null]
+  "Status" varchar(20) [not null, default: 'Pending']
+  "RequestedAt" datetime [not null, default: `current_timestamp()`]
+  "ReviewedBy" int(11)
+  "ReviewedAt" datetime
+
+  Indexes {
+    AppointmentID [name: "fk_reschedule_appointment"]
+    PatientID [name: "fk_reschedule_patient"]
+    ReviewedBy [name: "fk_reschedule_reviewer"]
+    (ClinicID, Status, RequestedAt) [name: "idx_reschedule_clinic_status"]
+  }
+}
+
+Table "appointments" {
+  "AppointmentID" int(11) [pk, not null, increment]
+  "PatientID" int(11) [not null]
+  "ClinicID" int(11) [not null]
+  "PhysicianID" int(11)
+  "AppointmentDate" date [not null]
+  "AppointmentTime" time
+  "Concern" text
+  "Status" varchar(20) [not null, default: 'Pending']
+  "BookingFeePaid" tinyint(4) [not null, default: 0]
+  "BookingFeePaidAt" datetime
+  "BookingPaymentMethod" varchar(20)
+  "CancellationReason" varchar(255)
+  "DeclineReason" varchar(255)
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "UpdatedAt" datetime [not null, default: `current_timestamp()`]
+  "BookingFeeAmount" decimal(10,2)
+
+  Indexes {
+    PhysicianID [name: "fk_appointments_physician"]
+    (PatientID, AppointmentDate) [name: "idx_appointments_patient_date"]
+    (ClinicID, AppointmentDate) [name: "idx_appointments_clinic_date"]
+  }
+}
+
+Table "auditlogs" {
+  "LogID" int(11) [pk, not null, increment]
+  "ClinicID" int(11)
+  "UserID" int(11)
+  "ActionExecuted" varchar(150) [not null]
+  "Description" varchar(255)
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    ClinicID [name: "fk_auditlogs_clinic"]
+    UserID [name: "fk_auditlogs_user"]
+    CreatedAt [name: "idx_auditlogs_created"]
+  }
+}
+
+Table "clinic" {
+  "ClinicID" int(11) [pk, not null, increment]
+  "ClinicName" varchar(150) [not null]
+  "Address" varchar(255) [not null]
+  "ContactNumber" varchar(20) [not null]
+  "BaseConsultationFee" decimal(10,2) [not null, default: 0.00]
+  "PhotoUrl" varchar(255)
+  "Description" text
+  "Specialties" varchar(255)
+  "OpenDays" varchar(20) [not null, default: '1,2,3,4,5,6']
+  "OpenTime" time [not null, default: '08:00:00']
+  "CloseTime" time [not null, default: '17:00:00']
+  "RegistrationDate" datetime [not null, default: `current_timestamp()`]
+  "DeletedAt" datetime
+  "Status" varchar(20) [not null, default: 'Active']
+  "archived" tinyint(4) [not null, default: 0]
+  "Latitude" decimal(10,7)
+  "Longitude" decimal(10,7)
+}
+
+Table "clinicfeerequests" {
+  "RequestID" int(11) [pk, not null, increment]
+  "ClinicID" int(11) [not null]
+  "RequestedBy" int(11) [not null]
+  "CurrentFee" decimal(10,2) [not null]
+  "ProposedFee" decimal(10,2) [not null]
+  "EffectiveDate" date [not null]
+  "Reason" varchar(1000) [not null]
+  "Status" clinicfeerequests_Status_enum [not null, default: 'Pending']
+  "RequestedAt" datetime [not null, default: `current_timestamp()`]
+  "ReviewedBy" int(11)
+  "ReviewedAt" datetime
+
+  Indexes {
+    (ClinicID, RequestID) [unique, name: "uq_fee_request_replay"]
+    (ClinicID, Status, EffectiveDate) [name: "idx_clinic_fee_effective"]
+    RequestedBy [name: "RequestedBy"]
+    ReviewedBy [name: "ReviewedBy"]
+  }
+}
+
+Table "clinicphoto" {
+  "PhotoID" int(11) [pk, not null, increment]
+  "ClinicID" int(11) [not null]
+  "Filename" varchar(255) [not null]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "SortOrder" int(11) [not null, default: 0]
+
+  Indexes {
+    (ClinicID, PhotoID) [name: "idx_clinic_photo"]
+  }
+}
+
+Table "clinicregistrationinquiry" {
+  "InquiryID" int(11) [pk, not null, increment]
+  "ClinicName" varchar(150) [not null]
+  "ContactName" varchar(150) [not null]
+  "Email" varchar(150) [not null]
+  "Phone" varchar(30) [not null]
+  "City" varchar(150) [not null]
+  "PhysiciansCount" int(11)
+  "StaffCount" int(11)
+  "BaseConsultationFee" decimal(10,2)
+  "Status" varchar(20) [not null, default: 'Pending']
+  "SubmittedAt" datetime [not null, default: `current_timestamp()`]
+  "ApprovedClinicID" int(11)
+
+  Indexes {
+    ApprovedClinicID [name: "fk_inquiry_approved_clinic"]
+  }
+}
+
+Table "consultations" {
+  "ConsultationID" int(11) [pk, not null, increment]
+  "ClinicID" int(11) [not null]
+  "AppointmentID" int(11) [not null]
+  "PatientID" int(11) [not null]
+  "DoctorID" int(11) [not null]
+  "AudioFilePath" varchar(255)
+  "AudioDurationSeconds" int(11)
+  "RecordingConsent" tinyint(4) [not null, default: 0]
+  "CompletedAt" datetime [not null, default: `current_timestamp()`]
+  "DeletedAt" datetime
+  "Status" varchar(20) [not null, default: 'Finalized']
+  "Archived" tinyint(4) [not null, default: 0]
+
+  Indexes {
+    AppointmentID [unique, name: "uq_consultation_appointment"]
+    ClinicID [name: "fk_consultations_clinic"]
+    PatientID [name: "fk_consultations_patient"]
+    DoctorID [name: "fk_consultations_doctor"]
+  }
+}
+
+Table "consultationversions" {
+  "VersionID" int(11) [pk, not null, increment]
+  "ConsultationID" int(11) [not null]
+  "EditedByPhysicianID" int(11) [not null]
+  "RevisionNumber" int(11) [not null]
+  "ClinicalNotes" text [not null]
+  "PrescriptionText" text
+  "NotesJson" text
+  "UpdatedAt" datetime [not null, default: `current_timestamp()`]
+  "DeletedAt" datetime
+  "Status" varchar(20) [not null, default: 'Active']
+  "Archived" tinyint(4) [not null, default: 0]
+
+  Indexes {
+    EditedByPhysicianID [name: "fk_consultationversions_physician"]
+    (ConsultationID, RevisionNumber) [name: "idx_consultationversions_consultation"]
+  }
+}
+
+Table "demosettlementitems" {
+  "SettlementID" int(11) [not null]
+  "PaymentID" int(11) [not null]
+
+  Indexes {
+    (SettlementID, PaymentID) [pk]
+    PaymentID [unique, name: "uq_demo_settled_payment"]
+  }
+}
+
+Table "demosettlements" {
+  "SettlementID" int(11) [pk, not null, increment]
+  "RequestKey" varchar(64) [not null]
+  "Reference" varchar(40) [not null]
+  "GrossAmount" decimal(12,2) [not null]
+  "CreatedByUserID" int(11) [not null]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    RequestKey [unique, name: "uq_demo_settlement_request"]
+    Reference [unique, name: "uq_demo_settlement_reference"]
+    CreatedByUserID [name: "fk_demo_settlement_admin"]
+  }
+}
+
+Table "emailverificationtokens" {
+  "VerificationID" int(11) [pk, not null, increment]
+  "UserID" int(11) [not null]
+  "TokenHash" char(64) [not null]
+  "ExpiresAt" datetime [not null]
+  "UsedAt" datetime
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    TokenHash [unique, name: "TokenHash"]
+    UserID [name: "idx_email_verification_user"]
+  }
+}
+
+Table "feedback" {
+  "FeedbackID" int(11) [pk, not null, increment]
+  "AppointmentID" int(11) [not null]
+  "PatientID" int(11) [not null]
+  "ClinicID" int(11) [not null]
+  "PhysicianID" int(11)
+  "Rating" tinyint(4) [not null]
+  "Comment" text
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    AppointmentID [unique, name: "uq_feedback_appointment"]
+    PatientID [name: "fk_feedback_patient"]
+    PhysicianID [name: "fk_feedback_physician"]
+    ClinicID [name: "idx_feedback_clinic"]
+  }
+}
+
+Table "medicalrecordaccessfiles" {
+  "RequestID" int(11) [not null]
+  "RecordID" int(11) [not null]
+
+  Indexes {
+    (RequestID, RecordID) [pk]
+    RecordID [name: "RecordID"]
+  }
+}
+
+Table "medicalrecordaccessnotifications" {
+  "NotificationID" int(11) [pk, not null]
+  "RequestID" int(11) [not null]
+
+  Indexes {
+    RequestID [unique, name: "RequestID"]
+  }
+}
+
+Table "medicalrecordaccessrequests" {
+  "RequestID" int(11) [pk, not null, increment]
+  "AppointmentID" int(11) [not null]
+  "PatientID" int(11) [not null]
+  "PhysicianID" int(11) [not null]
+  "Status" varchar(20) [not null, default: 'Pending']
+  "RequestedAt" datetime [not null, default: `current_timestamp()`]
+  "RespondedAt" datetime
+  "EndedAt" datetime
+
+  Indexes {
+    (AppointmentID, PhysicianID) [unique, name: "uq_record_access_visit"]
+    (PatientID, Status) [name: "idx_record_access_patient"]
+    PhysicianID [name: "PhysicianID"]
+  }
+}
+
+Table "medicalrecords" {
+  "RecordID" int(11) [pk, not null, increment]
+  "PatientID" int(11) [not null]
+  "Title" varchar(150) [not null]
+  "Category" varchar(30) [not null, default: 'Other']
+  "Description" text
+  "FilePath" varchar(255) [not null]
+  "FileType" varchar(50) [not null]
+  "UploadedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    PatientID [name: "idx_medicalrecords_patient"]
+  }
+}
+
+Table "notifications" {
+  "NotificationID" int(11) [pk, not null, increment]
+  "ClinicID" int(11) [not null]
+  "Message" text [not null]
+  "RelatedAppointmentID" int(11)
+  "IsRead" tinyint(4) [not null, default: 0]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "AnnouncementID" int(11)
+
+  Indexes {
+    (ClinicID, AnnouncementID) [unique, name: "uq_staff_announcement"]
+    RelatedAppointmentID [name: "fk_notifications_appointment"]
+    (ClinicID, IsRead) [name: "idx_notifications_clinic_read"]
+    AnnouncementID [name: "fk_staff_notice_announcement"]
+  }
+}
+
+Table "passwordresets" {
+  "ResetID" int(11) [pk, not null, increment]
+  "UserID" int(11) [not null]
+  "TokenHash" char(64) [not null]
+  "ExpiresAt" datetime [not null]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "UsedAt" datetime
+
+  Indexes {
+    TokenHash [unique, name: "uq_token_hash"]
+    UserID [name: "fk_password_resets_user"]
+  }
+}
+
+Table "patientnotifications" {
+  "NotificationID" int(11) [pk, not null, increment]
+  "PatientID" int(11) [not null]
+  "Message" text [not null]
+  "RelatedAppointmentID" int(11)
+  "IsRead" tinyint(4) [not null, default: 0]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "AnnouncementID" int(11)
+
+  Indexes {
+    (PatientID, AnnouncementID) [unique, name: "uq_patient_announcement"]
+    RelatedAppointmentID [name: "fk_patientnotifications_appointment"]
+    (PatientID, IsRead) [name: "idx_patientnotifications_patient_read"]
+    AnnouncementID [name: "fk_patient_notice_announcement"]
+  }
+}
+
+Table "patientprofiledetails" {
+  "UserID" int(11) [pk, not null]
+  "Details" text [not null]
+  "UpdatedAt" timestamp [not null, default: `current_timestamp()`]
+}
+
+Table "physicianaccountowners" {
+  "ClinicID" int(11) [pk, not null]
+  "MainPhysicianID" int(11) [not null]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    MainPhysicianID [unique, name: "MainPhysicianID"]
+  }
+}
+
+Table "physicianavailability" {
+  "AvailabilityID" int(11) [pk, not null, increment]
+  "PhysicianID" int(11) [not null]
+  "DayOfWeek" tinyint(4) [not null]
+  "StartTime" time [not null]
+  "EndTime" time [not null]
+  "PatientsPerHour" tinyint(4)
+  "Active" tinyint(4) [not null, default: 1]
+
+  Indexes {
+    PhysicianID [name: "idx_availability_physician"]
+  }
+}
+
+Table "physiciandateavailability" {
+  "SlotID" int(11) [pk, not null, increment]
+  "PhysicianID" int(11) [not null]
+  "AvailDate" date [not null]
+  "StartTime" time
+  "EndTime" time
+  "PatientsPerHour" tinyint(4)
+  "IsDayOff" tinyint(4) [not null, default: 0]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    (PhysicianID, AvailDate) [name: "idx_dateavail_physician_date"]
+  }
+}
+
+Table "physiciannotifications" {
+  "NotificationID" int(11) [pk, not null, increment]
+  "PhysicianID" int(11) [not null]
+  "FeeRequestID" int(11)
+  "Message" text [not null]
+  "IsRead" tinyint(4) [not null, default: 0]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "AnnouncementID" int(11)
+
+  Indexes {
+    FeeRequestID [unique, name: "uq_physician_fee_notice"]
+    (PhysicianID, AnnouncementID) [unique, name: "uq_physician_announcement"]
+    (PhysicianID, IsRead, CreatedAt) [name: "idx_physician_notice_unread"]
+    AnnouncementID [name: "fk_physician_notice_announcement"]
+  }
+}
+
+Table "physicianwithdrawals" {
+  "WithdrawalID" int(11) [pk, not null, increment]
+  "Reference" varchar(40) [not null]
+  "RequestKey" varchar(64) [not null]
+  "PhysicianID" int(11) [not null]
+  "Amount" decimal(12,2) [not null]
+  "PayoutMethod" varchar(20) [not null]
+  "AccountName" varchar(150) [not null]
+  "AccountNumber" varchar(34) [not null]
+  "BankName" varchar(100)
+  "Status" varchar(20) [not null, default: 'Pending']
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "ReviewedAt" datetime
+  "ReviewedByUserID" int(11)
+  "FinancialOwnerUserID" int(11)
+
+  Indexes {
+    Reference [unique, name: "Reference"]
+    RequestKey [unique, name: "RequestKey"]
+    (PhysicianID, Status) [name: "idx_physician_withdrawals_status"]
+    ReviewedByUserID [name: "fk_withdrawal_reviewer"]
+    FinancialOwnerUserID [name: "idx_withdrawal_financial_owner"]
+  }
+}
+
+Table "platformdemobanktransfers" {
+  "TransferID" int(11) [pk, not null, increment]
+  "PaymentID" int(11) [not null]
+  "Reference" varchar(50) [not null]
+  "Amount" decimal(12,2) [not null]
+  "BankLabel" varchar(100) [not null, default: 'HealthQueue Demo Bank']
+  "AccountLastFour" char(4) [not null, default: '0000']
+  "Status" varchar(30) [not null, default: 'CompletedSimulated']
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    PaymentID [unique, name: "uq_platform_bank_payment"]
+    Reference [unique, name: "uq_platform_bank_reference"]
+  }
+}
+
+Table "queue" {
+  "QueueID" int(11) [pk, not null, increment]
+  "ClinicID" int(11) [not null]
+  "AppointmentID" int(11) [not null]
+  "PhysicianID" int(11)
+  "QueueNumber" int(11) [not null]
+  "Position" int(11)
+  "Priority" varchar(20)
+  "ScheduledNumber" int(11)
+  "RegularNumber" int(11)
+  "Status" varchar(20) [not null, default: 'Waiting']
+  "CreatedByStaffID" int(11)
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "CalledAt" datetime
+  "ServedAt" datetime
+  "LateAfterQueueID" int(11)
+  "LastLateNoticeAt" datetime
+  "ArrivedAt" datetime
+  "GraceExtendedAt" datetime
+  "GraceRescheduleRequestedAt" datetime
+  "GracePolicyEnabledAt" datetime
+  "FirstCalledAt" datetime
+
+  Indexes {
+    AppointmentID [name: "fk_queue_appointment"]
+    PhysicianID [name: "fk_queue_physician"]
+    CreatedByStaffID [name: "fk_queue_staff"]
+    (ClinicID, CreatedAt) [name: "idx_queue_clinic_date"]
+  }
+}
+
+Table "queueemailoutbox" {
+  "EmailID" int(11) [pk, not null, increment]
+  "QueueID" int(11) [not null]
+  "PatientID" int(11) [not null]
+  "AppointmentID" int(11) [not null]
+  "EventType" varchar(20) [not null]
+  "Status" varchar(20) [not null, default: 'pending']
+  "Attempts" int(11) [not null, default: 0]
+  "LastError" varchar(200)
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "UpdatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    (QueueID, EventType) [unique, name: "uq_queue_email_event"]
+    (Status, UpdatedAt) [name: "idx_queue_email_pending"]
+    PatientID [name: "PatientID"]
+    AppointmentID [name: "AppointmentID"]
+  }
+}
+
+Table "requestratelimits" {
+  "BucketKey" char(64) [pk, not null]
+  "WindowStart" datetime [not null]
+  "Attempts" int(11) [not null, default: 1]
+  "UserID" int(11)
+
+  Indexes {
+    WindowStart [name: "idx_rate_window"]
+    UserID [name: "fk_rate_limit_user"]
+  }
+}
+
+Table "roles" {
+  "RoleID" int(11) [pk, not null, increment]
+  "RoleName" varchar(50) [not null]
+
+  Indexes {
+    RoleName [unique, name: "RoleName"]
+  }
+}
+
+Table "signupemailverifications" {
+  "SignupVerificationID" int(11) [pk, not null, increment]
+  "Email" varchar(100) [not null]
+  "TokenHash" char(64) [not null]
+  "ExpiresAt" datetime [not null]
+  "VerifiedAt" datetime
+  "UsedAt" datetime
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "UserID" int(11)
+
+  Indexes {
+    TokenHash [unique, name: "TokenHash"]
+    Email [name: "idx_signup_verification_email"]
+    UserID [name: "fk_signup_verification_user"]
+  }
+}
+
+Table "smsoutbox" {
+  "SmsID" int(11) [pk, not null, increment]
+  "PatientID" int(11)
+  "AppointmentID" int(11)
+  "EventKey" varchar(120) [not null]
+  "EventType" varchar(30) [not null]
+  "Message" varchar(320) [not null]
+  "Status" varchar(20) [not null, default: 'pending']
+  "Attempts" int(11) [not null, default: 0]
+  "ProviderMessageID" varchar(80)
+  "ProviderStatus" varchar(80)
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "UpdatedAt" datetime [not null, default: `current_timestamp()`]
+
+  Indexes {
+    EventKey [unique, name: "EventKey"]
+    (Status, CreatedAt) [name: "idx_sms_pending"]
+    PatientID [name: "fk_sms_patient"]
+    AppointmentID [name: "fk_sms_appointment"]
+  }
+}
+
+Table "users" {
+  "UserID" int(11) [pk, not null, increment]
+  "IDNumber" char(10)
+  "ClinicID" int(11)
+  "RoleID" int(11) [not null]
+  "FirstName" varchar(50) [not null]
+  "LastName" varchar(50) [not null]
+  "Email" varchar(100) [not null]
+  "EmailVerifiedAt" datetime
+  "ContactNumber" varchar(20)
+  "PasswordHash" varchar(255) [not null]
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "DeletedAt" datetime
+  "Status" varchar(20) [not null, default: 'Active']
+  "Archived" tinyint(4) [not null, default: 0]
+  "AvailabilityStatus" varchar(20) [not null, default: 'Available']
+  "ProfilePhoto" varchar(255)
+  "WalletBalance" decimal(10,2) [not null, default: 0.00]
+  "BloodType" varchar(5)
+  "Allergies" varchar(500)
+  "EmergencyContactName" varchar(100)
+  "EmergencyContactNumber" varchar(20)
+  "AnnouncementsSeenAt" datetime
+  "PhysicianSpecialty" varchar(100)
+  "AccountMobileNumber" varchar(20) [note: 'Generated column in live database; expression omitted for diagram import.']
+  "IsWalkInAccount" tinyint(4) [not null, default: 0]
+
+  Indexes {
+    Email [unique, name: "Email"]
+    IDNumber [unique, name: "IDNumber"]
+    IDNumber [unique, name: "uq_users_idnumber"]
+    AccountMobileNumber [unique, name: "uq_users_account_mobile"]
+    RoleID [name: "fk_users_role"]
+    ClinicID [name: "fk_users_clinic"]
+  }
+}
+
+Table "visitcompletionnotifications" {
+  "NotificationID" int(11) [pk, not null]
+  "AppointmentID" int(11) [not null]
+  "FinalizedVersionID" int(11) [not null]
+
+  Indexes {
+    (AppointmentID, FinalizedVersionID) [unique, name: "uq_visit_confirmation_notice"]
+    FinalizedVersionID [name: "FinalizedVersionID"]
+  }
+}
+
+Table "visitcompletionreviews" {
+  "AppointmentID" int(11) [pk, not null]
+  "PatientID" int(11) [not null]
+  "ClinicID" int(11) [not null]
+  "FinalizedVersionID" int(11) [not null]
+  "Status" varchar(24) [not null, default: 'AwaitingPatient']
+  "IssueText" text
+  "RequestedAt" datetime [not null, default: `current_timestamp()`]
+  "PatientRespondedAt" datetime
+  "CompletedAt" datetime
+  "CompletedByUserID" int(11)
+  "CompletionSource" varchar(20)
+  "StaffResolution" text
+
+  Indexes {
+    (ClinicID, Status) [name: "idx_visit_completion_clinic"]
+    (PatientID, Status) [name: "idx_visit_completion_patient"]
+    FinalizedVersionID [name: "FinalizedVersionID"]
+    CompletedByUserID [name: "CompletedByUserID"]
+  }
+}
+
+Table "wallettransactions" {
+  "TransactionID" int(11) [pk, not null, increment]
+  "PatientID" int(11) [not null]
+  "Type" varchar(20) [not null]
+  "Amount" decimal(10,2) [not null]
+  "BalanceAfter" decimal(10,2) [not null]
+  "RelatedAppointmentID" int(11)
+  "Description" varchar(255)
+  "CreatedAt" datetime [not null, default: `current_timestamp()`]
+  "RequestKey" char(64)
+
+  Indexes {
+    RequestKey [unique, name: "uq_wallet_request_key"]
+    RelatedAppointmentID [name: "fk_wallettx_appointment"]
+    (PatientID, CreatedAt) [name: "idx_wallettx_patient"]
+  }
+}
+
+Ref "aitranscriptevaluations_ibfk_1":"aitranscriptversions"."TranscriptVersionID" <? "aitranscriptevaluations"."TranscriptVersionID"
+
+Ref "aitranscriptevaluations_ibfk_2":"users"."UserID" <? "aitranscriptevaluations"."PhysicianID"
+
+Ref "aitranscriptevaluations_ibfk_3":"clinic"."ClinicID" <? "aitranscriptevaluations"."ClinicID"
+
+Ref "fk_ai_approved_physician":"users"."UserID" ?<? "aitranscriptversions"."ApprovedByPhysicianID"
+
+Ref "fk_ai_approved_version":"consultationversions"."VersionID" ?<? "aitranscriptversions"."ApprovedVersionID"
+
+Ref "fk_ai_source_version":"aitranscriptversions"."TranscriptVersionID" ?<? "aitranscriptversions"."SourceTranscriptVersionID"
+
+Ref "fk_aitranscripts_consultation":"consultations"."ConsultationID" <? "aitranscriptversions"."ConsultationID"
+
+Ref "fk_ann_dismiss_announcement":"announcements"."AnnouncementID" <? "announcementdismissals"."AnnouncementID" [delete: cascade]
+
+Ref "fk_ann_dismiss_user":"users"."UserID" <? "announcementdismissals"."UserID"
+
+Ref "fk_announcements_clinic":"clinic"."ClinicID" ?<? "announcements"."ClinicID"
+
+Ref "fk_announcements_user":"users"."UserID" <? "announcements"."PostedByUserID"
+
+Ref "fk_payment_financial_owner":"users"."UserID" ?<? "appointmentpayments"."FinancialOwnerUserID"
+
+Ref "fk_payments_appointment":"appointments"."AppointmentID" <? "appointmentpayments"."AppointmentID"
+
+Ref "fk_reschedule_appointment":"appointments"."AppointmentID" <? "appointmentreschedulerequests"."AppointmentID"
+
+Ref "fk_reschedule_clinic":"clinic"."ClinicID" <? "appointmentreschedulerequests"."ClinicID"
+
+Ref "fk_reschedule_patient":"users"."UserID" <? "appointmentreschedulerequests"."PatientID"
+
+Ref "fk_reschedule_reviewer":"users"."UserID" ?<? "appointmentreschedulerequests"."ReviewedBy"
+
+Ref "fk_appointments_clinic":"clinic"."ClinicID" <? "appointments"."ClinicID"
+
+Ref "fk_appointments_patient":"users"."UserID" <? "appointments"."PatientID"
+
+Ref "fk_appointments_physician":"users"."UserID" ?<? "appointments"."PhysicianID"
+
+Ref "fk_auditlogs_clinic":"clinic"."ClinicID" ?<? "auditlogs"."ClinicID"
+
+Ref "fk_auditlogs_user":"users"."UserID" ?<? "auditlogs"."UserID"
+
+Ref "clinicfeerequests_ibfk_1":"clinic"."ClinicID" <? "clinicfeerequests"."ClinicID"
+
+Ref "clinicfeerequests_ibfk_2":"users"."UserID" <? "clinicfeerequests"."RequestedBy"
+
+Ref "clinicfeerequests_ibfk_3":"users"."UserID" ?<? "clinicfeerequests"."ReviewedBy"
+
+Ref "fk_clinic_photo_clinic":"clinic"."ClinicID" <? "clinicphoto"."ClinicID" [delete: cascade]
+
+Ref "fk_inquiry_approved_clinic":"clinic"."ClinicID" ?<? "clinicregistrationinquiry"."ApprovedClinicID" [delete: set null]
+
+Ref "fk_consultations_appointment":"appointments"."AppointmentID" <? "consultations"."AppointmentID"
+
+Ref "fk_consultations_clinic":"clinic"."ClinicID" <? "consultations"."ClinicID"
+
+Ref "fk_consultations_doctor":"users"."UserID" <? "consultations"."DoctorID"
+
+Ref "fk_consultations_patient":"users"."UserID" <? "consultations"."PatientID"
+
+Ref "fk_consultationversions_consultation":"consultations"."ConsultationID" <? "consultationversions"."ConsultationID"
+
+Ref "fk_consultationversions_physician":"users"."UserID" <? "consultationversions"."EditedByPhysicianID"
+
+Ref "fk_demo_item_payment":"appointmentpayments"."PaymentID" <? "demosettlementitems"."PaymentID"
+
+Ref "fk_demo_item_settlement":"demosettlements"."SettlementID" <? "demosettlementitems"."SettlementID"
+
+Ref "fk_demo_settlement_admin":"users"."UserID" <? "demosettlements"."CreatedByUserID"
+
+Ref "fk_email_verification_user":"users"."UserID" <? "emailverificationtokens"."UserID" [delete: cascade]
+
+Ref "fk_feedback_appointment":"appointments"."AppointmentID" <? "feedback"."AppointmentID"
+
+Ref "fk_feedback_clinic":"clinic"."ClinicID" <? "feedback"."ClinicID"
+
+Ref "fk_feedback_patient":"users"."UserID" <? "feedback"."PatientID"
+
+Ref "fk_feedback_physician":"users"."UserID" ?<? "feedback"."PhysicianID"
+
+Ref "medicalrecordaccessfiles_ibfk_1":"medicalrecordaccessrequests"."RequestID" <? "medicalrecordaccessfiles"."RequestID" [delete: cascade]
+
+Ref "medicalrecordaccessfiles_ibfk_2":"medicalrecords"."RecordID" <? "medicalrecordaccessfiles"."RecordID" [delete: cascade]
+
+Ref "medicalrecordaccessnotifications_ibfk_1":"patientnotifications"."NotificationID" <? "medicalrecordaccessnotifications"."NotificationID" [delete: cascade]
+
+Ref "medicalrecordaccessnotifications_ibfk_2":"medicalrecordaccessrequests"."RequestID" <? "medicalrecordaccessnotifications"."RequestID" [delete: cascade]
+
+Ref "medicalrecordaccessrequests_ibfk_1":"appointments"."AppointmentID" <? "medicalrecordaccessrequests"."AppointmentID"
+
+Ref "medicalrecordaccessrequests_ibfk_2":"users"."UserID" <? "medicalrecordaccessrequests"."PatientID"
+
+Ref "medicalrecordaccessrequests_ibfk_3":"users"."UserID" <? "medicalrecordaccessrequests"."PhysicianID"
+
+Ref "fk_medicalrecords_patient":"users"."UserID" <? "medicalrecords"."PatientID"
+
+Ref "fk_notifications_appointment":"appointments"."AppointmentID" ?<? "notifications"."RelatedAppointmentID"
+
+Ref "fk_notifications_clinic":"clinic"."ClinicID" <? "notifications"."ClinicID"
+
+Ref "fk_staff_notice_announcement":"announcements"."AnnouncementID" ?<? "notifications"."AnnouncementID" [delete: cascade]
+
+Ref "fk_password_resets_user":"users"."UserID" <? "passwordresets"."UserID"
+
+Ref "fk_patient_notice_announcement":"announcements"."AnnouncementID" ?<? "patientnotifications"."AnnouncementID" [delete: cascade]
+
+Ref "fk_patientnotifications_appointment":"appointments"."AppointmentID" ?<? "patientnotifications"."RelatedAppointmentID"
+
+Ref "fk_patientnotifications_patient":"users"."UserID" <? "patientnotifications"."PatientID"
+
+Ref "patientprofiledetails_ibfk_1":"users"."UserID" <? "patientprofiledetails"."UserID" [delete: cascade]
+
+Ref "physicianaccountowners_ibfk_1":"clinic"."ClinicID" <? "physicianaccountowners"."ClinicID"
+
+Ref "physicianaccountowners_ibfk_2":"users"."UserID" <? "physicianaccountowners"."MainPhysicianID"
+
+Ref "fk_availability_physician":"users"."UserID" <? "physicianavailability"."PhysicianID"
+
+Ref "fk_dateavail_physician":"users"."UserID" <? "physiciandateavailability"."PhysicianID"
+
+Ref "fk_physician_notice_announcement":"announcements"."AnnouncementID" ?<? "physiciannotifications"."AnnouncementID" [delete: cascade]
+
+Ref "physiciannotifications_ibfk_1":"users"."UserID" <? "physiciannotifications"."PhysicianID"
+
+Ref "physiciannotifications_ibfk_2":"clinicfeerequests"."RequestID" ?<? "physiciannotifications"."FeeRequestID"
+
+Ref "fk_withdrawal_financial_owner":"users"."UserID" ?<? "physicianwithdrawals"."FinancialOwnerUserID"
+
+Ref "fk_withdrawal_physician":"users"."UserID" <? "physicianwithdrawals"."PhysicianID"
+
+Ref "fk_withdrawal_reviewer":"users"."UserID" ?<? "physicianwithdrawals"."ReviewedByUserID"
+
+Ref "platformdemobanktransfers_ibfk_1":"appointmentpayments"."PaymentID" <? "platformdemobanktransfers"."PaymentID"
+
+Ref "fk_queue_appointment":"appointments"."AppointmentID" <? "queue"."AppointmentID"
+
+Ref "fk_queue_clinic":"clinic"."ClinicID" <? "queue"."ClinicID"
+
+Ref "fk_queue_physician":"users"."UserID" ?<? "queue"."PhysicianID"
+
+Ref "fk_queue_staff":"users"."UserID" ?<? "queue"."CreatedByStaffID"
+
+Ref "queueemailoutbox_ibfk_1":"queue"."QueueID" <? "queueemailoutbox"."QueueID" [delete: cascade]
+
+Ref "queueemailoutbox_ibfk_2":"users"."UserID" <? "queueemailoutbox"."PatientID" [delete: cascade]
+
+Ref "queueemailoutbox_ibfk_3":"appointments"."AppointmentID" <? "queueemailoutbox"."AppointmentID" [delete: cascade]
+
+Ref "fk_rate_limit_user":"users"."UserID" ?<? "requestratelimits"."UserID" [delete: set null]
+
+Ref "fk_signup_verification_user":"users"."UserID" ?<? "signupemailverifications"."UserID" [delete: set null]
+
+Ref "fk_sms_appointment":"appointments"."AppointmentID" ?<? "smsoutbox"."AppointmentID" [delete: set null]
+
+Ref "fk_sms_patient":"users"."UserID" ?<? "smsoutbox"."PatientID" [delete: set null]
+
+Ref "fk_users_clinic":"clinic"."ClinicID" ?<? "users"."ClinicID"
+
+Ref "fk_users_role":"roles"."RoleID" <? "users"."RoleID"
+
+Ref "visitcompletionnotifications_ibfk_1":"patientnotifications"."NotificationID" <? "visitcompletionnotifications"."NotificationID" [delete: cascade]
+
+Ref "visitcompletionnotifications_ibfk_2":"appointments"."AppointmentID" <? "visitcompletionnotifications"."AppointmentID"
+
+Ref "visitcompletionnotifications_ibfk_3":"consultationversions"."VersionID" <? "visitcompletionnotifications"."FinalizedVersionID"
+
+Ref "visitcompletionreviews_ibfk_1":"appointments"."AppointmentID" <? "visitcompletionreviews"."AppointmentID" [delete: cascade]
+
+Ref "visitcompletionreviews_ibfk_2":"users"."UserID" <? "visitcompletionreviews"."PatientID"
+
+Ref "visitcompletionreviews_ibfk_3":"clinic"."ClinicID" <? "visitcompletionreviews"."ClinicID"
+
+Ref "visitcompletionreviews_ibfk_4":"consultationversions"."VersionID" <? "visitcompletionreviews"."FinalizedVersionID"
+
+Ref "visitcompletionreviews_ibfk_5":"users"."UserID" ?<? "visitcompletionreviews"."CompletedByUserID"
+
+Ref "fk_wallettx_appointment":"appointments"."AppointmentID" ?<? "wallettransactions"."RelatedAppointmentID"
+
+Ref "fk_wallettx_patient":"users"."UserID" <? "wallettransactions"."PatientID"

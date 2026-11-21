@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
 require_once __DIR__ . '/../includes/wallet.php';
 require_once __DIR__ . '/../includes/availability.php';
 require_once __DIR__ . '/../includes/appointment-rules.php';
@@ -40,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$appointmentId) {
             $errors[] = 'Invalid appointment.';
+        } elseif(in_array($formType,['confirm_visit','report_visit_issue'],true)) {
+            try{$changed=respondToVisitCompletion($pdo,(int)$user['UserID'],(int)$appointmentId,$formType==='confirm_visit'?'confirm':'issue',(string)($_POST['issue']??''));$_SESSION['patient_appointments_flash']=$formType==='confirm_visit'?($changed?'Consultation confirmed complete. Your finalized records are ready.':'This consultation is already complete.'):($changed?'Your report was sent to the clinic for review.':'Your report is already awaiting clinic review.');header('Location: '.HQ_BASE_URL.'/patient/my-appointments.php',true,303);exit;}
+            catch(Throwable $e){error_log('Patient completion response failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not save your response. Please try again.':$e->getMessage();}
         } elseif ($formType === 'cancel_appointment') {
             $cancellationReason = trim((string) ($_POST['cancellation_reason'] ?? ''));
             if ($cancellationReason === '') {
@@ -79,31 +83,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $currentAppt = $scope->fetch();
                     if (!$currentAppt) {
                         $errors[] = 'That appointment is no longer active.';
-                    } elseif (!appointmentChangeOpen($pdo, $appointmentId, (int) $user['UserID'])) {
+                    } elseif (!appointmentRescheduleOpen($pdo, $appointmentId, (int) $user['UserID'])) {
                         $errors[] = 'The reschedule window has closed.';
                     } elseif (!($lockedClinic = lockClinicBooking($pdo, (int) $currentAppt['ClinicID']))) {
                         $errors[] = 'The clinic is busy right now. Please try again in a moment.';
                     } elseif (!isBookable($pdo, (int) $currentAppt['ClinicID'], $currentAppt['PhysicianID'] ? (int) $currentAppt['PhysicianID'] : null, $newDate, $newTime, $appointmentId)) {
                         $errors[] = 'That date and time is unavailable. Please choose another slot.';
                     } else {
-                        $pdo->beginTransaction();
+                        $pdo->beginTransaction();lockQueueClinic($pdo,(int)$currentAppt['ClinicID']);
                         $locked = $pdo->prepare("SELECT AppointmentID FROM Appointments WHERE AppointmentID = ? AND PatientID = ? AND Status IN ('Pending', 'Confirmed') FOR UPDATE");
                         $locked->execute([$appointmentId, $user['UserID']]);
                         $stillActive = (bool) $locked->fetchColumn();
                         $pending = $pdo->prepare("SELECT RequestID FROM AppointmentRescheduleRequests WHERE AppointmentID = ? AND Status = 'Pending' LIMIT 1");
                         $pending->execute([$appointmentId]);
-                        if (!$stillActive || !appointmentChangeOpen($pdo, $appointmentId, (int) $user['UserID'])) {
+                        if (!$stillActive || !appointmentRescheduleOpen($pdo, $appointmentId, (int) $user['UserID'])) {
                             $pdo->rollBack();
                             $errors[] = 'The appointment changed or its reschedule window has closed.';
                         } elseif ($pending->fetchColumn()) {
                             $pdo->rollBack();
                             $errors[] = 'A reschedule request is already waiting for clinic review.';
                         } else {
+                            $graceReschedule=appointmentGraceRescheduleOpen($pdo,$appointmentId,(int)$user['UserID']);
                             $pdo->prepare("INSERT INTO AppointmentRescheduleRequests (AppointmentID, PatientID, ClinicID, RequestedDate, RequestedTime) VALUES (?, ?, ?, ?, ?)")
                                 ->execute([$appointmentId, $user['UserID'], $currentAppt['ClinicID'], $newDate, $newTime]);
+                            if($graceReschedule)$pdo->prepare("UPDATE Queue SET GraceRescheduleRequestedAt=NOW() WHERE AppointmentID=? AND Status IN ('Waiting','Calling')")->execute([$appointmentId]);
                             $pdo->commit();
                             notifyClinic($pdo, (int) $currentAppt['ClinicID'], $user['FirstName'] . ' ' . $user['LastName'] . ' requested to reschedule appointment #' . $appointmentId . '.', $appointmentId);
                             $flash = 'Reschedule request sent to the clinic. Your current appointment remains active until staff decide.';
+                            $_SESSION['patient_appointments_flash']=$flash;
+                            header('Location: '.HQ_BASE_URL.'/patient/my-appointments.php',true,303);exit;
                         }
                     }
                 } catch (Throwable $e) {
@@ -145,11 +153,12 @@ if ($pdo) {
 
         $statusFilter = $tabs[$activeTab][1];
         $stmt = $pdo->prepare(
-            "SELECT a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern, a.Status, a.BookingFeePaid, a.CancellationReason, a.DeclineReason,
-                    (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange,
+            "SELECT a.AppointmentID, a.ClinicID, a.AppointmentDate, a.AppointmentTime, a.Concern, a.Status, a.BookingFeePaid, a.CancellationReason, a.DeclineReason,
+                    EXISTS(SELECT 1 FROM VisitCompletionReviews cr WHERE cr.AppointmentID=a.AppointmentID AND cr.Status IN ('AwaitingPatient','IssueReported')) AS CompletionPending,
+                    (TIMESTAMP(a.AppointmentDate, COALESCE(NULLIF(a.AppointmentTime,'00:00:00'), c.CloseTime)) - INTERVAL 2 HOUR > NOW()) AS CanChange,
                     (SELECT r.Status FROM AppointmentRescheduleRequests r WHERE r.AppointmentID = a.AppointmentID ORDER BY r.RequestID DESC LIMIT 1) AS RescheduleStatus,
                     TIMESTAMPDIFF(MINUTE, a.CreatedAt, NOW()) AS MinutesSinceRequest,
-                    c.ClinicName, c.Address, c.BaseConsultationFee, c.CloseTime,
+                    c.ClinicName, c.Address, COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) AS BaseConsultationFee, c.CloseTime,
                     phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName,
                     (SELECT COALESCE(SUM(t.Amount), 0) FROM WalletTransactions t
                      WHERE t.RelatedAppointmentID = a.AppointmentID AND t.Type = 'Refund') AS RefundAmount,
@@ -158,7 +167,7 @@ if ($pdo) {
                        AND q.Status IN ('Waiting', 'Calling', 'Serving')
                      ORDER BY q.CreatedAt DESC LIMIT 1) AS TodayQueueNumber,
                     (SELECT TIME(ADDTIME(NOW(), SEC_TO_TIME(COUNT(*) * 900)))
-                     FROM Queue mine JOIN Queue ahead ON ahead.ClinicID = mine.ClinicID
+                     FROM Queue mine JOIN Queue ahead ON ahead.ClinicID = mine.ClinicID AND ahead.PhysicianID<=>mine.PhysicianID
                        AND DATE(ahead.CreatedAt) = DATE(mine.CreatedAt)
                        AND COALESCE(ahead.Position, ahead.QueueNumber * 10) < COALESCE(mine.Position, mine.QueueNumber * 10)
                        AND ahead.Status IN ('Waiting', 'Calling', 'Serving')
@@ -172,15 +181,25 @@ if ($pdo) {
         );
         $stmt->execute($statusFilter ? [$user['UserID'], $statusFilter] : [$user['UserID']]);
         $appointments = $stmt->fetchAll();
+        $queueEtaByAppointment=[];$loadedQueueClinics=[];
+        foreach($appointments as $visit)if($visit['AppointmentDate']===date('Y-m-d') && $visit['Status']==='Confirmed' && !isset($loadedQueueClinics[(int)$visit['ClinicID']])){
+            $loadedQueueClinics[(int)$visit['ClinicID']]=true;
+            foreach(clinicTimeQueue($pdo,(int)$visit['ClinicID']) as $predicted)$queueEtaByAppointment[(int)$predicted['AppointmentID']]=$predicted['EstimatedTurnAt'];
+        }
+        foreach($appointments as &$visit)$visit['EstimatedQueueTime']=isset($queueEtaByAppointment[(int)$visit['AppointmentID']])?date('H:i:s',strtotime($queueEtaByAppointment[(int)$visit['AppointmentID']])):null;
+        foreach($appointments as &$visit)$visit['CanReschedule']=in_array($visit['Status'],['Pending','Confirmed'],true)&&appointmentRescheduleOpen($pdo,(int)$visit['AppointmentID'],(int)$user['UserID']);
+        foreach($appointments as &$visit)if(!empty($visit['CompletionPending'])){$visit['CanChange']=false;$visit['CanReschedule']=false;}
+        unset($visit);
+
 
         // Today's live queue entry (if any) is pinned above the list.
         $queueStmt = $pdo->prepare(
-            "SELECT q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.Address, c.CloseTime,
+            "SELECT q.QueueID,q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.Address, c.CloseTime,
                     a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern,
-                    (TIMESTAMP(a.AppointmentDate, COALESCE(a.AppointmentTime, SUBTIME(c.CloseTime, '02:00:00'))) > NOW()) AS CanChange,
+                    (TIMESTAMP(a.AppointmentDate, COALESCE(NULLIF(a.AppointmentTime,'00:00:00'), c.CloseTime)) - INTERVAL 2 HOUR > NOW()) AS CanChange,
                     (SELECT r.Status FROM AppointmentRescheduleRequests r WHERE r.AppointmentID = a.AppointmentID ORDER BY r.RequestID DESC LIMIT 1) AS RescheduleStatus,
                     TIME(ADDTIME(NOW(), SEC_TO_TIME((SELECT COUNT(*) * 900 FROM Queue ahead
-                      WHERE ahead.ClinicID = q.ClinicID AND DATE(ahead.CreatedAt) = CURDATE()
+                      WHERE ahead.ClinicID = q.ClinicID AND ahead.PhysicianID<=>q.PhysicianID AND DATE(ahead.CreatedAt) = CURDATE()
                         AND COALESCE(ahead.Position, ahead.QueueNumber * 10) < COALESCE(q.Position, q.QueueNumber * 10)
                         AND ahead.Status IN ('Waiting', 'Calling', 'Serving'))))) AS EstimatedQueueTime,
                     phy.FirstName AS PhyFirstName, phy.LastName AS PhyLastName
@@ -195,15 +214,12 @@ if ($pdo) {
         $activeQueue = $queueStmt->fetch() ?: null;
 
         if ($activeQueue) {
-            $posStmt = $pdo->prepare(
-                "SELECT COUNT(*) AS Total, COALESCE(SUM(Status = 'Waiting'), 0) AS Ahead
-                 FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = CURDATE() AND COALESCE(Position, QueueNumber * 10) < (SELECT COALESCE(me.Position, me.QueueNumber * 10) FROM Queue me WHERE me.ClinicID = Queue.ClinicID AND DATE(me.CreatedAt) = CURDATE() AND me.QueueNumber = ? ORDER BY me.QueueID DESC LIMIT 1) AND Status <> 'Removed'"
-            );
-            $posStmt->execute([$activeQueue['ClinicID'], $activeQueue['QueueNumber']]);
-            $pos = $posStmt->fetch();
-            $total = (int) $pos['Total'];
+            $progress=patientQueueProgress($pdo,(int)$activeQueue['QueueID']);$pos=['Ahead'=>$progress['Ahead'],'Total'=>$progress['Ahead']];$total=$pos['Total'];
             $activeQueue['Ahead'] = $activeQueue['Status'] === 'Waiting' ? (int) $pos['Ahead'] : 0;
-            $activeQueue['WaitMinutes'] = $activeQueue['Ahead'] * MINUTES_PER_PATIENT;
+            $activeQueue['WaitMinutes'] = $progress['EstimatedWaitMinutes'];
+            $activeQueue['GraceHeld']=$progress['GraceHeld'];$activeQueue['GraceDeadline']=$progress['GraceDeadline'];
+            $activeQueue['CanReschedule']=appointmentRescheduleOpen($pdo,(int)$activeQueue['AppointmentID'],(int)$user['UserID']);
+            $activeQueue['EstimatedTurnTime'] = $progress['EstimatedTurnAt'] ? date('H:i:s',strtotime($progress['EstimatedTurnAt'])) : null;
             // How far the line has moved towards this patient.
             $activeQueue['Progress'] = $activeQueue['Status'] !== 'Waiting' || $total === 0
                 ? 100 : (int) round(($total - $activeQueue['Ahead']) / $total * 100);
@@ -218,6 +234,7 @@ $statusPills = [
     'Pending'   => ['Pending', 'ma-pill-pending'],
     'Confirmed' => ['Approved', 'ma-pill-approved'],
     'Completed' => ['Completed', 'ma-pill-completed'],
+    'NoShow' => ['No-show', 'ma-pill-declined'],
 ];
 
 $timeAgo = static function (int $minutes): string {
@@ -246,6 +263,8 @@ $emptyStates = [
 ];
 
 $hasLiveEstimate = false;
+$completionVisits=[];if($pdo){$cr=$pdo->prepare("SELECT cr.*,c.ClinicName,u.FirstName AS PhysicianFirst,u.LastName AS PhysicianLast,a.AppointmentDate,(SELECT v.VersionID FROM ConsultationVersions v JOIN Consultations con ON con.ConsultationID=v.ConsultationID WHERE con.AppointmentID=a.AppointmentID AND v.Status='Finalized' ORDER BY v.RevisionNumber DESC,v.VersionID DESC LIMIT 1) AS LatestFinalized,(SELECT v.Status FROM ConsultationVersions v JOIN Consultations con ON con.ConsultationID=v.ConsultationID WHERE con.AppointmentID=a.AppointmentID ORDER BY v.RevisionNumber DESC,v.VersionID DESC LIMIT 1) AS LatestStatus FROM VisitCompletionReviews cr JOIN Appointments a ON a.AppointmentID=cr.AppointmentID JOIN Clinic c ON c.ClinicID=a.ClinicID LEFT JOIN Users u ON u.UserID=a.PhysicianID WHERE cr.PatientID=? AND a.PatientID=? AND a.Status='Confirmed' AND cr.Status IN ('AwaitingPatient','IssueReported') ORDER BY cr.RequestedAt DESC");$cr->execute([$user['UserID'],$user['UserID']]);$completionVisits=$cr->fetchAll();}
+$isVisitCompletionPage=true;
 $pageTitle = 'My Appointments — HealthQueue';
 require __DIR__ . '/../includes/header.php';
 ?>
@@ -256,6 +275,12 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
   <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
 
+  <?php foreach($completionVisits as $review): $canConfirm=$review['Status']==='AwaitingPatient'&&$review['LatestStatus']==='Finalized'&&(int)$review['LatestFinalized']===(int)$review['FinalizedVersionID']; ?>
+  <section class="vc-patient-card"><div><span class="vc-badge"><?= $review['Status']==='IssueReported'?'Issue reported - clinic reviewing':'Awaiting your confirmation' ?></span><h2><?= htmlspecialchars($review['ClinicName']) ?></h2><p>Dr. <?= htmlspecialchars(($review['PhysicianFirst']??'').' '.($review['PhysicianLast']??'')) ?> &middot; <?= htmlspecialchars(date('j M Y',strtotime($review['AppointmentDate']))) ?></p><small><?= $canConfirm?'Your physician finalized the notes. Please confirm whether your visit was completed.':($review['Status']==='IssueReported'?'Staff will review your report before deciding completion.':'Your physician is updating the notes. Confirmation will be available after finalization.') ?></small></div><?php if($canConfirm): ?><button class="btn btn-primary" type="button" data-vc-open="visitCompletion<?= (int)$review['AppointmentID'] ?>">Review completion</button><?php endif; ?></section>
+  <?php if($canConfirm): ?><dialog class="modal-box vc-dialog" id="visitCompletion<?= (int)$review['AppointmentID'] ?>" aria-labelledby="visitTitle<?= (int)$review['AppointmentID'] ?>"><button type="button" class="modal-close" data-vc-close aria-label="Close">&times;</button><h2 id="visitTitle<?= (int)$review['AppointmentID'] ?>">Was your consultation completed?</h2><p>Your physician has finalized the notes. Please confirm that your visit took place.</p><div class="vc-visit-details"><strong><?= htmlspecialchars($review['ClinicName']) ?></strong><span>Dr. <?= htmlspecialchars(($review['PhysicianFirst']??'').' '.($review['PhysicianLast']??'')) ?></span><span><?= htmlspecialchars(date('j M Y',strtotime($review['AppointmentDate']))) ?></span></div>
+  <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="appointment_id" value="<?= (int)$review['AppointmentID'] ?>"><button class="btn btn-primary" name="form_type" value="confirm_visit">Confirm completed</button></form>
+  <details class="vc-report"><summary>Report an issue</summary><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="appointment_id" value="<?= (int)$review['AppointmentID'] ?>"><label>What happened?<textarea name="issue" rows="4" minlength="10" maxlength="2000" required placeholder="Tell the clinic why this visit should be reviewed."></textarea></label><button class="btn btn-outline" name="form_type" value="report_visit_issue">Send report to clinic</button></form></details><small>Staff will review reported issues. Your medical notes remain under physician control.</small><button class="vc-later" type="button" data-vc-close>Not now</button></dialog><?php endif; ?>
+  <?php endforeach; ?>
   <?php if ($activeQueue): ?>
     <?php
       $queuePill = ['Waiting' => 'Approved · today', 'Calling' => 'Now calling you', 'Serving' => 'In consultation'][$activeQueue['Status']] ?? 'Today';
@@ -286,7 +311,7 @@ require __DIR__ . '/../includes/header.php';
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <?= htmlspecialchars($aheadText) ?>
         </span>
-        <span class="ma-live-wait"><?= $activeQueue['Status'] === 'Waiting' ? '~' . (int) $activeQueue['WaitMinutes'] . ' min wait' : 'Please proceed' ?></span>
+        <span class="ma-live-wait"><?= $activeQueue['Status'] === 'Waiting' ? (!empty($activeQueue['GraceHeld']) ? 'Awaiting arrival' : '~' . (int) $activeQueue['WaitMinutes'] . ' min wait') : 'Please proceed' ?></span>
       </div>
       <div class="ma-live-bar"><span style="width:<?= (int) $activeQueue['Progress'] ?>%;"></span></div>
       <div class="ma-live-actions">
@@ -298,7 +323,7 @@ require __DIR__ . '/../includes/header.php';
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           Directions
         </a>
-        <?php if ($activeQueue['CanChange'] && $activeQueue['RescheduleStatus'] !== 'Pending'): ?>
+        <?php if ($activeQueue['CanReschedule'] && $activeQueue['RescheduleStatus'] !== 'Pending'): ?>
           <button type="button" class="btn btn-outline btn-sm view-concern-btn" data-target="activeQueueRescheduleForm">Reschedule</button>
         <?php elseif ($activeQueue['RescheduleStatus'] === 'Pending'): ?>
           <span class="ma-pill ma-pill-pending">Reschedule pending</span>
@@ -311,7 +336,7 @@ require __DIR__ . '/../includes/header.php';
           <button type="button" class="btn btn-outline btn-sm ma-danger" data-confirm-modal="cancelConfirmModal">Cancel</button>
         </form><?php endif; ?>
       </div>
-      <?php if ($activeQueue['CanChange'] && $activeQueue['RescheduleStatus'] !== 'Pending'): ?>
+      <?php if ($activeQueue['CanReschedule'] && $activeQueue['RescheduleStatus'] !== 'Pending'): ?>
         <form method="post" id="activeQueueRescheduleForm" class="ma-resched" style="display:none;">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
           <input type="hidden" name="form_type" value="reschedule_appointment">
@@ -367,6 +392,7 @@ require __DIR__ . '/../includes/header.php';
               [$pillLabel, $pillClass] = [$isDeclined ? 'Declined' : 'Cancelled', 'ma-pill-declined'];
           } else {
               [$pillLabel, $pillClass] = $statusPills[$appt['Status']] ?? [$appt['Status'], ''];
+              if(!empty($appt['CompletionPending']))$pillLabel='Completion review';
           }
           $cancelForm = '<form method="post"><input type="hidden" name="csrf_token" value="' . htmlspecialchars(csrfToken()) . '">'
               . '<input type="hidden" name="form_type" value="cancel_appointment"><input type="hidden" name="appointment_id" value="' . $id . '">'
@@ -382,11 +408,11 @@ require __DIR__ . '/../includes/header.php';
                 <?php if (!$appt['BookingFeePaid']): ?>
                   <a href="<?= HQ_BASE_URL ?>/patient/checkout.php?appointment_id=<?= $id ?>" class="ma-link-strong">Complete payment</a>
                 <?php endif; ?>
-                <?php if ($appt['CanChange'] && $appt['RescheduleStatus'] !== 'Pending'): ?><button type="button" class="view-concern-btn" data-target="resched-<?= $id ?>">Request reschedule</button><?php endif; ?>
+                <?php if ($appt['CanReschedule'] && $appt['RescheduleStatus'] !== 'Pending'): ?><button type="button" class="view-concern-btn" data-target="resched-<?= $id ?>">Request reschedule</button><?php endif; ?>
                 <?php if ($appt['CanChange']): ?><?= $cancelForm ?><button type="button" data-confirm-modal="cancelConfirmModal">Cancel request</button></form><?php endif; ?>
               <?php elseif ($appt['Status'] === 'Confirmed'): ?>
                 <?php if ($appt['TodayQueueNumber']): ?><a href="<?= HQ_BASE_URL ?>/patient/queue-status.php">View queue</a><?php endif; ?>
-                <?php if ($appt['CanChange'] && $appt['RescheduleStatus'] !== 'Pending'): ?><button type="button" class="view-concern-btn" data-target="resched-<?= $id ?>">Request reschedule</button><?php endif; ?>
+                <?php if ($appt['CanReschedule'] && $appt['RescheduleStatus'] !== 'Pending'): ?><button type="button" class="view-concern-btn" data-target="resched-<?= $id ?>">Request reschedule</button><?php endif; ?>
                 <?php if ($appt['CanChange']): ?><?= $cancelForm ?><button type="button" data-confirm-modal="cancelConfirmModal">Cancel</button></form><?php endif; ?>
               <?php elseif ($appt['Status'] === 'Cancelled' && (float) $appt['RefundAmount'] > 0): ?>
                 <span class="ma-refund">
@@ -397,7 +423,7 @@ require __DIR__ . '/../includes/header.php';
                 <button type="button" data-view-record="<?= $id ?>">View medical record</button>
               <?php endif; ?>
             </div>
-            <?php if (in_array($appt['Status'], ['Pending', 'Confirmed'], true) && $appt['CanChange'] && $appt['RescheduleStatus'] !== 'Pending'): ?>
+            <?php if (in_array($appt['Status'], ['Pending', 'Confirmed'], true) && $appt['CanReschedule'] && $appt['RescheduleStatus'] !== 'Pending'): ?>
               <?php if ($appt['RescheduleStatus'] === 'Declined'): ?><p class="form-message warning">Your previous reschedule request was declined. Your original appointment is still active.</p><?php endif; ?>
               <form method="post" id="resched-<?= $id ?>" class="ma-resched" style="display:none;">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
@@ -410,7 +436,7 @@ require __DIR__ . '/../includes/header.php';
             <?php elseif ($appt['RescheduleStatus'] === 'Pending'): ?>
               <p class="form-message warning">Reschedule request awaiting clinic review. Your current appointment remains active.</p>
             <?php elseif (in_array($appt['Status'], ['Pending', 'Confirmed'], true) && !$appt['CanChange']): ?>
-              <p class="form-message warning">The cancellation and reschedule window closes two hours before the appointment (or two hours before closing for queue bookings).</p>
+              <p class="form-message warning">Cancellation closes two hours before the appointment (or clinic closing for queue bookings). Scheduled patients who have not arrived may request rescheduling during their arrival grace period.</p>
             <?php endif; ?>
           </div>
           <span class="ma-pill <?= $pillClass ?>"><?= htmlspecialchars($pillLabel) ?></span>
@@ -559,4 +585,5 @@ require __DIR__ . '/../includes/header.php';
   window.setTimeout(function () { window.location.reload(); }, 60000);
 </script>
 <?php endif; ?>
+<script src="<?= HQ_BASE_URL ?>/assets/js/visit-completion.js?v=<?= filemtime(__DIR__.'/../assets/js/visit-completion.js') ?>" defer></script>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

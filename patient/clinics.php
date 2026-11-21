@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__.'/../includes/clinic-location.php';
+require_once __DIR__.'/../includes/clinic-fees.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/clinic-hours.php';
@@ -15,7 +17,7 @@ $pdo = getDbConnection();
 $search = trim((string) ($_GET['q'] ?? ''));
 $openOnly = ($_GET['open'] ?? '') === '1';
 $specFilter = trim((string) ($_GET['spec'] ?? ''));
-$sortOptions = ['wait' => 'Shortest wait', 'fee' => 'Lowest fee', 'name' => 'Name (A–Z)'];
+$sortOptions = ['nearest' => 'Nearest first', 'wait' => 'Shortest wait', 'fee' => 'Lowest fee', 'name' => 'Name (A–Z)'];
 $sort = isset($sortOptions[$_GET['sort'] ?? '']) ? $_GET['sort'] : 'wait';
 
 $clinics = [];
@@ -26,10 +28,10 @@ if ($pdo) {
     try {
         $now = clinicNow($pdo);
 
-        $sql = "SELECT ClinicID, ClinicName, Address, BaseConsultationFee, PhotoUrl, Specialties, OpenDays, OpenTime, CloseTime
+        $sql = "SELECT ClinicID, ClinicName, Address, Latitude, Longitude, BaseConsultationFee, PhotoUrl, Specialties, OpenDays, OpenTime, CloseTime
                 FROM Clinic WHERE archived = 0 AND Status = 'Active'";
         $stmt = $pdo->query($sql);
-        $rows = $stmt->fetchAll();
+        $rows = clinicFeeRows($pdo,$stmt->fetchAll());
 
         $queueCounts = $pdo->query(
             "SELECT ClinicID, COUNT(*) FROM Queue
@@ -104,11 +106,14 @@ $filterUrl = static function (array $changes) use ($search, $openOnly, $specFilt
     return '?' . http_build_query($params);
 };
 
+$isClinicNearbyPage=true;
 $pageTitle = 'Clinics — HealthQueue';
 require __DIR__ . '/../includes/header.php';
 ?>
 
-<main class="portal-shell"><div class="container">
+<main class="portal-shell" data-nearby-root data-nearby-fallback-sort="<?= htmlspecialchars($sort==='nearest'?'wait':$sort) ?>"><div class="container">
+  <header class="nearby-directory-title"><h1>Care near you</h1><p>Find a clinic for your next visit.</p></header>
+  <?php renderClinicLocationControls(); ?>
   <?php if ($dataError): ?><p class="form-message error" role="alert"><?= htmlspecialchars($dataError) ?></p><?php endif; ?>
 
   <section class="portal-section">
@@ -119,7 +124,7 @@ require __DIR__ . '/../includes/header.php';
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="search" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Search clinics, specialties, or areas" aria-label="Search clinics">
       </label>
-      <select name="sort" class="cb-sort" aria-label="Sort clinics" onchange="this.form.submit()">
+      <select name="sort" class="cb-sort" aria-label="Sort clinics" data-nearby-sort>
         <?php foreach ($sortOptions as $key => $label): ?>
           <option value="<?= $key ?>"<?= $sort === $key ? ' selected' : '' ?>><?= $label ?></option>
         <?php endforeach; ?>
@@ -137,12 +142,12 @@ require __DIR__ . '/../includes/header.php';
     <p class="cb-count">Showing <?= count($clinics) ?> clinic<?= count($clinics) === 1 ? '' : 's' ?><?= ($search !== '' || $openOnly || $specFilter !== '') ? ' · <a href="?" class="text-link">Clear filters</a>' : '' ?></p>
 
     <?php if ($clinics): ?>
-      <div class="cb-grid">
+      <div class="cb-grid" data-nearby-list>
         <?php foreach ($clinics as $clinic): ?>
           <?php
             $tint = $clinic['IsOpen'] ? 'tint-' . ((int) $clinic['ClinicID'] % 5) : 'tint-closed';
           ?>
-          <article class="cb-card" data-clinic-url="<?= HQ_BASE_URL ?>/patient/clinic-detail.php?clinic_id=<?= (int) $clinic['ClinicID'] ?>" tabindex="0" role="link" aria-label="View details for <?= htmlspecialchars($clinic['ClinicName']) ?>">
+          <article class="cb-card" <?= clinicNearbyAttributes($clinic) ?> data-clinic-url="<?= HQ_BASE_URL ?>/patient/clinic-detail.php?clinic_id=<?= (int) $clinic['ClinicID'] ?>" tabindex="0" role="link" aria-label="View details for <?= htmlspecialchars($clinic['ClinicName']) ?>">
             <div class="cb-cover <?= $tint ?>">
               <?php if ($clinic['Photo']): ?>
                 <img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($clinic['Photo']) ?>" alt="">
@@ -152,7 +157,7 @@ require __DIR__ . '/../includes/header.php';
               <span class="cb-status <?= $clinic['IsOpen'] ? 'is-open' : 'is-closed' ?>"><?= htmlspecialchars($clinic['HoursLabel']) ?></span>
             </div>
             <div class="cb-body">
-              <h3><?= htmlspecialchars($clinic['ClinicName']) ?></h3>
+              <h3><?= htmlspecialchars($clinic['ClinicName']) ?></h3><span class="nearby-distance" data-nearby-distance hidden></span>
               <p class="cb-address">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                 <?= htmlspecialchars($clinic['Address']) ?>
@@ -182,6 +187,7 @@ require __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                   <button type="button" class="btn btn-outline btn-sm cb-book" data-book-clinic="<?= (int) $clinic['ClinicID'] ?>">Book</button>
                 <?php endif; ?>
+                <a class="nearby-directions" href="<?= htmlspecialchars(clinicDirectionsUrl($clinic),ENT_QUOTES) ?>" target="_blank" rel="noopener noreferrer">Get directions</a>
               </div>
             </div>
           </article>
@@ -201,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // button inside a card opens the booking modal instead (booking-modal.php).
   document.querySelectorAll('[data-clinic-url]').forEach(function (card) {
     card.addEventListener('click', function (e) {
-      if (e.target.closest('.cb-book')) return;
+      if (e.target.closest('a,button,input,select,textarea')) return;
       window.location.href = card.getAttribute('data-clinic-url');
     });
     card.addEventListener('keydown', function (e) {

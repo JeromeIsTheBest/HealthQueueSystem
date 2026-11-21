@@ -139,3 +139,5 @@
   .physician-dashboard .pd-table-scroll { overflow:visible; }
   .physician-dashboard .pd-table { min-width:0; }
 }
+
+.pd-sub-account .pd-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:900px){.pd-sub-account .pd-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.pd-sub-account .pd-metrics{grid-template-columns:1fr}}

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/../includes/input-validation.php';
+require_once __DIR__.'/../includes/physician-availability.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
@@ -18,9 +19,9 @@ $clinicId = $user['ClinicID'] ? (int) $user['ClinicID'] : null;
 $errors = [];
 $flash = '';
 
-// Selectable times: every 30 minutes, 6:00 AM – 10:00 PM.
+// Selectable times: every 30 minutes, 1:00 AM – 10:00 PM.
 $timeOptions = [];
-for ($minutes = 6 * 60; $minutes <= 22 * 60; $minutes += 30) {
+for ($minutes = 1 * 60; $minutes <= 22 * 60; $minutes += 30) {
     $value = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
     $timeOptions[$value] = date('g:i A', strtotime($value));
 }
@@ -56,6 +57,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'The database is temporarily unavailable.';
     } elseif (!$dates) {
         $errors[] = 'Select at least one date (today or later) on the calendar.';
+    } elseif ($formType === 'update_hours') {
+        try {
+            if(count($dates)!==1)throw new RuntimeException('Select one scheduled date to update.');
+            $raw=(string)($_POST['per_hour']??'');
+            if($raw!==''&&(!ctype_digit($raw)||(int)$raw<1||(int)$raw>12))throw new RuntimeException('Patients per hour must be between 1 and 12.');
+            updatePhysicianAvailability($pdo,$physicianId,$dates[0],(int)($_POST['slot_id']??0),(string)($_POST['start_time']??''),(string)($_POST['end_time']??''),$raw===''?null:(int)$raw);
+            $flash='Schedule updated.';
+        }catch(Throwable $e){error_log('Availability update failed: '.$e->getMessage());$errors[]=$e instanceof PDOException?'We could not update this schedule.':$e->getMessage();}
     } elseif ($formType === 'add_hours') {
         $start = (string) ($_POST['start_time'] ?? '');
         $end = (string) ($_POST['end_time'] ?? '');
@@ -138,6 +147,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+require_once __DIR__ . '/../includes/physician-save-feedback.php';
+$feedbackRedirect = physicianSaveFeedback($flash, $errors, HQ_BASE_URL . '/physician/availability.php?month=' . rawurlencode($monthParam));
+if ($feedbackRedirect !== null) { header('Location: ' . $feedbackRedirect, true, 303); exit; }
+
 // Calendar data for the visible month.
 $byDate = [];
 $monthHours = 0.0;
@@ -145,7 +158,7 @@ $nextDayOff = null;
 if ($pdo) {
     try {
         $stmt = $pdo->prepare(
-            'SELECT AvailDate, StartTime, EndTime, PatientsPerHour, IsDayOff FROM PhysicianDateAvailability
+            'SELECT SlotID, AvailDate, StartTime, EndTime, PatientsPerHour, IsDayOff FROM PhysicianDateAvailability
              WHERE PhysicianID = ? AND AvailDate BETWEEN ? AND ? ORDER BY AvailDate, StartTime'
         );
         $stmt->execute([$physicianId, $monthStart->format('Y-m-d'), $monthEnd->format('Y-m-d')]);
@@ -226,7 +239,7 @@ require __DIR__ . '/../includes/header.php';
             <span class="cal-off">Day off</span>
           <?php elseif ($info): ?>
             <?php foreach ($info['blocks'] as $block): ?>
-              <span class="cal-chip"><?= htmlspecialchars($chipTime($block['StartTime']) . '–' . $chipTime($block['EndTime'])) ?><?= $block['PatientsPerHour'] ? ' · ' . (int) $block['PatientsPerHour'] . '/hr' : '' ?></span>
+              <span class="cal-chip" data-slot="<?= (int)$block['SlotID'] ?>" title="Select these hours to update"><?= htmlspecialchars($chipTime($block['StartTime']) . '–' . $chipTime($block['EndTime'])) ?><?= $block['PatientsPerHour'] ? ' · ' . (int) $block['PatientsPerHour'] . '/hr' : '' ?></span>
             <?php endforeach; ?>
           <?php endif; ?>
         </button>
@@ -260,9 +273,9 @@ require __DIR__ . '/../includes/header.php';
       <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
       <input type="hidden" name="month" value="<?= htmlspecialchars($monthParam) ?>">
       <input type="hidden" name="dates" id="calDates" value="">
-      <input type="hidden" name="form_type" id="calFormType" value="add_hours">
+      <input type="hidden" name="form_type" id="calFormType" value="add_hours"><input type="hidden" name="slot_id" id="calSlotId" value="">
 
-      <div data-mode-panel="available">
+      <div data-mode-panel="available"><select id="calBlock" hidden aria-hidden="true" tabindex="-1"></select>
         <div class="cal-fields">
           <label class="cal-field">
             <span>From</span>
@@ -287,7 +300,7 @@ require __DIR__ . '/../includes/header.php';
         </div>
         <p class="cal-note">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <span>Adding hours to a day off turns it back into a working day. Dates where the hours would overlap existing ones are skipped.</span>
+          <span>Select one scheduled date to update its saved hours. If it has multiple schedules, tap the hours on the calendar to edit that block. Other selections add hours; overlapping blocks are skipped.</span>
         </p>
       </div>
       <div data-mode-panel="dayoff" hidden>
@@ -310,6 +323,9 @@ require __DIR__ . '/../includes/header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  var schedules = <?= json_encode($byDate, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  var editDate = null;
+  var blockSelect = document.getElementById('calBlock');
   var selected = new Set();
   var mode = 'available';
   var days = Array.prototype.slice.call(document.querySelectorAll('.cal-day:not([disabled])'));
@@ -317,6 +333,16 @@ document.addEventListener('DOMContentLoaded', function () {
   var primary = document.getElementById('calPrimary');
   var form = document.getElementById('calForm');
 
+  function loadBlock() {
+    var blocks = (schedules[editDate] || {}).blocks || [];
+    var block = blocks.find(function (b) { return String(b.SlotID) === blockSelect.value; });
+    if (!block) return;
+    form.elements.start_time.value = block.StartTime.slice(0,5);
+    form.elements.end_time.value = block.EndTime.slice(0,5);
+    form.elements.per_hour.value = block.PatientsPerHour == null ? '' : String(block.PatientsPerHour);
+    document.getElementById('calSlotId').value = block.SlotID;
+  }
+  blockSelect.addEventListener('change', loadBlock);
   function refresh() {
     days.forEach(function (day) {
       var on = selected.has(day.getAttribute('data-date'));
@@ -326,13 +352,26 @@ document.addEventListener('DOMContentLoaded', function () {
     var n = selected.size;
     countEl.textContent = n ? n + ' date' + (n === 1 ? '' : 's') + ' selected' : 'No dates selected';
     countEl.classList.toggle('has-selection', n > 0);
-    primary.textContent = (mode === 'available' ? 'Add hours to ' : 'Mark as day off: ') + n + ' date' + (n === 1 ? '' : 's');
+    var date = n === 1 ? Array.from(selected)[0] : null;
+    var blocks = date && schedules[date] ? schedules[date].blocks : [];
+    var updating = mode === 'available' && blocks.length > 0;
+    if (updating && editDate !== date) {
+      blockSelect.replaceChildren();
+      blocks.forEach(function (b) { var option = document.createElement('option'); option.value = b.SlotID; option.textContent = b.StartTime.slice(0,5) + ' ? ' + b.EndTime.slice(0,5); blockSelect.appendChild(option); });
+      editDate = date; loadBlock();
+    } else if (!updating) { editDate = null; document.getElementById('calSlotId').value = ''; }
+    primary.textContent = updating ? 'Update schedule' : (mode === 'available' ? 'Add hours to ' : 'Mark as day off: ') + n + ' date' + (n === 1 ? '' : 's');
     primary.disabled = n === 0;
     form.querySelector('[data-action="clear_dates"]').disabled = n === 0;
   }
 
   days.forEach(function (day) {
-    day.addEventListener('click', function () {
+    day.addEventListener('click', function (event) {
+      var chip = event.target.closest('[data-slot]');
+      if (chip) {
+        selected.clear(); selected.add(day.getAttribute('data-date')); refresh();
+        blockSelect.value = chip.getAttribute('data-slot'); loadBlock(); return;
+      }
       var date = day.getAttribute('data-date');
       selected.has(date) ? selected.delete(date) : selected.add(date);
       refresh();
@@ -367,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Submit: send the selected dates and which action was pressed.
   form.addEventListener('submit', function (e) {
     var action = e.submitter ? e.submitter.getAttribute('data-action') : 'primary';
-    var type = action === 'clear_dates' ? 'clear_dates' : (mode === 'available' ? 'add_hours' : 'day_off');
+    var type = action === 'clear_dates' ? 'clear_dates' : (mode === 'available' ? (editDate ? 'update_hours' : 'add_hours') : 'day_off');
     if (!selected.size) { e.preventDefault(); return; }
     if (type === 'clear_dates' && !confirm('Remove all hours and day-off marks from the selected dates?')) { e.preventDefault(); return; }
     if (type === 'day_off' && !confirm('Mark the selected dates as days off? Any hours on them will be removed.')) { e.preventDefault(); return; }

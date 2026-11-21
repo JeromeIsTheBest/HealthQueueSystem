@@ -3,6 +3,7 @@ if (!defined('HQ_BASE_URL')) {
     define('HQ_BASE_URL', '/healthqueue');
 }
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/physician-accounts.php';
 $pageTitle = $pageTitle ?? 'HealthQueue';
 $hqUser = currentUser();
 $hqAppRole = $hqUser && in_array($hqUser['RoleName'], ['Admin', 'Staff', 'Physician', 'Patient'], true);
@@ -30,6 +31,9 @@ $hqAppRole = $hqUser && in_array($hqUser['RoleName'], ['Admin', 'Staff', 'Physic
 <?php endif; ?>
 <?php if (($hqUser['RoleName'] ?? '') === 'Patient'): ?>
 <link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/patient-mobile.css?v=<?= filemtime(__DIR__ . '/../assets/css/patient-mobile.css') ?>">
+<?php endif; ?>
+<?php if (!empty($isPhysicianManageClinic) || basename($_SERVER['SCRIPT_NAME'] ?? '') === 'clinic-fees.php'): ?>
+<link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/physician-clinic.css?v=<?= filemtime(__DIR__ . '/../assets/css/physician-clinic.css') ?>">
 <?php endif; ?>
 <?php if (!empty($isPhysicianDashboard)): ?>
 <link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/physician-dashboard.css?v=<?= filemtime(__DIR__ . '/../assets/css/physician-dashboard.css') ?>">
@@ -71,6 +75,11 @@ $hqAppRole = $hqUser && in_array($hqUser['RoleName'], ['Admin', 'Staff', 'Physic
 <?php if (!empty($isWithdrawalPage)): ?>
 <link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/physician-withdrawals.css?v=<?= filemtime(__DIR__ . '/../assets/css/physician-withdrawals.css') ?>">
 <?php endif; ?>
+<?php if(!empty($isVisitCompletionPage)||($hqUser['RoleName']??'')==='Patient'): ?><link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/visit-completion.css?v=<?= filemtime(__DIR__.'/../assets/css/visit-completion.css') ?>"><?php endif; ?>
+<?php if(!empty($isReportsPage)): ?><link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/reports.css?v=<?= filemtime(__DIR__.'/../assets/css/reports.css') ?>"><?php endif; ?>
+<?php if(in_array($hqUser['RoleName']??'', ['Patient','Physician'],true)): ?><link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/record-access.css?v=<?= filemtime(__DIR__.'/../assets/css/record-access.css') ?>"><?php endif; ?>
+<?php if(($hqUser['RoleName']??'')==='Physician'&&basename($_SERVER['SCRIPT_NAME']??'')==='consultation.php'): ?><link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/consultation-header.css?v=<?= filemtime(__DIR__.'/../assets/css/consultation-header.css') ?>"><?php endif; ?>
+<?php if(!empty($isClinicNearbyPage)): ?><link rel="stylesheet" href="<?= HQ_BASE_URL ?>/assets/css/clinic-location.css?v=<?= filemtime(__DIR__.'/../assets/css/clinic-location.css') ?>"><script src="<?= HQ_BASE_URL ?>/assets/js/clinic-location.js?v=<?= filemtime(__DIR__.'/../assets/js/clinic-location.js') ?>" defer></script><?php endif; ?>
 </head>
 <body class="<?= $hqAppRole ? 'app-portal' . ($hqUser['RoleName'] === 'Patient' ? ' patient-portal' : '') : '' ?><?= !empty($isLandingPage) ? ' landing-home' : '' ?><?= !empty($isMobileAuthPage) ? ' mobile-auth-page' : '' ?>">
 
@@ -83,6 +92,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
 <?php if ($hqIsAdminLayout):
   $hqCurrentFile = basename($_SERVER['SCRIPT_NAME']);
   $hqActiveFile = $hqUser['RoleName'] === 'Admin' && $hqCurrentFile === 'physician-withdrawals.php' ? 'revenue.php' : $hqCurrentFile;
+  if($hqUser['RoleName']==='Admin'&&$hqCurrentFile==='clinic-fees.php')$hqActiveFile='clinics.php';
   $hqRoleFolder = match ($hqUser['RoleName']) {
       'Admin'     => 'admin',
       'Physician' => 'physician',
@@ -111,7 +121,8 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
           ['file' => 'consultations.php',  'label' => 'Consultations',  'icon' => '<path d="M4.8 2.3 3 4l1.8 1.7M8 2v3M3 8h3"/><path d="M6 6c0 4 3 9 8 10 2 0 4-2 4-4l-3-3-2 2c-1-1-3-3-3-5l2-2-3-3C7 1 6 3 6 6Z"/>'],
           ['file' => 'availability.php',   'label' => 'My Availability','icon' => $hqIconCalendar],
           ['file' => 'history.php',        'label' => 'Consultation History', 'icon' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>'],
-          ['file' => 'withdrawals.php', 'label' => 'Earnings & Withdrawals', 'icon' => '<rect x="3" y="6" width="18" height="15" rx="2"/><path d="m5 6 11-4v4M21 11h-6v5h6"/>'],
+          ['file' => 'withdrawals.php', 'label' => 'Earnings', 'icon' => '<rect x="3" y="6" width="18" height="15" rx="2"/><path d="m5 6 11-4v4M21 11h-6v5h6"/>'],
+          ['file'=>'notifications.php','label'=>'Notifications','icon'=>'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'],
           ['file' => 'profile.php',        'label' => 'Profile',        'icon' => $hqIconProfile],
       ],
       'Staff' => [
@@ -136,6 +147,19 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
       ],
   };
 
+  if(in_array($hqUser['RoleName'],['Admin','Staff','Physician'],true)){
+    $reportLabel=$hqUser['RoleName']==='Admin'?'Reports & Analytics':'Reports';
+    if($hqUser['RoleName']==='Physician')$reportLabel='My Reports';
+    array_splice($hqSidebarNav,count($hqSidebarNav)-1,0,[['file'=>'reports.php','label'=>$reportLabel,'icon'=>'<path d="M4 20h16M7 16v-5M12 16V4M17 16V8"/>']]);
+  }
+
+  if ($hqUser['RoleName'] === 'Physician') {
+      $mainAccount=false;
+      if($accountDb=getDbConnection()){try{$mainAccount=physicianAccount($accountDb,(int)$hqUser['UserID'])['is_main'];}catch(Throwable $e){error_log('Physician navigation unavailable.');}}
+      $hqSidebarNav=array_values(array_filter($hqSidebarNav,static fn($item)=>$mainAccount||$item['file']!=='withdrawals.php'));
+      if($mainAccount){foreach($hqSidebarNav as &$reportNav)if($reportNav['file']==='reports.php')$reportNav['label']='Reports';unset($reportNav);array_splice($hqSidebarNav,4,0,[['file'=>'manage-clinic.php','label'=>'Manage Clinic','icon'=>'<path d="M4 21V6h16v15M2 21h20M9 21v-5h6v5M9 10h6M12 7v6"/>'],['file'=>'sub-accounts.php','label'=>'Manage Sub Accounts','icon'=>$hqIconProfile]]);foreach($hqSidebarNav as &$navItem)if($navItem['file']==='withdrawals.php')$navItem['label']='Earnings';unset($navItem);}
+  }
+
   // Small attention counts shown as sidebar badges, so nobody has to click
   // into each section just to see whether anything needs action.
   $hqSidebarBadges = [];
@@ -148,16 +172,17 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
 
           if ($hqUser['RoleName'] === 'Admin') {
               $hqSidebarBadges['clinics.php'] = (int) $pdo->query(
-                  "SELECT COUNT(*) FROM ClinicRegistrationInquiry WHERE Status = 'Pending'"
+                  "SELECT (SELECT COUNT(*) FROM ClinicRegistrationInquiry WHERE Status = 'Pending') + (SELECT COUNT(*) FROM ClinicFeeRequests WHERE Status = 'Pending')"
               )->fetchColumn();
               $hqSidebarBadges['revenue.php'] = (int) $pdo->query(
                   "SELECT COUNT(*) FROM Appointments a
                    JOIN Clinic c ON c.ClinicID = a.ClinicID
                    LEFT JOIN AppointmentPayments p ON p.AppointmentID = a.AppointmentID
                    WHERE p.PaymentID IS NULL AND a.PhysicianID IS NOT NULL
-                     AND a.Status = 'Completed' AND c.BaseConsultationFee > 0"
+                     AND a.Status = 'Completed' AND COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) > 0"
               )->fetchColumn();
           } elseif ($hqUser['RoleName'] === 'Physician') {
+              $stmt=$pdo->prepare('SELECT COUNT(*) FROM PhysicianNotifications WHERE PhysicianID=? AND IsRead=0');$stmt->execute([$hqUser['UserID']]);$hqSidebarBadges['notifications.php']=(int)$stmt->fetchColumn();
               $stmt = $pdo->prepare("SELECT COUNT(*) FROM Appointments WHERE PhysicianID = ? AND Status = 'Pending'");
               $stmt->execute([$hqUser['UserID']]);
               $hqSidebarBadges['dashboard.php'] = (int) $stmt->fetchColumn();
@@ -176,7 +201,7 @@ $hqIsAdminLayout = $hqUser && in_array($hqUser['RoleName'], $hqSidebarRoles, tru
                      AND EXISTS (
                          SELECT 1 FROM ConsultationVersions v
                          JOIN Consultations cons ON cons.ConsultationID = v.ConsultationID
-                         WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized'
+                         WHERE cons.AppointmentID = a.AppointmentID AND v.Status = 'Finalized' AND v.VersionID=(SELECT newest.VersionID FROM ConsultationVersions newest WHERE newest.ConsultationID=cons.ConsultationID ORDER BY newest.RevisionNumber DESC,newest.VersionID DESC LIMIT 1)
                      )"
               );
               $stmt->execute([$hqUser['ClinicID']]);

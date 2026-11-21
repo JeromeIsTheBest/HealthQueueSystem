@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/clinic-inquiry.php';
+require_once __DIR__.'/relationship-links.php';
 // Shared by the admin dashboard and clinic request list.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
@@ -23,16 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->prepare("UPDATE ClinicRegistrationInquiry SET Status = 'Rejected' WHERE InquiryID = ?")->execute([$inquiryId]);
                     $flash = 'The clinic registration inquiry was declined.';
                 } else {
-                    $clinicStmt = $pdo->prepare('SELECT ClinicID FROM Clinic WHERE ClinicName = ? AND archived = 0 LIMIT 1');
-                    $clinicStmt->execute([$inquiry['ClinicName']]);
-                    $existingClinic = $clinicStmt->fetch();
-                    if ($existingClinic) {
-                        $newClinicId = (int) $existingClinic['ClinicID'];
-                    } else {
-                        $pdo->prepare('INSERT INTO Clinic (ClinicName, Address, ContactNumber) VALUES (?, ?, ?)')->execute([$inquiry['ClinicName'], $inquiry['City'], $inquiry['Phone']]);
-                        $newClinicId = (int) $pdo->lastInsertId();
-                    }
-                    $pdo->prepare("UPDATE ClinicRegistrationInquiry SET Status = 'Approved' WHERE InquiryID = ?")->execute([$inquiryId]);
+                    $newClinicId = approveClinicInquiryWithLink($pdo,(int)$inquiryId);
                     $flash = 'Clinic approved and added to the directory.';
                 }
                 if ($errors) {
@@ -41,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->commit();
                     logActivity($pdo, $user['UserID'], $newClinicId, 'Reviewed clinic registration', $inquiry['ClinicName'] . ' — ' . ucfirst($decision) . 'd');
                 }
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 error_log('Inquiry review failed: ' . $e->getMessage());
                 $errors[] = 'We could not update this registration inquiry.';

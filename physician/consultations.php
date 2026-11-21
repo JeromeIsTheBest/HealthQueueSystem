@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Physician']);
@@ -26,11 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'st
         $errors[] = 'Your session expired. Please try again.';
     } elseif ($pdo && $appointmentId) {
         try {
-            $check = $pdo->prepare("SELECT a.AppointmentID, a.ClinicID, a.PatientID FROM Appointments a WHERE a.AppointmentID = ? AND a.PhysicianID = ? AND a.Status = 'Confirmed' AND (a.AppointmentTime IS NULL OR a.AppointmentTime = '00:00:00' OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW())");
+            $pdo->beginTransaction();lockQueueClinic($pdo,(int)$user['ClinicID']);
+            $busy=$pdo->prepare("SELECT COUNT(*) FROM Queue q JOIN Appointments a ON a.AppointmentID=q.AppointmentID WHERE q.ClinicID=? AND q.PhysicianID=? AND q.AppointmentID<>? AND DATE(q.CreatedAt)=CURDATE() AND q.Status IN ('Calling','Serving') AND a.Status='Confirmed'");$busy->execute([$user['ClinicID'],$physicianId,$appointmentId]);if((int)$busy->fetchColumn())throw new RuntimeException('Finish your current consultation before starting another.');
+            $check = $pdo->prepare("SELECT a.AppointmentID, a.ClinicID, a.PatientID FROM Appointments a WHERE a.AppointmentID = ? AND a.PhysicianID = ? AND a.Status = 'Confirmed' AND (a.AppointmentTime IS NULL OR a.AppointmentTime = '00:00:00' OR TIMESTAMP(a.AppointmentDate, a.AppointmentTime) <= NOW()) AND EXISTS(SELECT 1 FROM Queue q WHERE q.AppointmentID=a.AppointmentID AND q.PhysicianID=a.PhysicianID AND DATE(q.CreatedAt)=CURDATE() AND q.Status IN ('Waiting','Calling','Serving')) FOR UPDATE");
             $check->execute([$appointmentId, $physicianId]);
             if ($appt = $check->fetch()) {
+                $arrivalCheck=$pdo->prepare("SELECT a.AppointmentTime,q.ArrivedAt,q.GracePolicyEnabledAt,q.Status FROM Appointments a JOIN Queue q ON q.AppointmentID=a.AppointmentID WHERE a.AppointmentID=? AND q.PhysicianID=? AND DATE(q.CreatedAt)=CURDATE() AND q.Status IN ('Waiting','Calling') FOR UPDATE");$arrivalCheck->execute([$appointmentId,$physicianId]);$arrival=$arrivalCheck->fetch();
+                if($arrival && !empty($arrival['AppointmentTime']) && $arrival['AppointmentTime']!=='00:00:00' && !empty($arrival['GracePolicyEnabledAt']) && !$arrival['ArrivedAt'])throw new RuntimeException('Ask the front desk to confirm the patient arrival before starting this scheduled consultation.');
+
                 $pdo->prepare(
-                    "UPDATE Queue SET Status = 'Serving', CalledAt = COALESCE(CalledAt, NOW()), ServedAt = NOW()
+                    "UPDATE Queue SET Status = 'Serving', ArrivedAt=COALESCE(ArrivedAt,NOW()), CalledAt = COALESCE(CalledAt, NOW()), ServedAt = NOW()
                      WHERE AppointmentID = ? AND DATE(CreatedAt) = CURDATE() AND Status IN ('Waiting', 'Calling')"
                 )->execute([$appointmentId]);
                 $exists = $pdo->prepare('SELECT 1 FROM Consultations WHERE AppointmentID = ?');
@@ -39,14 +45,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'st
                     $pdo->prepare('INSERT INTO Consultations (ClinicID, AppointmentID, PatientID, DoctorID) VALUES (?, ?, ?, ?)')
                         ->execute([$appt['ClinicID'], $appointmentId, $appt['PatientID'], $physicianId]);
                 }
+                $pdo->commit();
                 logActivity($pdo, $physicianId, (int) $appt['ClinicID'], 'Started consultation', "Appointment #{$appointmentId}");
                 header('Location: ' . HQ_BASE_URL . '/physician/consultation.php?appointment_id=' . $appointmentId);
                 exit;
             }
-            $errors[] = 'That appointment is no longer available.';
-        } catch (PDOException $e) {
+            $pdo->rollBack();$errors[] = 'That appointment is no longer available.';
+        } catch (Throwable $e) {
+            if($pdo->inTransaction())$pdo->rollBack();
             error_log('Start consultation failed: ' . $e->getMessage());
-            $errors[] = 'We could not start this consultation.';
+            $errors[]=$e instanceof PDOException?'We could not start this consultation.':$e->getMessage();
         }
     }
 }
@@ -74,7 +82,7 @@ if ($pdo) {
                     TIMESTAMPDIFF(MINUTE, q.CreatedAt, NOW()) AS WaitingMinutes,
                     TIMESTAMPDIFF(SECOND, q.ServedAt, NOW()) AS ServingSeconds,
                     (SELECT MAX(v.UpdatedAt) FROM ConsultationVersions v JOIN Consultations c ON c.ConsultationID = v.ConsultationID
-                     WHERE c.AppointmentID = a.AppointmentID AND v.Status = 'Finalized') AS FinalizedAt,
+                     WHERE c.AppointmentID = a.AppointmentID AND v.Status = 'Finalized' AND v.VersionID=(SELECT newest.VersionID FROM ConsultationVersions newest WHERE newest.ConsultationID=c.ConsultationID ORDER BY newest.RevisionNumber DESC,newest.VersionID DESC LIMIT 1)) AS FinalizedAt,
                     (SELECT COUNT(*) FROM ConsultationVersions v JOIN Consultations c ON c.ConsultationID = v.ConsultationID
                      WHERE c.AppointmentID = a.AppointmentID AND v.Status = 'Draft') AS DraftCount,
                     (SELECT c.AudioFilePath FROM Consultations c WHERE c.AppointmentID = a.AppointmentID) AS AudioFilePath
@@ -101,6 +109,9 @@ if ($pdo) {
                 $scheduled[] = $row;
             }
         }
+        $timeRanks=[];$heldAppointments=[];foreach(clinicTimeQueue($pdo,(int)$user['ClinicID'],$physicianId) as $rank=>$predicted){$timeRanks[(int)$predicted['AppointmentID']]=$rank;if(!empty($predicted['GraceHeld']))$heldAppointments[(int)$predicted['AppointmentID']]=true;}
+        $upNext=array_values(array_filter($upNext,static fn($r)=>!isset($heldAppointments[(int)$r['AppointmentID']])));
+        usort($upNext,static fn($a,$b)=>[$timeRanks[(int)$a['AppointmentID']]??PHP_INT_MAX,(int)$a['AppointmentID']]<=>[$timeRanks[(int)$b['AppointmentID']]??PHP_INT_MAX,(int)$b['AppointmentID']]);
         $stats['waiting'] = count($upNext);
 
         // Show future timed visits here, separate from today's live queue.
@@ -112,7 +123,7 @@ if ($pdo) {
              FROM Appointments a
              JOIN Users pat ON pat.UserID = a.PatientID
              WHERE a.ClinicID = ?
-               AND (a.PhysicianID = ? OR a.PhysicianID IS NULL)
+               AND a.PhysicianID = ?
                AND a.Status IN ('Pending', 'Confirmed')
                AND a.AppointmentTime IS NOT NULL AND a.AppointmentTime <> '00:00:00'
                AND a.BookingFeePaid = 1
@@ -241,7 +252,7 @@ $pcCalendar = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4
         </section>
 
         <section class="pc-panel" aria-labelledby="pcAwaitingHeading">
-          <div class="pc-panel-heading"><h2 id="pcAwaitingHeading">Awaiting staff confirmation <span class="pc-count"><?= count($awaiting) ?></span></h2></div>
+          <div class="pc-panel-heading"><h2 id="pcAwaitingHeading">Awaiting completion confirmation <span class="pc-count"><?= count($awaiting) ?></span></h2></div>
           <?php if ($awaiting): ?>
             <ul class="pc-awaiting-list">
               <?php foreach ($awaiting as $row): ?>

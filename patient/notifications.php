@@ -73,7 +73,17 @@ $dataError = null;
 
 if ($pdo) {
     try {
-        $stmt = $pdo->prepare('SELECT NotificationID, Message, IsRead, CreatedAt FROM PatientNotifications WHERE PatientID = ? ORDER BY CreatedAt DESC LIMIT 50');
+        require_once __DIR__.'/../includes/medical-record-access.php';
+        $live=recordAccessLiveSql();
+        $stmt = $pdo->prepare("SELECT n.NotificationID,n.Message,n.IsRead,n.CreatedAt,r.RequestID AS RecordAccessRequestID,
+          vn.AppointmentID AS VisitCompletionAppointmentID,vr.Status AS VisitCompletionStatus,
+          CASE WHEN r.RequestID IS NULL THEN NULL WHEN a.AppointmentID IS NULL OR a.PhysicianID<>r.PhysicianID OR NOT ($live) THEN 'Expired' ELSE r.Status END AS RecordAccessStatus
+          FROM PatientNotifications n LEFT JOIN VisitCompletionNotifications vn ON vn.NotificationID=n.NotificationID
+          LEFT JOIN VisitCompletionReviews vr ON vr.AppointmentID=vn.AppointmentID AND vr.PatientID=n.PatientID
+          LEFT JOIN MedicalRecordAccessNotifications m ON m.NotificationID=n.NotificationID
+          LEFT JOIN MedicalRecordAccessRequests r ON r.RequestID=m.RequestID AND r.PatientID=n.PatientID
+          LEFT JOIN Appointments a ON a.AppointmentID=r.AppointmentID AND a.PatientID=n.PatientID
+          WHERE n.PatientID=? ORDER BY n.CreatedAt DESC,n.NotificationID DESC LIMIT 50");
         $stmt->execute([$user['UserID']]);
         $notifications = $stmt->fetchAll();
     } catch (PDOException $e) {

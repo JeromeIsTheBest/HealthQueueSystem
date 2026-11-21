@@ -41,14 +41,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$errors) {
             try {
+                $pdo->beginTransaction();
                 $pdo->prepare(
                     'INSERT INTO Announcements (PostedByUserID, ClinicID, Title, Category, Message, PhotoPath, Audience, AffectsDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
                 )->execute([$user['UserID'], $clinicId, $values['title'], $values['category'], $values['message'], $photo, $values['audience'], $values['affects_date'] ?: null]);
+                notifyAnnouncementAudience($pdo,(int)$pdo->lastInsertId());
                 logActivity($pdo, $user['UserID'], $clinicId, 'Posted announcement', $values['title']);
+                $pdo->commit();
                 $_SESSION['announcement_flash'] = 'Announcement posted.';
                 header('Location: ' . HQ_BASE_URL . '/staff/announcements.php');
                 exit;
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
+                if($pdo->inTransaction())$pdo->rollBack();
                 deleteAnnouncementPhoto($photo);
                 error_log('Staff announcement save failed: ' . $e->getMessage());
                 $errors[] = 'We could not post this announcement.';

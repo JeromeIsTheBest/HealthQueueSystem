@@ -181,7 +181,7 @@ function createEmailVerificationToken(PDO $pdo, int $userId): string
 {
     $rawToken = bin2hex(random_bytes(32));
     $pdo->prepare('DELETE FROM EmailVerificationTokens WHERE UserID = ? AND UsedAt IS NULL')->execute([$userId]);
-    $stmt = $pdo->prepare('INSERT INTO EmailVerificationTokens (UserID, TokenHash, ExpiresAt) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))');
+    $stmt = $pdo->prepare('INSERT INTO EmailVerificationTokens (UserID, TokenHash, ExpiresAt) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))');
     $stmt->execute([$userId, hash('sha256', $rawToken)]);
     return $rawToken;
 }
@@ -218,9 +218,27 @@ function createSignupEmailVerification(PDO $pdo, string $email): string
 {
     $rawToken = bin2hex(random_bytes(32));
     $pdo->prepare('DELETE FROM SignupEmailVerifications WHERE Email = ? AND UsedAt IS NULL')->execute([$email]);
-    $stmt = $pdo->prepare('INSERT INTO SignupEmailVerifications (Email, TokenHash, ExpiresAt) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))');
+    $stmt = $pdo->prepare('INSERT INTO SignupEmailVerifications (Email, TokenHash, ExpiresAt) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))');
     $stmt->execute([$email, hash('sha256', $rawToken)]);
     return $rawToken;
+}
+
+/** Validate the code only in the browser session that requested it. No email is sent here. */
+function verifySignupCode(PDO $pdo, string $email, string $code): ?string
+{
+    $challenge = $_SESSION['signup_code'] ?? [];
+    if (!$challenge || empty($challenge['hash']) || ($challenge['expires'] ?? 0) <= time() || ($challenge['attempts'] ?? 0) >= 5 || strcasecmp((string) ($challenge['email'] ?? ''), $email) !== 0) {
+        return 'This code is expired or unavailable. Request a new code.';
+    }
+    $_SESSION['signup_code']['attempts']++;
+    if (!preg_match('/^[0-9]{6}$/D', $code) || !password_verify($code, $challenge['hash'])) {
+        return 'Incorrect verification code. Please try again.';
+    }
+    $stmt = $pdo->prepare('UPDATE SignupEmailVerifications SET VerifiedAt = NOW() WHERE TokenHash = ? AND Email = ? AND UsedAt IS NULL AND VerifiedAt IS NULL AND ExpiresAt > NOW()');
+    $stmt->execute([hash('sha256', $challenge['token']), $email]);
+    if ($stmt->rowCount() !== 1) return 'This code has expired. Request a new code.';
+    unset($_SESSION['signup_code']['hash']);
+    return null;
 }
 
 /** Returns the confirmed email for a signup token, if it is still eligible. */

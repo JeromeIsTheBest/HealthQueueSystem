@@ -86,10 +86,11 @@ function walletRefund(PDO $pdo, int $patientId, float $amount, ?int $appointment
 /** Cancels an active booking, removes every live queue ticket, and refunds at most once. Caller owns transaction. */
 function cancelBooking(PDO $pdo, int $appointmentId, int $patientId, string $reason, string $description): bool
 {
-    $stmt = $pdo->prepare("SELECT a.Status, a.BookingFeePaid, c.ClinicName, c.BaseConsultationFee FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.AppointmentID = ? AND a.PatientID = ? FOR UPDATE");
+    $stmt = $pdo->prepare("SELECT a.Status, a.BookingFeePaid, c.ClinicName, COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) AS BaseConsultationFee FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.AppointmentID = ? AND a.PatientID = ? FOR UPDATE");
     $stmt->execute([$appointmentId, $patientId]);
     $booking = $stmt->fetch();
     if (!$booking || !in_array($booking['Status'], ['Pending', 'Confirmed'], true)) return false;
+    $completion=$pdo->prepare("SELECT AppointmentID FROM VisitCompletionReviews WHERE AppointmentID=? AND Status IN ('AwaitingPatient','IssueReported')");$completion->execute([$appointmentId]);if($completion->fetchColumn())throw new RuntimeException('This consultation is awaiting completion review and cannot be cancelled.');
 
     $pdo->prepare("UPDATE Appointments SET Status = 'Cancelled', CancellationReason = ? WHERE AppointmentID = ?")
         ->execute([$reason, $appointmentId]);
@@ -111,7 +112,7 @@ function cancelBooking(PDO $pdo, int $appointmentId, int $patientId, string $rea
 function payBookingFromWallet(PDO $pdo, int $patientId, int $appointmentId): array
 {
     if (!$pdo->inTransaction()) throw new LogicException('Booking payment requires a transaction.');
-    $stmt = $pdo->prepare('SELECT a.Status, a.BookingFeePaid, c.BaseConsultationFee, c.ClinicName FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.AppointmentID = ? AND a.PatientID = ? FOR UPDATE');
+    $stmt = $pdo->prepare('SELECT a.Status, a.BookingFeePaid, COALESCE(a.BookingFeeAmount,c.BaseConsultationFee) AS BaseConsultationFee, c.ClinicName FROM Appointments a JOIN Clinic c ON c.ClinicID = a.ClinicID WHERE a.AppointmentID = ? AND a.PatientID = ? FOR UPDATE');
     $stmt->execute([$appointmentId, $patientId]);
     $booking = $stmt->fetch();
     if (!$booking) throw new RuntimeException('This appointment is unavailable.');

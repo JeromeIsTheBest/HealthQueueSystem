@@ -38,5 +38,6 @@
 <?php if ($hqAppRole): ?>
 <script src="<?= HQ_BASE_URL ?>/assets/js/app-toast.js?v=<?= filemtime(__DIR__ . '/../assets/js/app-toast.js') ?>" defer></script>
 <?php endif; ?>
+<?php if(($hqUser['RoleName']??'')==='Patient'){require __DIR__.'/record-access-widget.php';require __DIR__.'/visit-confirmation-widget.php';} ?>
 </body>
 </html>

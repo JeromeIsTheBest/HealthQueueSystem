@@ -54,6 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$adminExists && $pdo) {
                 $errors[] = 'The Admin role is missing. Import the latest database schema and try again.';
             } elseif ($emailStmt->fetch()) {
                 $errors[] = 'An account with this email already exists.';
+            } elseif (hqMobileInUse($pdo,$values['contact_number'])) {
+                $errors[] = 'This mobile number is already registered to another account.';
             } else {
                 $insert = $pdo->prepare('INSERT INTO Users (ClinicID, RoleID, FirstName, LastName, Email, ContactNumber, PasswordHash) VALUES (NULL, ?, ?, ?, ?, ?, ?)');
                 $insert->execute([$role['RoleID'], $values['first_name'], $values['last_name'], $values['email'], $values['contact_number'], password_hash($password, PASSWORD_DEFAULT)]);
@@ -69,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$adminExists && $pdo) {
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('Admin setup failed: ' . $e->getMessage());
-            $errors[] = 'We could not create the administrator account. Please try again.';
+            $errors[] = hqDuplicateMobileError($e)?'This mobile number is already registered to another account.':'We could not create the administrator account. Please try again.';
         }
     }
 }

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/ai-transcription.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/consultation-publication.php';
+require_once __DIR__ . '/../includes/visit-completion.php';
 
 define('HQ_BASE_URL', '..');
 requireRole(['Physician']);
@@ -46,9 +47,6 @@ if ($appointment['Status'] !== 'Completed' && !(int) $queueGate->fetchColumn()) 
     header('Location: ' . HQ_BASE_URL . '/physician/dashboard.php');
     exit;
 }
-$recordsStmt = $pdo->prepare('SELECT RecordID, Title, Category, UploadedAt FROM MedicalRecords WHERE PatientID = ? ORDER BY UploadedAt DESC');
-$recordsStmt->execute([$appointment['PatientID']]);
-$patientUploads = $recordsStmt->fetchAll();
 $isCompleted = $appointment['Status'] === 'Completed';
 
 /** Returns this appointment's ConsultationID, creating the row if it doesn't exist yet. */
@@ -113,8 +111,9 @@ function saveNotes(PDO $pdo, array $appointment, int $appointmentId, int $doctor
 {
     $pdo->beginTransaction();
     try {
+    $pdo->prepare('SELECT ClinicID FROM Clinic WHERE ClinicID=? FOR UPDATE')->execute([$appointment['ClinicID']]);
     $guard=$pdo->prepare('SELECT Status FROM Appointments WHERE AppointmentID=? AND PhysicianID=? FOR UPDATE');$guard->execute([$appointmentId,$doctorId]);$status=$guard->fetchColumn();
-    if(!$status || in_array($status,['Completed','Cancelled'],true))throw new RuntimeException('This consultation can no longer be edited.');
+    if($status!=='Confirmed')throw new RuntimeException('Only an approved, uncompleted consultation can be edited.');
     [$clinicalNotes, $prescriptionText] = notesToText($notes);
     $consultationId = getOrCreateConsultationId($pdo, $appointment, $appointmentId, $doctorId);
     $json = json_encode($notes, JSON_UNESCAPED_UNICODE);
@@ -137,7 +136,7 @@ function saveNotes(PDO $pdo, array $appointment, int $appointmentId, int $doctor
         )->execute([$consultationId, $doctorId, (int) $rev->fetchColumn(), $clinicalNotes, $prescriptionText ?: null, $json, $finalize ? 'Finalized' : 'Draft']);
     }
     $savedVersionId=$latestRow && $latestRow['Status']==='Draft'?(int)$latestRow['VersionID']:(int)$pdo->lastInsertId();
-    if($finalize)approveConsultationSummary($pdo,$consultationId,$savedVersionId,$doctorId,($_POST['approve_summary']??'')==='1'?(int)($_POST['summary_id']??0):0);
+    if($finalize){finalizeConsultationSummary($pdo,$consultationId,$savedVersionId,$doctorId,(int)($_POST['summary_id']??0),($_POST['summary_sharing']??'')==='share',($_POST['summary_sharing']??'')==='private');requestVisitConfirmation($pdo,$appointmentId);}
     $time=(string)$pdo->query('SELECT NOW()')->fetchColumn();$pdo->commit();return $time;
     } catch(Throwable $e) {if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }
@@ -154,6 +153,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $formType = $_POST['form_type'] ?? '';
     if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your session expired. Please try again.';
+    } elseif ($formType === 'publish_completed_summary' && $isCompleted) {
+        if (($_POST['reviewed_summary'] ?? '') !== '1') {
+            $errors[] = 'Review the summary against the finalized notes and confirm approval first.';
+        } else {
+            try {
+                publishCompletedConsultationSummary($pdo, $appointmentId, (int)$user['UserID'], (int)($_POST['summary_id'] ?? 0));
+                $flash = 'Reviewed AI summary is now available in the patient medical record.';
+            } catch (Throwable $e) {
+                error_log('Completed summary publication failed: ' . $e->getMessage());
+                $errors[] = $e instanceof RuntimeException && !($e instanceof PDOException) ? $e->getMessage() : 'We could not publish the summary. Please try again.';
+            }
+        }
     } elseif ($isCompleted) {
         $errors[] = 'This consultation is completed and can no longer be edited.';
     } elseif ($formType === 'save_draft' || $formType === 'finalize_notes') {
@@ -181,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'Dr. ' . $user['LastName'] . ' finished with ' . $appointment['FirstName'] . ' ' . $appointment['LastName'] . ' — ready to call the next patient.',
                         $appointmentId
                     );
-                    $_SESSION['consult_flash'] = 'Consultation finalized. The front desk will confirm it as complete.';
+                    $_SESSION['consult_flash'] = 'Notes finalized. The patient can confirm completion or report an issue; Staff can follow up if needed.';
                     header('Location: ' . HQ_BASE_URL . '/physician/consultations.php');
                     exit;
                 }
@@ -243,8 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $language = (string) ($_POST['transcript_language'] ?? 'auto');
                 $transcription = transcribeAudioResult(__DIR__ . '/../storage/audio/' . basename($consultation['AudioFilePath']), $language);
                 $transcriptText = $transcription['text'];
-                $pdo->prepare("INSERT INTO AITranscriptVersions (ConsultationID, TranscriptType, TranscriptText) VALUES (?, 'Original_STT', ?)")
-                    ->execute([(int) $consultation['ConsultationID'], $transcriptText]);
+                saveConsultationTranscript($pdo,(int)$consultation['ConsultationID'],(int)$user['UserID'],'Original_STT',$transcriptText);
                 logActivity($pdo, $user['UserID'], $appointment['ClinicID'], 'Generated Whisper transcript', "Appointment #{$appointmentId}");
                 $flash = 'Transcript generated. Review and correct it before using it.';
                 if ($isAjax) jsonReply(['ok' => true] + $transcription);
@@ -267,12 +277,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $consultationId = getOrCreateConsultationId($pdo, $appointment, $appointmentId, (int) $user['UserID']);
-                $pdo->prepare("INSERT INTO AITranscriptVersions (ConsultationID, TranscriptType, TranscriptText) VALUES (?, 'Doctor_Corrected', ?)")
-                    ->execute([$consultationId, $correctedText]);
+                saveConsultationTranscript($pdo,$consultationId,(int)$user['UserID'],'Doctor_Corrected',$correctedText);
                 logActivity($pdo, $user['UserID'], $appointment['ClinicID'], 'Saved corrected transcript', "Appointment #{$appointmentId}");
                 $flash = 'Corrected transcript saved.';
                 if ($isAjax) jsonReply(['ok' => true]);
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
                 error_log('Corrected transcript save failed: ' . $e->getMessage());
                 $errors[] = 'We could not save your correction.';
             }
@@ -281,16 +290,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($formType === 'regenerate_summary') {
         try {
             $consultationId = getOrCreateConsultationId($pdo, $appointment, $appointmentId, (int) $user['UserID']);
-            $src = $pdo->prepare("SELECT TranscriptText FROM AITranscriptVersions WHERE ConsultationID = ? AND TranscriptType IN ('Doctor_Corrected', 'Original_STT') ORDER BY TranscriptVersionID DESC LIMIT 1");
+            $src = $pdo->prepare("SELECT TranscriptVersionID,TranscriptText FROM AITranscriptVersions WHERE ConsultationID = ? AND TranscriptType IN ('Doctor_Corrected', 'Original_STT') ORDER BY TranscriptVersionID DESC LIMIT 1");
             $src->execute([$consultationId]);
-            $input = (string) ($src->fetchColumn() ?: '');
+            $sourceRow=$src->fetch();$input=(string)($sourceRow['TranscriptText']??'');
             if ($input === '') {
                 $errors[] = 'Generate and review a transcript before creating a summary.';
             } else {
                 $generatedSummary = summarizeTranscript($input);
-                $pdo->prepare("INSERT INTO AITranscriptVersions (ConsultationID, TranscriptType, TranscriptText) VALUES (?, 'AI_Summary', ?)")
-                    ->execute([$consultationId, $generatedSummary]);
-                $generatedSummaryId=(int)$pdo->lastInsertId();
+                $generatedSummaryId=saveGeneratedConsultationSummary($pdo,$consultationId,(int)$user['UserID'],(int)$sourceRow['TranscriptVersionID'],$generatedSummary);
                 logActivity($pdo, $user['UserID'], $appointment['ClinicID'], 'Generated local AI summary', "Appointment #{$appointmentId}");
                 $flash = 'AI summary generated. Review before inserting into notes.';
                 if ($isAjax) jsonReply(['ok' => true, 'summary' => $generatedSummary, 'summary_id'=>$generatedSummaryId]);
@@ -305,6 +312,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (!empty($_SESSION['consult_flash'])) {
     $flash = $_SESSION['consult_flash'];
     unset($_SESSION['consult_flash']);
+}
+
+require_once __DIR__ . '/../includes/physician-save-feedback.php';
+if (!$isAjax) {
+$feedbackRedirect = physicianSaveFeedback($flash, $errors, HQ_BASE_URL . '/physician/consultation.php?appointment_id=' . (int)$appointmentId);
+if ($feedbackRedirect !== null) { header('Location: ' . $feedbackRedirect, true, 303); exit; }
 }
 
 // ---- Load everything for the workspace ----
@@ -349,7 +362,7 @@ try {
     $consultStmt->execute([$appointmentId]);
     $consultation = $consultStmt->fetch() ?: null;
     if ($consultation) {
-        $tStmt = $pdo->prepare('SELECT TranscriptVersionID, TranscriptText, GeneratedAt FROM AITranscriptVersions WHERE ConsultationID = ? AND TranscriptType = ? ORDER BY GeneratedAt DESC, TranscriptVersionID DESC LIMIT 1');
+        $tStmt = $pdo->prepare('SELECT TranscriptVersionID, TranscriptText, GeneratedAt,SourceTranscriptVersionID,ApprovedAt FROM AITranscriptVersions WHERE ConsultationID = ? AND TranscriptType = ? ORDER BY GeneratedAt DESC, TranscriptVersionID DESC LIMIT 1');
         foreach (['Original_STT' => 'latestTranscript', 'Doctor_Corrected' => 'latestCorrected', 'AI_Summary' => 'latestSummary'] as $type => $var) {
             $tStmt->execute([(int) $consultation['ConsultationID'], $type]);
             $$var = $tStmt->fetch() ?: null;
@@ -367,10 +380,10 @@ try {
                 (SELECT v.ClinicalNotes FROM ConsultationVersions v JOIN Consultations c ON c.ConsultationID = v.ConsultationID
                  WHERE c.AppointmentID = a.AppointmentID AND v.Status = 'Finalized' ORDER BY v.RevisionNumber DESC LIMIT 1) AS ClinicalNotes
          FROM Appointments a LEFT JOIN Users phy ON phy.UserID = a.PhysicianID
-         WHERE a.PatientID = ? AND a.Status = 'Completed' AND a.AppointmentID <> ?
+         WHERE a.PatientID = ? AND a.Status = 'Completed' AND a.AppointmentID <> ? AND a.PhysicianID = ?
          ORDER BY a.AppointmentDate DESC LIMIT 1"
     );
-    $prevStmt->execute([$appointment['PatientID'], $appointmentId]);
+    $prevStmt->execute([$appointment['PatientID'], $appointmentId,(int)$user['UserID']]);
     $previousVisit = $prevStmt->fetch() ?: null;
 } catch (PDOException $e) {
     error_log('Consultation data load failed: ' . $e->getMessage());
@@ -379,7 +392,7 @@ try {
 
 // Only show saved summaries; compare transcript versions to flag outdated drafts.
 if ($latestCorrected && $latestTranscript && (int) $latestCorrected['TranscriptVersionID'] < (int) $latestTranscript['TranscriptVersionID']) $latestCorrected = null;
-$summaryNeedsRefresh = $latestSummary && max((int) ($latestTranscript['TranscriptVersionID'] ?? 0), (int) ($latestCorrected['TranscriptVersionID'] ?? 0)) > (int) $latestSummary['TranscriptVersionID'];
+$summaryNeedsRefresh = $latestSummary && $latestSummary['SourceTranscriptVersionID'] !== null && !consultationSummarySourceCurrent($pdo,(int)$consultation['ConsultationID'],(int)$latestSummary['TranscriptVersionID']);
 $summaryText = $latestSummary['TranscriptText'] ?? '';
 if (str_contains($summaryText, '[PLACEHOLDER')) $summaryText = '';
 $summarySetupNotice = '';
@@ -416,7 +429,7 @@ $steps = [1 => 'Confirmed', 2 => 'In progress', 3 => 'Finalized', 4 => 'Complete
 if (!$notes['meds']) $notes['meds'][] = ['name' => '', 'frequency' => '', 'duration' => ''];
 $csrf = htmlspecialchars(csrfToken());
 $readonly = $isCompleted ? ' readonly' : '';
-$source = $appointment['BookingFeePaid'] ? 'Appointment ' . date('g:i A', strtotime($appointment['AppointmentTime'])) : 'Walk-in';
+$source = $appointment['AppointmentTime'] ? 'Appointment - '.date('g:i A',strtotime($appointment['AppointmentTime'])) : ($appointment['BookingFeePaid'] ? 'Queue booking - no specific time' : 'Walk-in');
 
 $pageTitle = 'Consultation — HealthQueue';
 require __DIR__ . '/../includes/header.php';
@@ -425,34 +438,31 @@ require __DIR__ . '/../includes/header.php';
 <main class="portal-shell"><div class="container cw-page">
   <a href="<?= HQ_BASE_URL ?>/physician/consultations.php" class="back-link">&larr; Back to consultations</a>
 
-  <section class="an-hero cw-hero">
-    <div>
-      <span class="an-eyebrow"><?= $queueEntry ? 'Queue #' . (int) $queueEntry['QueueNumber'] : 'Consultation' ?><?= $appointment['IDNumber'] ? ' · ID ' . htmlspecialchars($appointment['IDNumber']) : '' ?></span>
-      <h1><?= htmlspecialchars($appointment['FirstName'] . ' ' . $appointment['LastName']) ?> <small>· <?= htmlspecialchars($source) ?><?= $appointment['AppointmentDate'] !== date('Y-m-d') ? ' · ' . htmlspecialchars(date('M j', strtotime($appointment['AppointmentDate']))) : '' ?></small></h1>
-      <section class="portal-section" aria-label="Patient uploaded medical records">
-        <h2>Patient uploaded records</h2>
-        <?php if ($patientUploads): ?>
-          <ul>
-            <?php foreach ($patientUploads as $upload): ?>
-              <li><?= htmlspecialchars($upload['Title']) ?> · <?= htmlspecialchars($upload['Category']) ?> · <?= htmlspecialchars(date('M j, Y', strtotime($upload['UploadedAt']))) ?>
-                <a href="<?= HQ_BASE_URL ?>/physician/record-stream.php?appointment_id=<?= (int) $appointmentId ?>&amp;record_id=<?= (int) $upload['RecordID'] ?>" target="_blank" rel="noopener">View</a>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-        <?php else: ?><p class="cw-muted">The patient has not uploaded any records.</p><?php endif; ?>
-      </section>
-      <div class="cw-steps">
-        <?php foreach ($steps as $n => $label): ?>
-          <span class="<?= $n < $step || ($n === $step && $n === 4) ? 'is-done' : ($n === $step ? 'is-current' : '') ?>"><?= $n < $step || ($n === $step && $n === 4) ? '✓ ' : '' ?><?= $label ?></span>
-        <?php endforeach; ?>
-      </div>
+  <section class="cw-clean-header" aria-label="Consultation overview">
+    <div class="cw-patient-card">
+      <div class="cw-patient-tags"><span class="cw-ticket"><?= $queueEntry ? 'Queue #' . (int)$queueEntry['QueueNumber'] : 'Consultation' ?></span><?php if($appointment['IDNumber']): ?><span class="cw-patient-id">ID <?= htmlspecialchars($appointment['IDNumber']) ?></span><?php endif; ?></div>
+      <h1><?= htmlspecialchars($appointment['FirstName'].' '.$appointment['LastName']) ?></h1>
+      <p class="cw-visit-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18"/></svg><?= htmlspecialchars($source) ?><?php if($appointment['AppointmentDate']!==date('Y-m-d')): ?> &middot; <?= htmlspecialchars(date('M j',strtotime($appointment['AppointmentDate']))) ?><?php endif; ?></p>
     </div>
+    <section class="ra-physician ra-clean-card" data-record-access-physician data-endpoint="<?= HQ_BASE_URL ?>/patient/record-access.php" data-stream="<?= HQ_BASE_URL ?>/physician/record-stream.php" data-appointment="<?= (int)$appointmentId ?>" data-csrf="<?= htmlspecialchars(csrfToken()) ?>" aria-labelledby="recordAccessTitle">
+      <div class="ra-card-heading"><span class="ra-lock-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg></span><h2 id="recordAccessTitle">Medical records</h2><span class="ra-access-badge" data-ra-badge>Locked</span></div>
+      <p data-ra-state>Request permission to view the patient's uploaded files.</p>
+      <button type="button" class="btn btn-primary" data-ra-request hidden>Request access</button>
+      <div class="ra-shared-files" data-ra-shared></div><p class="ra-error" data-ra-error role="alert"></p>
+      <p class="ra-card-footnote">Only selected, approved files are shared.</p>
+    </section>
+    <ol class="cw-clean-steps" aria-label="Consultation progress">
+      <?php foreach($steps as $n=>$label): $done=$n<$step||($n===$step&&$n===4); ?>
+      <li class="<?= $done?'is-done':($n===$step?'is-current':'') ?>"<?= $n===$step?' aria-current="step"':'' ?>><span class="cw-step-dot" aria-hidden="true"><?= $done?'&#10003;':'' ?></span><span><?= htmlspecialchars($label) ?></span></li>
+      <?php endforeach; ?>
+    </ol>
   </section>
+  <script src="<?= HQ_BASE_URL ?>/assets/js/record-access.js?v=<?= filemtime(__DIR__.'/../assets/js/record-access.js') ?>" defer></script>
 
   <?php if ($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
   <?php if ($errors): ?><div class="form-message error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
   <?php if ($isCompleted): ?><p class="form-message success">This visit was confirmed complete by the front desk. Notes are read-only.</p>
-  <?php elseif ($hasFinalized): ?><p class="form-message cw-info">Finalized — waiting for the front desk to confirm the visit. You can still update the notes.</p><?php endif; ?>
+  <?php elseif ($hasFinalized): ?><p class="form-message cw-info">Finalized — awaiting patient confirmation or verified Staff follow-up. You can still update the notes.</p><?php endif; ?>
 
   <div class="cw-grid">
     <div class="cw-col">
@@ -509,7 +519,7 @@ require __DIR__ . '/../includes/header.php';
       <section class="sd-card">
         <div class="cw-card-head">
           <h2 class="cw-card-title">AI summary</h2>
-          <span class="cw-ai-pill">Draft · review needed</span>
+          <span class="cw-ai-pill"><?= !empty($latestSummary['ApprovedAt']) ? 'Approved for patient' : 'Draft &middot; review needed' ?></span>
         </div>
         <p class="cw-summary" id="aiSummary"<?= $summaryText === '' ? ' hidden' : '' ?>><?= htmlspecialchars($summaryText) ?></p>
         <?php if ($summarySetupNotice !== ''): ?><p class="form-message cw-info"><?= htmlspecialchars($summarySetupNotice) ?></p><?php endif; ?>
@@ -525,6 +535,18 @@ require __DIR__ . '/../includes/header.php';
             </form>
           </div>
         <?php endif; ?>
+        <?php if ($isCompleted && $summaryText !== '' && !$summaryNeedsRefresh): ?>
+          <?php if (empty($latestSummary['ApprovedAt'])): ?>
+          <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
+            <input type="hidden" name="form_type" value="publish_completed_summary">
+            <input type="hidden" name="summary_id" value="<?= (int)$latestSummary['TranscriptVersionID'] ?>">
+            <label class="cw-summary-approval"><input type="checkbox" name="reviewed_summary" value="1" required> I reviewed this summary against the finalized consultation notes and approve sharing it with the patient.</label>
+            <?php if ($latestSummary['SourceTranscriptVersionID'] === null): ?><p class="cw-muted cw-small">This historical summary has no transcript source tracking. Verify every statement against the finalized notes before approval.</p><?php endif; ?>
+            <button type="submit" class="btn btn-primary btn-sm">Publish reviewed summary</button>
+          </form>
+          <?php else: ?><p class="form-message success">This reviewed summary is available in the patient's medical record.</p><?php endif; ?>
+        <?php endif; ?>
         <p class="cw-muted cw-small">Generated locally with Ollama. This is a draft, not a diagnosis. The physician must review it before inserting it into notes.</p>
       </section>
     </div>
@@ -534,7 +556,7 @@ require __DIR__ . '/../includes/header.php';
       <input type="hidden" name="appointment_id" value="<?= (int) $appointmentId ?>">
       <input type="hidden" name="form_type" value="save_draft" id="notesFormType">
       <input type="hidden" name="summary_id" id="approvedSummaryId" value="<?= (int)($latestSummary['TranscriptVersionID']??0) ?>">
-      <label class="cw-summary-approval"><input type="checkbox" name="approve_summary" id="approveSummary" value="1" <?= $summaryText==='' || $summaryNeedsRefresh?'disabled':'' ?>> I reviewed the AI summary and approve showing it to the patient when this consultation is completed.</label>
+
 
       <section class="sd-card">
         <div class="cw-card-head">
@@ -607,7 +629,12 @@ require __DIR__ . '/../includes/header.php';
 <dialog id="finalizeConsultationModal" class="modal-box cw-finalize-dialog" aria-labelledby="finalizeConsultationTitle" aria-describedby="finalizeConsultationDescription">
   <button type="button" class="modal-close" id="closeFinalizeModal" aria-label="Close">&times;</button>
   <h2 id="finalizeConsultationTitle">Finalize consultation?</h2>
-  <p class="modal-subtitle" id="finalizeConsultationDescription">Your notes will be finalized. The front desk will then confirm the visit as complete.</p>
+  <p class="modal-subtitle" id="finalizeConsultationDescription">Your notes will be finalized and the patient will be asked to confirm completion. Staff can follow up if needed.</p>
+  <div class="cw-sharing-options" role="group" aria-label="AI summary sharing">
+    <label class="cw-summary-approval"><input type="radio" name="summary_sharing" form="notesForm" id="approveSummary" value="share" <?= $summaryText==='' || $summaryNeedsRefresh?'disabled':'' ?>><span>I reviewed the AI summary and approve showing it to the patient when this consultation is completed.</span></label>
+    <label class="cw-summary-approval"><input type="radio" name="summary_sharing" id="keepSummaryPrivate" form="notesForm" value="private"><span>Finalize notes without sharing an AI summary with the patient.</span></label>
+  </div>
+  <p id="summaryApprovalError" class="form-message error" role="alert" hidden></p>
   <div class="cw-finalize-buttons">
     <button type="button" class="btn btn-outline" id="cancelFinalizeModal" autofocus>Keep editing</button>
     <button type="button" class="btn btn-primary" id="confirmFinalizeModal">Finalize consultation</button>
@@ -669,6 +696,9 @@ document.addEventListener('DOMContentLoaded', function () {
   var confirmFinalize = document.getElementById('confirmFinalizeModal');
   var finalizationApproved = false;
   var notesSubmitting = false;
+  document.querySelectorAll('input[name="summary_sharing"]').forEach(function (choice) {
+    choice.addEventListener('change', function () { document.getElementById('summaryApprovalError').hidden = true; });
+  });
   form.querySelectorAll('[data-submit]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.getElementById('notesFormType').value = btn.getAttribute('data-submit');
@@ -698,6 +728,16 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   confirmFinalize.addEventListener('click', function () {
     if (notesSubmitting) return;
+    var approval = document.getElementById('approveSummary');
+    var keepPrivate = document.getElementById('keepSummaryPrivate');
+    var approvalError = document.getElementById('summaryApprovalError');
+    var hasSummary = Number(document.getElementById('approvedSummaryId').value) > 0;
+    if ((approval.checked && keepPrivate.checked) || (hasSummary && !approval.checked && !keepPrivate.checked)) {
+      approvalError.textContent = 'Choose to share the reviewed AI summary or finalize without sharing it.';
+      approvalError.hidden = false;
+      return;
+    }
+    approvalError.hidden = true;
     finalizationApproved = true;
     finalizeModal.close();
     form.requestSubmit(finalizeButton);

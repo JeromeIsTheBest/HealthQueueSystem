@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_type'] ?? '') === 'au
     } else {
         require_once __DIR__ . '/notification-read.php';
         $id = filter_input(INPUT_POST, 'notification_id', FILTER_VALIDATE_INT) ?: 0;
-        $scope = $user['RoleName'] === 'Patient' ? (int)$user['UserID'] : (int)$user['ClinicID'];
+        $scope = in_array($user['RoleName'],['Patient','Physician'],true) ? (int)$user['UserID'] : (int)$user['ClinicID'];
         try {
             $unread = hqMarkNotificationRead($pdo, $user['RoleName'], $scope, $id);
             if ($unread === null) {

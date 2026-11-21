@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS ClinicRegistrationInquiry (
     Phone           VARCHAR(30)  NOT NULL,
     City            VARCHAR(150) NOT NULL,
     PhysiciansCount INT NULL,
+    StaffCount      INT NULL,
+    BaseConsultationFee DECIMAL(10,2) NULL,
     Status          VARCHAR(20)  NOT NULL DEFAULT 'Pending',
     SubmittedAt     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -335,13 +337,15 @@ CREATE TABLE IF NOT EXISTS Queue (
 CREATE TABLE IF NOT EXISTS Notifications (
     NotificationID       INT AUTO_INCREMENT PRIMARY KEY,
     ClinicID             INT NOT NULL,
+    AnnouncementID INT NULL,
     Message              VARCHAR(255) NOT NULL,
     RelatedAppointmentID INT NULL,
     IsRead               TINYINT NOT NULL DEFAULT 0,
     CreatedAt            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_notifications_clinic      FOREIGN KEY (ClinicID) REFERENCES Clinic (ClinicID),
     CONSTRAINT fk_notifications_appointment FOREIGN KEY (RelatedAppointmentID) REFERENCES Appointments (AppointmentID),
-    INDEX idx_notifications_clinic_read (ClinicID, IsRead)
+    INDEX idx_notifications_clinic_read (ClinicID, IsRead),
+    CONSTRAINT fk_staff_notice_announcement FOREIGN KEY (AnnouncementID) REFERENCES Announcements(AnnouncementID) ON DELETE CASCADE
 );
 
 -- Patient-uploaded medical records (e.g. lab results, prior prescriptions).
@@ -366,13 +370,15 @@ CREATE TABLE IF NOT EXISTS MedicalRecords (
 CREATE TABLE IF NOT EXISTS PatientNotifications (
     NotificationID       INT AUTO_INCREMENT PRIMARY KEY,
     PatientID            INT NOT NULL,
+    AnnouncementID INT NULL,
     Message              VARCHAR(255) NOT NULL,
     RelatedAppointmentID INT NULL,
     IsRead               TINYINT NOT NULL DEFAULT 0,
     CreatedAt            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_patientnotifications_patient     FOREIGN KEY (PatientID) REFERENCES Users (UserID),
     CONSTRAINT fk_patientnotifications_appointment FOREIGN KEY (RelatedAppointmentID) REFERENCES Appointments (AppointmentID),
-    INDEX idx_patientnotifications_patient_read (PatientID, IsRead)
+    INDEX idx_patientnotifications_patient_read (PatientID, IsRead),
+    CONSTRAINT fk_patient_notice_announcement FOREIGN KEY (AnnouncementID) REFERENCES Announcements(AnnouncementID) ON DELETE CASCADE
 );
 
 -- Patient feedback for one completed visit. One row per appointment --
@@ -631,3 +637,215 @@ ALTER TABLE AITranscriptVersions ADD COLUMN IF NOT EXISTS ApprovedVersionID INT 
 
 ALTER TABLE AITranscriptVersions ADD FOREIGN KEY IF NOT EXISTS fk_ai_approved_physician (ApprovedByPhysicianID) REFERENCES Users(UserID);
 ALTER TABLE AITranscriptVersions ADD FOREIGN KEY IF NOT EXISTS fk_ai_approved_version (ApprovedVersionID) REFERENCES ConsultationVersions(VersionID);
+
+-- Clinic inquiries now request staff count; legacy physician counts are preserved.
+ALTER TABLE ClinicRegistrationInquiry ADD COLUMN IF NOT EXISTS StaffCount INT NULL AFTER PhysiciansCount;
+
+ALTER TABLE Users ADD COLUMN IF NOT EXISTS PhysicianSpecialty VARCHAR(100) NULL;
+-- One financial owner per clinic. Clinical assignments remain unchanged.
+CREATE TABLE IF NOT EXISTS PhysicianAccountOwners (
+ ClinicID INT PRIMARY KEY,
+ MainPhysicianID INT NOT NULL UNIQUE,
+ CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (ClinicID) REFERENCES Clinic(ClinicID),
+ FOREIGN KEY (MainPhysicianID) REFERENCES Users(UserID)
+);
+INSERT IGNORE INTO PhysicianAccountOwners (ClinicID,MainPhysicianID)
+ SELECT u.ClinicID,MIN(u.UserID) FROM Users u JOIN Roles r ON r.RoleID=u.RoleID
+ WHERE r.RoleName='Physician' AND u.ClinicID IS NOT NULL AND u.DeletedAt IS NULL GROUP BY u.ClinicID;
+ALTER TABLE AppointmentPayments ADD COLUMN IF NOT EXISTS FinancialOwnerUserID INT NULL,
+ ADD INDEX IF NOT EXISTS idx_payment_financial_owner (FinancialOwnerUserID);
+ALTER TABLE PhysicianWithdrawals ADD COLUMN IF NOT EXISTS FinancialOwnerUserID INT NULL,
+ ADD INDEX IF NOT EXISTS idx_withdrawal_financial_owner (FinancialOwnerUserID);
+-- Preserve the performing physician and original requesting physician; snapshot pooled ownership.
+UPDATE AppointmentPayments p JOIN Appointments a ON a.AppointmentID=p.AppointmentID
+ LEFT JOIN PhysicianAccountOwners o ON o.ClinicID=a.ClinicID
+ SET p.FinancialOwnerUserID=COALESCE(o.MainPhysicianID,a.PhysicianID) WHERE p.FinancialOwnerUserID IS NULL;
+UPDATE PhysicianWithdrawals w JOIN Users u ON u.UserID=w.PhysicianID
+ LEFT JOIN PhysicianAccountOwners o ON o.ClinicID=u.ClinicID
+ SET w.FinancialOwnerUserID=COALESCE(o.MainPhysicianID,w.PhysicianID) WHERE w.FinancialOwnerUserID IS NULL;
+ALTER TABLE AppointmentPayments ADD FOREIGN KEY IF NOT EXISTS fk_payment_financial_owner (FinancialOwnerUserID) REFERENCES Users(UserID);
+ALTER TABLE PhysicianWithdrawals ADD FOREIGN KEY IF NOT EXISTS fk_withdrawal_financial_owner (FinancialOwnerUserID) REFERENCES Users(UserID);
+
+-- NULL and empty optional numbers do not collide. Populated numbers are unique across roles.
+ALTER TABLE Users
+ ADD COLUMN IF NOT EXISTS AccountMobileNumber VARCHAR(20) GENERATED ALWAYS AS (NULLIF(TRIM(ContactNumber),'')) PERSISTENT,
+ ADD UNIQUE INDEX IF NOT EXISTS uq_users_account_mobile (AccountMobileNumber);
+
+ALTER TABLE AITranscriptVersions
+ ADD COLUMN IF NOT EXISTS SourceTranscriptVersionID INT NULL,
+ ADD INDEX IF NOT EXISTS idx_ai_source_version (SourceTranscriptVersionID),
+ ADD FOREIGN KEY IF NOT EXISTS fk_ai_source_version (SourceTranscriptVersionID) REFERENCES AITranscriptVersions(TranscriptVersionID);
+
+ALTER TABLE ClinicRegistrationInquiry ADD COLUMN IF NOT EXISTS BaseConsultationFee DECIMAL(10,2) NULL AFTER StaffCount;
+
+-- Time-based queue: a late patient yields to one named successor without changing booked time.
+ALTER TABLE Queue ADD COLUMN IF NOT EXISTS LateAfterQueueID INT NULL, ADD COLUMN IF NOT EXISTS LastLateNoticeAt DATETIME NULL;
+
+-- Staff-confirmed arrival and one-time scheduled appointment grace extension.
+ALTER TABLE Queue ADD COLUMN IF NOT EXISTS ArrivedAt DATETIME NULL, ADD COLUMN IF NOT EXISTS GraceExtendedAt DATETIME NULL, ADD COLUMN IF NOT EXISTS GraceRescheduleRequestedAt DATETIME NULL;
+ALTER TABLE Queue ADD COLUMN IF NOT EXISTS GracePolicyEnabledAt DATETIME NULL;
+
+ALTER TABLE Appointments ADD COLUMN IF NOT EXISTS BookingFeeAmount DECIMAL(10,2) NULL;
+CREATE TABLE IF NOT EXISTS ClinicFeeRequests (
+ RequestID INT AUTO_INCREMENT PRIMARY KEY,
+ ClinicID INT NOT NULL,
+ RequestedBy INT NOT NULL,
+ CurrentFee DECIMAL(10,2) NOT NULL,
+ ProposedFee DECIMAL(10,2) NOT NULL,
+ EffectiveDate DATE NOT NULL,
+ Reason VARCHAR(1000) NOT NULL,
+ Status ENUM('Pending','Approved','Declined') NOT NULL DEFAULT 'Pending',
+ RequestedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ ReviewedBy INT NULL,
+ ReviewedAt DATETIME NULL,
+ UNIQUE KEY uq_fee_request_replay (ClinicID,RequestID),
+ INDEX idx_clinic_fee_effective (ClinicID,Status,EffectiveDate),
+ FOREIGN KEY (ClinicID) REFERENCES Clinic(ClinicID),
+ FOREIGN KEY (RequestedBy) REFERENCES Users(UserID),
+ FOREIGN KEY (ReviewedBy) REFERENCES Users(UserID)
+);
+-- Freeze pre-existing bookings before introducing fee changes. Paid wallet evidence wins.
+UPDATE Appointments a JOIN Clinic c ON c.ClinicID=a.ClinicID
+LEFT JOIN (SELECT RelatedAppointmentID,SUM(Amount) Paid FROM WalletTransactions WHERE Type='BookingPayment' GROUP BY RelatedAppointmentID) t ON t.RelatedAppointmentID=a.AppointmentID
+SET a.BookingFeeAmount=COALESCE(t.Paid,c.BaseConsultationFee) WHERE a.BookingFeeAmount IS NULL;
+
+CREATE TABLE IF NOT EXISTS PhysicianNotifications (
+ NotificationID INT AUTO_INCREMENT PRIMARY KEY,
+ PhysicianID INT NOT NULL,
+ FeeRequestID INT NULL,
+ AnnouncementID INT NULL,
+ Message TEXT NOT NULL,
+ IsRead TINYINT NOT NULL DEFAULT 0,
+ CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_physician_fee_notice (FeeRequestID),
+ INDEX idx_physician_notice_unread (PhysicianID,IsRead,CreatedAt),
+ FOREIGN KEY (PhysicianID) REFERENCES Users(UserID),
+ FOREIGN KEY (FeeRequestID) REFERENCES ClinicFeeRequests(RequestID),
+ CONSTRAINT fk_physician_notice_announcement FOREIGN KEY (AnnouncementID) REFERENCES Announcements(AnnouncementID) ON DELETE CASCADE
+);
+
+ALTER TABLE PhysicianNotifications ADD COLUMN IF NOT EXISTS AnnouncementID INT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_physician_announcement ON PhysicianNotifications(PhysicianID,AnnouncementID);
+
+ALTER TABLE Notifications ADD COLUMN IF NOT EXISTS AnnouncementID INT NULL;
+ALTER TABLE PatientNotifications ADD COLUMN IF NOT EXISTS AnnouncementID INT NULL;
+ALTER TABLE Notifications MODIFY Message TEXT NOT NULL;
+ALTER TABLE PatientNotifications MODIFY Message TEXT NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_staff_announcement ON Notifications(ClinicID,AnnouncementID);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_patient_announcement ON PatientNotifications(PatientID,AnnouncementID);
+
+ALTER TABLE Users
+ ADD COLUMN IF NOT EXISTS IsWalkInAccount TINYINT NOT NULL DEFAULT 0,
+ MODIFY COLUMN AccountMobileNumber VARCHAR(20) GENERATED ALWAYS AS (CASE WHEN IsWalkInAccount=1 THEN NULL ELSE NULLIF(TRIM(ContactNumber),'') END) PERSISTENT;
+
+CREATE TABLE IF NOT EXISTS PlatformDemoBankTransfers (
+ TransferID INT AUTO_INCREMENT PRIMARY KEY,
+ PaymentID INT NOT NULL,
+ Reference VARCHAR(50) NOT NULL,
+ Amount DECIMAL(12,2) NOT NULL,
+ BankLabel VARCHAR(100) NOT NULL DEFAULT 'HealthQueue Demo Bank',
+ AccountLastFour CHAR(4) NOT NULL DEFAULT '0000',
+ Status VARCHAR(30) NOT NULL DEFAULT 'CompletedSimulated',
+ CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_platform_bank_payment (PaymentID),
+ UNIQUE KEY uq_platform_bank_reference (Reference),
+ FOREIGN KEY (PaymentID) REFERENCES AppointmentPayments(PaymentID)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS VisitCompletionReviews (
+ AppointmentID INT PRIMARY KEY,
+ PatientID INT NOT NULL,
+ ClinicID INT NOT NULL,
+ FinalizedVersionID INT NOT NULL,
+ Status VARCHAR(24) NOT NULL DEFAULT 'AwaitingPatient',
+ IssueText TEXT NULL,
+ RequestedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PatientRespondedAt DATETIME NULL,
+ CompletedAt DATETIME NULL,
+ CompletedByUserID INT NULL,
+ CompletionSource VARCHAR(20) NULL,
+ StaffResolution TEXT NULL,
+ INDEX idx_visit_completion_clinic (ClinicID,Status),
+ INDEX idx_visit_completion_patient (PatientID,Status),
+ FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID) ON DELETE CASCADE,
+ FOREIGN KEY (PatientID) REFERENCES Users(UserID),
+ FOREIGN KEY (ClinicID) REFERENCES Clinic(ClinicID),
+ FOREIGN KEY (FinalizedVersionID) REFERENCES ConsultationVersions(VersionID),
+ FOREIGN KEY (CompletedByUserID) REFERENCES Users(UserID)
+) ENGINE=InnoDB;
+
+ALTER TABLE Queue ADD COLUMN IF NOT EXISTS FirstCalledAt DATETIME NULL;
+CREATE TABLE IF NOT EXISTS AITranscriptEvaluations (
+ EvaluationID INT AUTO_INCREMENT PRIMARY KEY,
+ TranscriptVersionID INT NOT NULL UNIQUE,
+ PhysicianID INT NOT NULL,
+ ClinicID INT NOT NULL,
+ Language VARCHAR(30) NOT NULL,
+ ReferenceText MEDIUMTEXT NOT NULL,
+ ReferenceHash CHAR(64) NOT NULL,
+ HypothesisHash CHAR(64) NOT NULL,
+ ReferenceWords INT NOT NULL,
+ HypothesisWords INT NOT NULL,
+ Substitutions INT NOT NULL,
+ Deletions INT NOT NULL,
+ Insertions INT NOT NULL,
+ WordErrorRate DECIMAL(9,4) NOT NULL,
+ EvaluatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_ai_evaluation_scope (ClinicID,PhysicianID,EvaluatedAt),
+ FOREIGN KEY (TranscriptVersionID) REFERENCES AITranscriptVersions(TranscriptVersionID),
+ FOREIGN KEY (PhysicianID) REFERENCES Users(UserID),
+ FOREIGN KEY (ClinicID) REFERENCES Clinic(ClinicID)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS MedicalRecordAccessRequests (
+ RequestID INT AUTO_INCREMENT PRIMARY KEY,
+ AppointmentID INT NOT NULL,
+ PatientID INT NOT NULL,
+ PhysicianID INT NOT NULL,
+ Status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+ RequestedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ RespondedAt DATETIME NULL,
+ EndedAt DATETIME NULL,
+ UNIQUE KEY uq_record_access_visit (AppointmentID,PhysicianID),
+ INDEX idx_record_access_patient (PatientID,Status),
+ FOREIGN KEY (AppointmentID) REFERENCES Appointments(AppointmentID),
+ FOREIGN KEY (PatientID) REFERENCES Users(UserID),
+ FOREIGN KEY (PhysicianID) REFERENCES Users(UserID)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS MedicalRecordAccessFiles (
+ RequestID INT NOT NULL,
+ RecordID INT NOT NULL,
+ PRIMARY KEY(RequestID,RecordID),
+ FOREIGN KEY(RequestID) REFERENCES MedicalRecordAccessRequests(RequestID) ON DELETE CASCADE,
+ FOREIGN KEY(RecordID) REFERENCES MedicalRecords(RecordID) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS MedicalRecordAccessNotifications (
+ NotificationID INT NOT NULL PRIMARY KEY,
+ RequestID INT NOT NULL UNIQUE,
+ FOREIGN KEY(NotificationID) REFERENCES PatientNotifications(NotificationID) ON DELETE CASCADE,
+ FOREIGN KEY(RequestID) REFERENCES MedicalRecordAccessRequests(RequestID) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS VisitCompletionNotifications (
+ NotificationID INT NOT NULL PRIMARY KEY,
+ AppointmentID INT NOT NULL,
+ FinalizedVersionID INT NOT NULL,
+ UNIQUE KEY uq_visit_confirmation_notice(AppointmentID,FinalizedVersionID),
+ FOREIGN KEY(NotificationID) REFERENCES PatientNotifications(NotificationID) ON DELETE CASCADE,
+ FOREIGN KEY(AppointmentID) REFERENCES Appointments(AppointmentID),
+ FOREIGN KEY(FinalizedVersionID) REFERENCES ConsultationVersions(VersionID)
+) ENGINE=InnoDB;
+
+-- Additive relationships for previously standalone tables. Existing unknown tracking links remain NULL.
+-- Prefer scripts/setup-standalone-links.php --apply for preflight and a private backup.
+ALTER TABLE ClinicRegistrationInquiry ADD COLUMN IF NOT EXISTS ApprovedClinicID INT NULL DEFAULT NULL;
+ALTER TABLE SignupEmailVerifications ADD COLUMN IF NOT EXISTS UserID INT NULL DEFAULT NULL;
+ALTER TABLE RequestRateLimits ADD COLUMN IF NOT EXISTS UserID INT NULL DEFAULT NULL;
+ALTER TABLE SmsOutbox MODIFY COLUMN PatientID INT NULL DEFAULT NULL, MODIFY COLUMN AppointmentID INT NULL DEFAULT NULL;
+ALTER TABLE ClinicRegistrationInquiry ADD CONSTRAINT fk_inquiry_approved_clinic FOREIGN KEY(ApprovedClinicID) REFERENCES Clinic(ClinicID) ON DELETE SET NULL ON UPDATE RESTRICT;
+ALTER TABLE SignupEmailVerifications ADD CONSTRAINT fk_signup_verification_user FOREIGN KEY(UserID) REFERENCES Users(UserID) ON DELETE SET NULL ON UPDATE RESTRICT;
+ALTER TABLE RequestRateLimits ADD CONSTRAINT fk_rate_limit_user FOREIGN KEY(UserID) REFERENCES Users(UserID) ON DELETE SET NULL ON UPDATE RESTRICT;
+ALTER TABLE SmsOutbox ADD CONSTRAINT fk_sms_patient FOREIGN KEY(PatientID) REFERENCES Users(UserID) ON DELETE SET NULL ON UPDATE RESTRICT;
+ALTER TABLE SmsOutbox ADD CONSTRAINT fk_sms_appointment FOREIGN KEY(AppointmentID) REFERENCES Appointments(AppointmentID) ON DELETE SET NULL ON UPDATE RESTRICT;

@@ -131,3 +131,15 @@
 }
 
 .notification-detail-actions .btn[hidden] {display:none!important;}
+
+.notification-record-access[hidden],.notification-record-access button[hidden]{display:none!important}
+.notification-record-access{margin-top:12px;padding:16px;background:#eef9fc;border:1px solid #d2eaf1;border-radius:12px}
+.notification-record-access-info{font-size:13px;line-height:1.65;color:#46667b;margin:0 0 14px}
+.notification-record-access .btn{width:100%;justify-content:center;min-height:44px}
+#notificationRecordAccessState:empty{display:none}
+#notificationRecordAccessState{font-size:13px;line-height:1.6;color:#46667b;margin:12px 0 0}
+
+#notificationVisitCompletion[hidden],#notificationVisitCompletion button[hidden]{display:none!important}
+#notificationVisitCompletion>a{display:block;margin-top:14px;font-size:12px;text-align:center}
+#notificationVisitCompletionState:empty{display:none}
+#notificationVisitCompletionState{font-size:13px;line-height:1.6;color:#46667b}

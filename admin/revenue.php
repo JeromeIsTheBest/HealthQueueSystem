@@ -1,58 +1,27 @@
 <?php
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/audit.php';
-require_once __DIR__ . '/../includes/demo-revenue.php';
-require_once __DIR__ . '/../includes/physician-withdrawals.php';
+require_once __DIR__.'/../config/db.php';require_once __DIR__.'/../includes/auth.php';require_once __DIR__.'/../includes/demo-revenue.php';require_once __DIR__.'/../includes/physician-withdrawals.php';
 define('HQ_BASE_URL','..');requireRole(['Admin']);
-$user=currentUser();$pdo=getDbConnection();$errors=[];
-$flash=(string)($_SESSION['demo_settlement_success']??'');unset($_SESSION['demo_settlement_success']);
-if($_SERVER['REQUEST_METHOD']==='POST'){
- if(!verifyCsrfToken($_POST['csrf_token']??null))$errors[]='Your session expired. Please try again.';
- elseif(!$pdo)$errors[]='The database is temporarily unavailable.';
- elseif(($_POST['form_type']??'')==='simulate_settlement'){
-  try{
-   $result=simulateDemoSettlement($pdo,(int)$user['UserID'],(string)($_POST['request_key']??''));
-   logActivity($pdo,(int)$user['UserID'],null,'Simulated demo settlement',$result['Reference'].' - PHP '.$result['GrossAmount'].'; no real money transferred.');
-   $_SESSION['demo_settlement_success']='Demo settlement recorded. No real money was transferred.';
-   unset($_SESSION['demo_settlement_key']);header('Location: '.HQ_BASE_URL.'/admin/revenue.php',true,303);exit;
-  }catch(PDOException $e){error_log('Demo settlement failed: '.$e->getMessage());$errors[]='We could not record this simulation. Refresh and try again.';}
-  catch(RuntimeException $e){$errors[]=$e->getMessage();}
- }
-}
-$_SESSION['demo_settlement_key']=$_SESSION['demo_settlement_key']??bin2hex(random_bytes(32));
-$totals=['gross'=>0,'pending'=>0,'settled'=>0,'commission'=>0,'physician'=>0,'payments'=>0];$settlements=[];$reconciliationCount=0;$physicianPaid=0;$ready=false;
-if($pdo){try{$totals=demoRevenueSummary($pdo);$reconciliationCount=(int)$pdo->query("SELECT COUNT(*) FROM (SELECT RelatedAppointmentID FROM WalletTransactions GROUP BY RelatedAppointmentID HAVING SUM(CASE WHEN Type='Refund' THEN Amount ELSE 0 END)>0 AND ABS(SUM(CASE WHEN Type='BookingPayment' THEN Amount ELSE 0 END)-SUM(CASE WHEN Type='Refund' THEN Amount ELSE 0 END))>0.005) x")->fetchColumn();$physicianPaid=(float)$pdo->query("SELECT COALESCE(SUM(Amount),0) FROM PhysicianWithdrawals WHERE Status='PaidSimulated'")->fetchColumn();$totals['physician']=max(0,(float)$totals['physician']-$physicianPaid);$settlements=$pdo->query('SELECT Reference,GrossAmount,CreatedAt FROM DemoSettlements ORDER BY SettlementID DESC LIMIT 30')->fetchAll();$ready=true;}
-catch(PDOException $e){error_log('Demo revenue read failed: '.$e->getMessage());$errors[]='Demo revenue is temporarily unavailable. Check that the demo settlement migration has been applied.';}}
-$isAdminRevenue=true;$pageTitle='Revenue & Commission - HealthQueue';require __DIR__ . '/../includes/header.php';
-$paths=['wallet'=>'<rect x="3" y="6" width="18" height="15" rx="2"/><path d="m5 6 11-4v4M21 11h-6v5h6"/>','clock'=>'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 3"/>','layers'=>'<path d="m12 3 10 5-10 5L2 8l10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5"/>','percent'=>'<path d="m5 19 14-14"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/>','person'=>'<circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>','bank'=>'<path d="m2 8 10-6 10 6H2Zm2 3v8m5-8v8m6-8v8m5-8v8M2 22h20"/>','info'=>'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>','flask'=>'<path d="M9 2h6M10 2v7L4 19a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3L14 9V2M8 15h8"/>'];
-$icon=static fn($key)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$paths[$key].'</svg>';
+if($_SERVER['REQUEST_METHOD']==='POST'){http_response_code(405);header('Allow: GET');exit('Demo earnings are released automatically. This page is read-only.');}
+$pdo=getDbConnection();$errors=[];$totals=['gross'=>0,'commission'=>0,'physician'=>0,'settled'=>0];$paid=0;$withdrawals=[];$recent=[];$released=0;$bankTotal=0;$bankRows=[];
+if($pdo){try{
+ $bankTotal=(float)$pdo->query('SELECT COALESCE(SUM(Amount),0) FROM PlatformDemoBankTransfers')->fetchColumn();$bankRows=$pdo->query('SELECT Reference,Amount,BankLabel,AccountLastFour,CreatedAt FROM PlatformDemoBankTransfers ORDER BY TransferID DESC LIMIT 20')->fetchAll();
+ $totals=demoRevenueSummary($pdo);$paid=(float)$pdo->query("SELECT COALESCE(SUM(Amount),0) FROM PhysicianWithdrawals WHERE Status='PaidSimulated'")->fetchColumn();
+ $where=demoRevenueEligibility();$released=(float)$pdo->query("SELECT COALESCE(SUM(p.PhysicianRevenue),0) FROM AppointmentPayments p JOIN Appointments a ON a.AppointmentID=p.AppointmentID JOIN DemoSettlementItems i ON i.PaymentID=p.PaymentID WHERE {$where}")->fetchColumn();
+ $withdrawals=$pdo->query('SELECT w.Reference,w.Amount,w.Status,w.CreatedAt,u.FirstName,u.LastName,c.ClinicName FROM PhysicianWithdrawals w JOIN Users u ON u.UserID=w.FinancialOwnerUserID LEFT JOIN Clinic c ON c.ClinicID=u.ClinicID ORDER BY w.WithdrawalID DESC LIMIT 6')->fetchAll();
+ $recent=$pdo->query("SELECT p.GrossAmount,p.PhysicianRevenue,p.PlatformCommission,a.AppointmentDate,i.PaymentID AS Released FROM AppointmentPayments p JOIN Appointments a ON a.AppointmentID=p.AppointmentID LEFT JOIN DemoSettlementItems i ON i.PaymentID=p.PaymentID WHERE {$where} ORDER BY p.PaymentID DESC LIMIT 6")->fetchAll();
+}catch(PDOException $e){error_log('Revenue overview failed: '.$e->getMessage());$errors[]='Revenue information is temporarily unavailable.';}}
+$isAdminRevenue=true;$pageTitle='Revenue overview - HealthQueue';require __DIR__.'/../includes/header.php';
 ?>
-<main class="admin-shell rv-page"><div class="container rv-container">
-<p class="rv-breadcrumb">Administration <span>/</span> Revenue</p>
-<header class="rv-heading"><div><h1>Revenue &amp; Commission</h1><p>Track demo payments, commission, and simulated settlements.</p></div><div class="rv-heading-actions"><a class="btn btn-primary" href="physician-withdrawals.php">Physician withdrawals</a><a class="btn btn-outline" href="revenue-export.php">Export report</a></div></header>
-<?php if($flash): ?><p class="form-message success" role="status"><?= htmlspecialchars($flash) ?></p><?php endif; ?>
-<?php if($errors): ?><div class="form-message error" role="alert"><?php foreach($errors as $error): ?><p><?= htmlspecialchars($error) ?></p><?php endforeach; ?></div><?php endif; ?>
-<div class="rv-demo-banner"><?= $icon('flask') ?><strong>DEMO MODE &mdash; No real money transferred</strong></div>
-<?php if($reconciliationCount): ?><p class="form-message warning"><?= $reconciliationCount ?> historical refund record(s) need reconciliation. <a href="reconciliation.php">Review exceptions</a>.</p><?php endif; ?>
-<section class="rv-metrics" aria-label="Demo revenue totals">
-<?php foreach([['gross','Demo payments','wallet'],['pending','Pending settlement','clock'],['settled','Simulated settled funds','layers'],['commission','Platform commission (10%)','percent'],['physician','Physician payable (90%)','person']] as [$key,$label,$symbol]): ?>
-<article class="rv-metric rv-metric-<?= $key ?>"><span class="rv-icon"><?= $icon($symbol) ?></span><div><h2><?= $label ?></h2><strong>PHP <?= number_format((float)$totals[$key],2) ?></strong><?php if($key==='physician'): ?><p>Outstanding demo earnings</p><?php endif; ?></div></article>
-<?php endforeach; ?></section>
-<p class="rv-info"><?= $icon('info') ?><span>Commission is recorded after a paid consultation is confirmed complete. Only completed visits backed by demo wallet payments are included.</span></p>
-<div class="rv-columns">
-<section class="rv-panel"><h2>Simulated settlement history</h2>
-<div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>Reference</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>
-<?php foreach($settlements as $settlement): ?><tr><td><strong><?= htmlspecialchars($settlement['Reference']) ?></strong></td><td><?= htmlspecialchars(date('j M Y',strtotime($settlement['CreatedAt']))) ?></td><td>PHP <?= number_format((float)$settlement['GrossAmount'],2) ?></td><td><span class="rv-status">Simulated settled</span></td></tr><?php endforeach; ?>
-<?php if(!$settlements): ?><tr><td colspan="4" class="rv-empty">No simulated settlements yet.</td></tr><?php endif; ?></tbody></table></div>
-<p class="rv-history-note">Demo records only. Settlement does not release physician earnings.</p>
-</section>
-<section class="rv-panel"><h2>Demo settlement destination</h2>
-<div class="rv-destination"><span class="rv-icon"><?= $icon('bank') ?></span><div><h3>Demo Bank</h3><p>Account ending 1234</p></div><span class="rv-simulated">Simulated</span></div>
-<div class="rv-available"><span>Available to simulate</span><strong>PHP <?= number_format((float)$totals['pending'],2) ?></strong></div>
-<form method="post" class="rv-settlement-form"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>"><input type="hidden" name="form_type" value="simulate_settlement"><input type="hidden" name="request_key" value="<?= htmlspecialchars($_SESSION['demo_settlement_key']) ?>"><button type="submit" class="btn btn-primary btn-block" <?= !$ready || (float)$totals['pending']<=0?'disabled':'' ?>>Simulate settlement</button></form>
-<p class="rv-destination-note">Demonstrates a gateway payout. No bank connection.</p>
-</section></div>
-<p class="rv-footnote">School demonstration ? Demo wallet records only ? No actual bank transfers</p>
-</div></main>
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<main class="admin-shell rv-page rv-modern"><div class="container rv-container"><p class="rv-breadcrumb">Administration <span>/</span> Revenue</p><header class="rv-heading"><div><div class="rv-title-row"><h1>Revenue overview</h1><span class="rv-demo-badge">Demo mode</span></div><p>Monitor earnings and completed demo withdrawals.</p></div><div class="rv-heading-actions"><a class="btn btn-outline" href="revenue-export.php">Export report</a><a class="text-link" href="reconciliation.php">Wallet reconciliation</a></div></header>
+<?php foreach($errors as $error): ?><p class="form-message error" role="alert"><?= htmlspecialchars($error) ?></p><?php endforeach; ?>
+<p class="rv-auto-release"><span aria-hidden="true">&#10003;</span><strong>Automatic earnings release is enabled</strong><small>Eligible paid visits release earnings after patient confirmation or verified Staff completion.</small></p>
+<section class="rv-commission-hero"><div><span>Platform commission earned</span><strong>PHP <?= number_format((float)$totals['commission'],2) ?></strong><p>HealthQueue's 10% share of eligible completed payments.</p></div><span class="rv-recorded">Auto-transferred &mdash; simulated</span></section>
+<section class="rv-bank-summary" aria-label="Platform demo bank"><div><span>Transferred to demo bank</span><strong>PHP <?= number_format($bankTotal,2) ?></strong><p>Platform commission only. Physician earnings stay separate.</p></div><div><strong>HealthQueue Demo Bank &middot; &bull;&bull;&bull;&bull;0000</strong><p>Sample account only. No real bank account is connected.</p></div></section>
+<section class="rv-overview-grid" aria-label="Demo revenue summary"><article><h2>Total demo payments</h2><strong>PHP <?= number_format((float)$totals['gross'],2) ?></strong><p>Eligible paid and completed visits</p></article><article><h2>Physician earnings released</h2><strong>PHP <?= number_format($released,2) ?></strong><p>90% credited to physician earnings</p></article><article><h2>Withdrawn &mdash; simulated</h2><strong>PHP <?= number_format($paid,2) ?></strong><p>Completed physician demo withdrawals</p></article></section>
+<section class="rv-panel"><header class="rv-section-heading"><div><h2>Platform demo-bank history</h2><p>Commission is recorded automatically after an eligible paid visit is completed. No manual withdrawal is needed.</p></div></header><div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>Reference</th><th>Date</th><th>Demo destination</th><th>Platform commission</th><th>Status</th></tr></thead><tbody><?php foreach($bankRows as $row): ?><tr><td><?= htmlspecialchars($row['Reference']) ?></td><td><?= htmlspecialchars(date('j M Y, g:i A',strtotime($row['CreatedAt']))) ?></td><td><?= htmlspecialchars($row['BankLabel']) ?> &middot; &bull;&bull;&bull;&bull;<?= htmlspecialchars($row['AccountLastFour']) ?></td><td>PHP <?= number_format((float)$row['Amount'],2) ?></td><td><span class="rv-status">Completed &mdash; simulated</span></td></tr><?php endforeach; ?><?php if(!$bankRows): ?><tr><td colspan="5" class="rv-empty">Automatic demo-bank records will appear after eligible paid consultations are completed.</td></tr><?php endif; ?></tbody></table></div></section>
+<section class="rv-panel"><header class="rv-section-heading"><div><h2>Physician withdrawal activity</h2><p>Self-service withdrawals are recorded automatically.</p></div><a class="text-link" href="physician-withdrawals.php">View all</a></header><div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>Reference</th><th>Main physician</th><th>Clinic</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+<?php foreach($withdrawals as $row): ?><tr><td><?= htmlspecialchars($row['Reference']) ?></td><td>Dr. <?= htmlspecialchars($row['FirstName'].' '.$row['LastName']) ?></td><td><?= htmlspecialchars($row['ClinicName']??'Not assigned') ?></td><td><?= htmlspecialchars(date('j M Y',strtotime($row['CreatedAt']))) ?></td><td>PHP <?= number_format((float)$row['Amount'],2) ?></td><td><span class="pw-status pw-status-<?= htmlspecialchars($row['Status']) ?>"><?= htmlspecialchars(withdrawalStatus($row['Status'])) ?></span></td></tr><?php endforeach; ?><?php if(!$withdrawals): ?><tr><td colspan="6" class="rv-empty">No demo withdrawals yet.</td></tr><?php endif; ?></tbody></table></div></section>
+<section class="rv-panel"><header class="rv-section-heading"><div><h2>Recent earnings</h2><p>Commission and physician shares from actual demo wallet payment amounts.</p></div></header><div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>Description</th><th>Date</th><th>Patient payment</th><th>Physician share</th><th>Platform commission</th><th>Status</th></tr></thead><tbody>
+<?php foreach($recent as $row): ?><tr><td>Completed consultation</td><td><?= htmlspecialchars(date('j M Y',strtotime($row['AppointmentDate']))) ?></td><td>PHP <?= number_format((float)$row['GrossAmount'],2) ?></td><td>PHP <?= number_format((float)$row['PhysicianRevenue'],2) ?></td><td>PHP <?= number_format((float)$row['PlatformCommission'],2) ?></td><td><span class="rv-status"><?= $row['Released']?'Released':'Waiting for release' ?></span></td></tr><?php endforeach; ?><?php if(!$recent): ?><tr><td colspan="6" class="rv-empty">No eligible completed payments yet.</td></tr><?php endif; ?></tbody></table></div></section>
+<p class="rv-demo">Simulation only. No bank or wallet transfers are made. Existing settlement records remain preserved.</p></div></main>
+<?php require __DIR__.'/../includes/footer.php'; ?>

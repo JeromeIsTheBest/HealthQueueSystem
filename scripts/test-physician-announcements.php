@@ -1,0 +1,24 @@
+<?php
+/** Uses only connection-local shadow tables. HTTP mode exercises actual PHP multipart validation. */
+if(!in_array(PHP_SAPI,['cli','cli-server'],true)){http_response_code(404);exit;}
+require __DIR__.'/../config/db.php';require __DIR__.'/../includes/clinic-management.php';require __DIR__.'/../includes/announcements.php';
+$pdo=getDbConnection();foreach($pdo->query("SHOW FULL TABLES WHERE Table_type='BASE TABLE'")->fetchAll(PDO::FETCH_COLUMN) as $table){$ddl=$pdo->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1];$ddl=preg_replace('/^CREATE TABLE/','CREATE TEMPORARY TABLE',$ddl);$ddl=preg_replace('/^.*CONSTRAINT.*FOREIGN KEY.*\n/m','',$ddl);$ddl=preg_replace('/,\s*\)/',')',$ddl);$pdo->exec($ddl);}
+$pdo->exec("INSERT INTO Roles VALUES(1,'Patient'),(2,'Physician'),(3,'Staff'),(4,'Admin');INSERT INTO Clinic(ClinicID,ClinicName,Address,ContactNumber,BaseConsultationFee,Description) VALUES(1,'Fixture A','Test','09000000001',500,'Original'),(2,'Fixture B','Other','09000000002',600,'Other description')");
+$s=$pdo->prepare("INSERT INTO Users(UserID,RoleID,ClinicID,FirstName,LastName,Email,PasswordHash) VALUES(?,?,?,'Fixture','User',?,'fixture')");foreach([[1,1,null],[10,2,1],[11,2,1],[12,2,2],[20,3,1],[30,4,null]] as [$id,$role,$clinic])$s->execute([$id,$role,$clinic,'fixture'.$id.'@example.test']);$pdo->exec('INSERT INTO PhysicianAccountOwners(ClinicID,MainPhysicianID) VALUES(1,10),(2,12)');
+
+function announcementCheck(bool $ok,string $label):void{if(!$ok)throw new RuntimeException($label);echo "PASS: $label\n";}
+$pdo->exec("INSERT INTO Users(UserID,RoleID,ClinicID,FirstName,LastName,Email,PasswordHash,Status) VALUES(13,2,1,'Inactive','Fixture','inactive@example.test','fixture','Inactive'),(14,2,1,'Deleted','Fixture','deleted@example.test','fixture','Active'),(15,2,1,'New','Fixture','new@example.test','fixture','Active');UPDATE Users SET DeletedAt=NOW() WHERE UserID=14;UPDATE Users SET CreatedAt=DATE_ADD(NOW(),INTERVAL 1 DAY) WHERE UserID=15");
+function fixtureAnnouncement(PDO $pdo,?int $clinic,string $audience):int{$pdo->prepare("INSERT INTO Announcements(PostedByUserID,ClinicID,Title,Message,Audience,Category,AffectsDate) VALUES(30,?,'Clinic update','Please review this update.',?,'General',CURDATE())")->execute([$clinic,$audience]);return (int)$pdo->lastInsertId();}
+$pdo->beginTransaction();$id=fixtureAnnouncement($pdo,1,'Physicians');$count=notifyPhysiciansOfAnnouncement($pdo,$id);$pdo->commit();
+announcementCheck($count===2,'Clinic announcement notifies main and sub physicians');
+$recipients=$pdo->query('SELECT PhysicianID FROM PhysicianNotifications ORDER BY PhysicianID')->fetchAll(PDO::FETCH_COLUMN);
+announcementCheck(array_map('intval',$recipients)===[10,11],'Other clinic, inactive, deleted and newly created accounts excluded');
+$message=$pdo->query('SELECT Message FROM PhysicianNotifications LIMIT 1')->fetchColumn();announcementCheck(str_contains($message,'Clinic update')&&str_contains($message,'Please review this update.')&&str_contains($message,'Fixture A')&&str_contains($message,'Affected date:'),'Alert includes title, message, source and affected date');
+$pdo->exec('UPDATE PhysicianNotifications SET IsRead=1 WHERE PhysicianID=10');$pdo->beginTransaction();$count=notifyPhysiciansOfAnnouncement($pdo,$id);$pdo->commit();
+announcementCheck($count===0&&(int)$pdo->query('SELECT COUNT(*) FROM PhysicianNotifications')->fetchColumn()===2,'Repeated processing creates no duplicate alerts');
+announcementCheck((int)$pdo->query('SELECT IsRead FROM PhysicianNotifications WHERE PhysicianID=10')->fetchColumn()===1,'Retry preserves Read status');
+$pdo->beginTransaction();$platform=fixtureAnnouncement($pdo,null,'Physicians');$count=notifyPhysiciansOfAnnouncement($pdo,$platform);$pdo->commit();announcementCheck($count===3,'Platform-wide physician audience reaches all eligible clinics');
+foreach(['Patients','Staff'] as $audience){$pdo->beginTransaction();$excluded=fixtureAnnouncement($pdo,null,$audience);$count=notifyPhysiciansOfAnnouncement($pdo,$excluded);$pdo->commit();announcementCheck($count===0,$audience.' audience does not notify physicians');}
+$pdo->beginTransaction();$everyone=fixtureAnnouncement($pdo,2,'Everyone');$count=notifyPhysiciansOfAnnouncement($pdo,$everyone);$pdo->commit();announcementCheck($count===1,'Everyone respects selected clinic');
+$pdo->beginTransaction();$rolled=fixtureAnnouncement($pdo,null,'Everyone');notifyPhysiciansOfAnnouncement($pdo,$rolled);$pdo->rollBack();announcementCheck((int)$pdo->query('SELECT COUNT(*) FROM PhysicianNotifications WHERE AnnouncementID='.$rolled)->fetchColumn()===0&&(int)$pdo->query('SELECT COUNT(*) FROM Announcements WHERE AnnouncementID='.$rolled)->fetchColumn()===0,'Failed publication rollback leaves no alert or announcement');
+echo "Temporary tables only. No real announcements, SMS or emails sent.\n";

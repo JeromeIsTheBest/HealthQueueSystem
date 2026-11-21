@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/clinic-fees.php';
 require_once __DIR__ . '/payment-panel.php';
 /**
  * Shared "Book an appointment" modal + "Review & Pay" drawer for patient pages.
@@ -13,6 +14,7 @@ $bookingPhysicians = [];
 if ($pdo) {
     try {
         $bookingClinics = $pdo->query("SELECT ClinicID, ClinicName, Address, BaseConsultationFee FROM Clinic WHERE archived = 0 AND Status = 'Active' ORDER BY ClinicName")->fetchAll();
+        $bookingClinics=clinicFeeRows($pdo,$bookingClinics);
         $bookingPhysicians = $pdo->query(
             "SELECT u.UserID, u.ClinicID, u.FirstName, u.LastName, c.ClinicName
              FROM Users u JOIN Roles r ON r.RoleID = u.RoleID JOIN Clinic c ON c.ClinicID = u.ClinicID

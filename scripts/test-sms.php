@@ -5,6 +5,12 @@ function checkSms($actual, $expected, string $label): void
 {
     if ($actual !== $expected) throw new RuntimeException($label);
 }
+$confirmation = ['DoctorName'=>'Ana Cruz','ClinicName'=>'Bayview Health Hub','AppointmentDate'=>'2026-11-18','AppointmentTime'=>'10:30:00','ticket'=>'S-4'];
+checkSms(appointmentApprovalSms($confirmation), "HealthQueue: Appointment confirmed.\nDoctor: Dr. Ana Cruz\nClinic: Bayview Health Hub\nDate: Nov 18, 2026\nTime: 10:30 AM\nQueue: S-4", 'Approval includes doctor, clinic, local date/time and ticket');
+$confirmation['AppointmentTime']=null;$confirmation['EstimatedTurnAt']='2026-11-18 10:45:00';
+checkSms(str_contains(appointmentApprovalSms($confirmation), 'Estimated turn: 10:45 AM (approx.)'), true, 'Queue approval does not invent an appointment time');
+$confirmation['AppointmentTime']='00:00:00';
+checkSms(str_contains(appointmentApprovalSms($confirmation), 'Estimated turn: 10:45 AM (approx.)'), true, 'Legacy empty time stays a queue booking');
 foreach (['09171234567', '+63 917 123 4567', '639171234567', '(0917) 123-4567'] as $number) {
     checkSms(normalizeSmsNumber($number), '639171234567', 'Normalize Philippine number');
 }
@@ -35,11 +41,11 @@ require_once __DIR__ . '/../config/db.php';
 $pdo = getDbConnection();
 if (!$pdo) exit(1);
 // Session-local tables shadow production tables; no real records are modified.
-$pdo->exec('CREATE TEMPORARY TABLE Users (UserID INT PRIMARY KEY, ContactNumber VARCHAR(30), Status VARCHAR(20), DeletedAt DATETIME NULL)');
+$pdo->exec('CREATE TEMPORARY TABLE Users (UserID INT PRIMARY KEY, ContactNumber VARCHAR(30), Status VARCHAR(20), DeletedAt DATETIME NULL, RoleID INT DEFAULT 1)');
 $pdo->exec('CREATE TEMPORARY TABLE PatientProfileDetails (UserID INT PRIMARY KEY, Details TEXT)');
 $sql = file_get_contents(__DIR__ . '/../database/migrations/20261112_create_sms_outbox.sql');
 $pdo->exec(str_replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMPORARY TABLE', $sql));
-$pdo->exec("INSERT INTO Users VALUES (1, '09171234567', 'Active', NULL)");
+$pdo->exec("CREATE TEMPORARY TABLE Roles(RoleID INT PRIMARY KEY,RoleName VARCHAR(20));INSERT INTO Roles VALUES(1,'Patient');CREATE TEMPORARY TABLE Appointments(AppointmentID INT PRIMARY KEY,PatientID INT);INSERT INTO Appointments VALUES(100,1);INSERT INTO Users(UserID,ContactNumber,Status,DeletedAt) VALUES (1, '09171234567', 'Active', NULL)");
 checkSms(smsRecipient($pdo, 1), '639171234567', 'Default preference');
 $pdo->exec("INSERT INTO PatientProfileDetails VALUES (1, '{\"sms_notifications\":false}')");
 checkSms(smsRecipient($pdo, 1), null, 'Opt out');

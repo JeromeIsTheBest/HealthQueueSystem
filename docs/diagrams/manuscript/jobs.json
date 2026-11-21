@@ -1,0 +1,519 @@
+[
+  {
+    "name": "group-1-1",
+    "caption": "Accounts and access - roles, users",
+    "focus": [
+      "roles",
+      "users"
+    ],
+    "tables": [
+      "roles",
+      "users",
+      "clinic"
+    ],
+    "edges": [
+      74,
+      75
+    ],
+    "width": 574,
+    "height": 611,
+    "printFont": 8.64
+  },
+  {
+    "name": "group-1-2",
+    "caption": "Accounts and access - patientprofiledetails, passwordresets",
+    "focus": [
+      "patientprofiledetails",
+      "passwordresets"
+    ],
+    "tables": [
+      "patientprofiledetails",
+      "passwordresets",
+      "users"
+    ],
+    "edges": [
+      51,
+      55
+    ],
+    "width": 574,
+    "height": 355,
+    "printFont": 13.8
+  },
+  {
+    "name": "group-1-3",
+    "caption": "Accounts and access - emailverificationtokens, signupemailverifications",
+    "focus": [
+      "emailverificationtokens",
+      "signupemailverifications"
+    ],
+    "tables": [
+      "emailverificationtokens",
+      "signupemailverifications",
+      "users"
+    ],
+    "edges": [
+      35
+    ],
+    "width": 574,
+    "height": 409,
+    "printFont": 12.91
+  },
+  {
+    "name": "group-1-4",
+    "caption": "Accounts and access - requestratelimits",
+    "focus": [
+      "requestratelimits"
+    ],
+    "tables": [
+      "requestratelimits"
+    ],
+    "edges": [],
+    "width": 574,
+    "height": 206,
+    "printFont": 13.8
+  },
+  {
+    "name": "group-2-1",
+    "caption": "Clinics and schedules - clinic, physicianaccountowners",
+    "focus": [
+      "clinic",
+      "physicianaccountowners"
+    ],
+    "tables": [
+      "clinic",
+      "physicianaccountowners",
+      "users"
+    ],
+    "edges": [
+      56,
+      57
+    ],
+    "width": 574,
+    "height": 520,
+    "printFont": 10.15
+  },
+  {
+    "name": "group-2-2",
+    "caption": "Clinics and schedules - physicianavailability, physiciandateavailability",
+    "focus": [
+      "physicianavailability",
+      "physiciandateavailability"
+    ],
+    "tables": [
+      "physicianavailability",
+      "physiciandateavailability",
+      "users"
+    ],
+    "edges": [
+      58,
+      59
+    ],
+    "width": 574,
+    "height": 465,
+    "printFont": 11.35
+  },
+  {
+    "name": "group-2-3",
+    "caption": "Clinics and schedules - clinicphoto, clinicfeerequests",
+    "focus": [
+      "clinicphoto",
+      "clinicfeerequests"
+    ],
+    "tables": [
+      "clinicphoto",
+      "clinicfeerequests",
+      "clinic",
+      "users"
+    ],
+    "edges": [
+      22,
+      23,
+      24,
+      25
+    ],
+    "width": 574,
+    "height": 484,
+    "printFont": 10.91
+  },
+  {
+    "name": "group-2-4",
+    "caption": "Clinics and schedules - clinicregistrationinquiry",
+    "focus": [
+      "clinicregistrationinquiry"
+    ],
+    "tables": [
+      "clinicregistrationinquiry"
+    ],
+    "edges": [],
+    "width": 574,
+    "height": 353,
+    "printFont": 13.8
+  },
+  {
+    "name": "group-3-1",
+    "caption": "Appointments and queue - appointments, queue",
+    "focus": [
+      "appointments",
+      "queue"
+    ],
+    "tables": [
+      "appointments",
+      "queue",
+      "clinic",
+      "users"
+    ],
+    "edges": [
+      17,
+      18,
+      19,
+      67,
+      68,
+      69,
+      70
+    ],
+    "width": 761,
+    "height": 616,
+    "printFont": 8.57
+  },
+  {
+    "name": "group-3-2",
+    "caption": "Appointments and queue - appointmentreschedulerequests, visitcompletionreviews",
+    "focus": [
+      "appointmentreschedulerequests",
+      "visitcompletionreviews"
+    ],
+    "tables": [
+      "appointmentreschedulerequests",
+      "visitcompletionreviews",
+      "appointments",
+      "clinic",
+      "consultationversions",
+      "users"
+    ],
+    "edges": [
+      13,
+      14,
+      15,
+      16,
+      79,
+      80,
+      81,
+      82,
+      83
+    ],
+    "width": 574,
+    "height": 594,
+    "printFont": 8.89
+  },
+  {
+    "name": "group-3-3",
+    "caption": "Appointments and queue - visitcompletionnotifications",
+    "focus": [
+      "visitcompletionnotifications"
+    ],
+    "tables": [
+      "visitcompletionnotifications",
+      "appointments",
+      "consultationversions",
+      "patientnotifications"
+    ],
+    "edges": [
+      76,
+      77,
+      78
+    ],
+    "width": 574,
+    "height": 283,
+    "printFont": 13.8
+  },
+  {
+    "name": "group-4-1",
+    "caption": "Consultations and AI - consultations, consultationversions",
+    "focus": [
+      "consultations",
+      "consultationversions"
+    ],
+    "tables": [
+      "consultations",
+      "consultationversions",
+      "appointments",
+      "clinic",
+      "users"
+    ],
+    "edges": [
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "width": 743,
+    "height": 586,
+    "printFont": 9.01
+  },
+  {
+    "name": "group-4-2",
+    "caption": "Consultations and AI - aitranscriptversions, aitranscriptevaluations",
+    "focus": [
+      "aitranscriptversions",
+      "aitranscriptevaluations"
+    ],
+    "tables": [
+      "aitranscriptversions",
+      "aitranscriptevaluations",
+      "clinic",
+      "consultations",
+      "consultationversions",
+      "users"
+    ],
+    "edges": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "width": 787,
+    "height": 623,
+    "printFont": 8.48
+  },
+  {
+    "name": "group-4-3",
+    "caption": "Consultations and AI - feedback",
+    "focus": [
+      "feedback"
+    ],
+    "tables": [
+      "feedback",
+      "appointments",
+      "clinic",
+      "users"
+    ],
+    "edges": [
+      36,
+      37,
+      38,
+      39
+    ],
+    "width": 574,
+    "height": 325,
+    "printFont": 13.8
+  },
+  {
+    "name": "group-5-1",
+    "caption": "Medical record sharing - medicalrecords, medicalrecordaccessrequests",
+    "focus": [
+      "medicalrecords",
+      "medicalrecordaccessrequests"
+    ],
+    "tables": [
+      "medicalrecords",
+      "medicalrecordaccessrequests",
+      "appointments",
+      "users"
+    ],
+    "edges": [
+      44,
+      45,
+      46,
+      47
+    ],
+    "width": 574,
+    "height": 484,
+    "printFont": 10.91
+  },
+  {
+    "name": "group-5-2",
+    "caption": "Medical record sharing - medicalrecordaccessfiles, medicalrecordaccessnotifications",
+    "focus": [
+      "medicalrecordaccessfiles",
+      "medicalrecordaccessnotifications"
+    ],
+    "tables": [
+      "medicalrecordaccessfiles",
+      "medicalrecordaccessnotifications",
+      "medicalrecordaccessrequests",
+      "medicalrecords",
+      "patientnotifications"
+    ],
+    "edges": [
+      40,
+      41,
+      42,
+      43
+    ],
+    "width": 605,
+    "height": 336,
+    "printFont": 13.09
+  },
+  {
+    "name": "group-6-1",
+    "caption": "Demo earnings and payouts - appointmentpayments, wallettransactions",
+    "focus": [
+      "appointmentpayments",
+      "wallettransactions"
+    ],
+    "tables": [
+      "appointmentpayments",
+      "wallettransactions",
+      "appointments",
+      "users"
+    ],
+    "edges": [
+      11,
+      12,
+      84,
+      85
+    ],
+    "width": 574,
+    "height": 520,
+    "printFont": 10.15
+  },
+  {
+    "name": "group-6-2",
+    "caption": "Demo earnings and payouts - demosettlements, demosettlementitems",
+    "focus": [
+      "demosettlements",
+      "demosettlementitems"
+    ],
+    "tables": [
+      "demosettlements",
+      "demosettlementitems",
+      "appointmentpayments",
+      "users"
+    ],
+    "edges": [
+      32,
+      33,
+      34
+    ],
+    "width": 621,
+    "height": 318,
+    "printFont": 12.75
+  },
+  {
+    "name": "group-6-3",
+    "caption": "Demo earnings and payouts - physicianwithdrawals, platformdemobanktransfers",
+    "focus": [
+      "physicianwithdrawals",
+      "platformdemobanktransfers"
+    ],
+    "tables": [
+      "physicianwithdrawals",
+      "platformdemobanktransfers",
+      "appointmentpayments",
+      "users"
+    ],
+    "edges": [
+      63,
+      64,
+      65,
+      66
+    ],
+    "width": 574,
+    "height": 594,
+    "printFont": 8.89
+  },
+  {
+    "name": "group-7-1",
+    "caption": "Notifications and audit - announcements, announcementdismissals",
+    "focus": [
+      "announcements",
+      "announcementdismissals"
+    ],
+    "tables": [
+      "announcements",
+      "announcementdismissals",
+      "clinic",
+      "users"
+    ],
+    "edges": [
+      7,
+      8,
+      9,
+      10
+    ],
+    "width": 643,
+    "height": 385,
+    "printFont": 12.32
+  },
+  {
+    "name": "group-7-2",
+    "caption": "Notifications and audit - notifications, patientnotifications",
+    "focus": [
+      "notifications",
+      "patientnotifications"
+    ],
+    "tables": [
+      "notifications",
+      "patientnotifications",
+      "announcements",
+      "appointments",
+      "clinic",
+      "users"
+    ],
+    "edges": [
+      48,
+      49,
+      50,
+      52,
+      53,
+      54
+    ],
+    "width": 574,
+    "height": 447,
+    "printFont": 11.81
+  },
+  {
+    "name": "group-7-3",
+    "caption": "Notifications and audit - physiciannotifications, smsoutbox",
+    "focus": [
+      "physiciannotifications",
+      "smsoutbox"
+    ],
+    "tables": [
+      "physiciannotifications",
+      "smsoutbox",
+      "announcements",
+      "clinicfeerequests",
+      "users"
+    ],
+    "edges": [
+      60,
+      61,
+      62
+    ],
+    "width": 574,
+    "height": 551,
+    "printFont": 9.58
+  },
+  {
+    "name": "group-7-4",
+    "caption": "Notifications and audit - queueemailoutbox, auditlogs",
+    "focus": [
+      "queueemailoutbox",
+      "auditlogs"
+    ],
+    "tables": [
+      "queueemailoutbox",
+      "auditlogs",
+      "appointments",
+      "clinic",
+      "queue",
+      "users"
+    ],
+    "edges": [
+      20,
+      21,
+      71,
+      72,
+      73
+    ],
+    "width": 574,
+    "height": 484,
+    "printFont": 10.91
+  }
+]

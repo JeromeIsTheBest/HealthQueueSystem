@@ -1,6 +1,9 @@
 <?php
+require_once __DIR__.'/../includes/clinic-location.php';
+require_once __DIR__.'/../includes/clinic-fees.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/queue-actions.php';
 require_once __DIR__ . '/../includes/announcements.php';
 
 define('HQ_BASE_URL', '..');
@@ -12,8 +15,6 @@ $appointments = [];
 $clinics = [];
 $records = [];
 $recordCount = 0;
-$recentNotifications = [];
-$unreadCount = 0;
 $unpaidCount = 0;
 $queueEntries = [];
 $announcements = [];
@@ -29,7 +30,8 @@ if ($pdo) {
         $appointmentCountStmt->execute([$user['UserID']]);
         $appointmentCount = (int) $appointmentCountStmt->fetchColumn();
 
-        $clinics = $pdo->query("SELECT ClinicID, ClinicName, Address, BaseConsultationFee, PhotoUrl FROM Clinic WHERE archived = 0 AND Status = 'Active' ORDER BY ClinicName LIMIT 6")->fetchAll();
+        $clinics = $pdo->query("SELECT ClinicID, ClinicName, Address, Latitude, Longitude, BaseConsultationFee, PhotoUrl, Specialties, OpenDays, OpenTime, CloseTime FROM Clinic WHERE archived = 0 AND Status = 'Active' ORDER BY ClinicName")->fetchAll();
+        $clinics=clinicFeeRows($pdo,$clinics);
         foreach ($clinics as &$clinicRow) {
             $photoName = basename((string) ($clinicRow['PhotoUrl'] ?? ''));
             $clinicRow['PhotoUrl'] = $photoName !== '' && is_file(__DIR__ . '/../assets/uploads/clinics/' . $photoName) ? $photoName : null;
@@ -55,13 +57,6 @@ if ($pdo) {
         $recordCountStmt->execute([$user['UserID']]);
         $recordCount = (int) $recordCountStmt->fetchColumn();
 
-        $notificationsStmt = $pdo->prepare('SELECT NotificationID, Message, IsRead, CreatedAt FROM PatientNotifications WHERE PatientID = ? ORDER BY CreatedAt DESC LIMIT 4');
-        $notificationsStmt->execute([$user['UserID']]);
-        $recentNotifications = $notificationsStmt->fetchAll();
-        $unreadStmt = $pdo->prepare('SELECT COUNT(*) FROM PatientNotifications WHERE PatientID = ? AND IsRead = 0');
-        $unreadStmt->execute([$user['UserID']]);
-        $unreadCount = (int) $unreadStmt->fetchColumn();
-
         $queueStmt = $pdo->prepare(
             "SELECT q.QueueID, q.QueueNumber, q.ScheduledNumber, q.RegularNumber, q.Status, q.ClinicID, c.ClinicName, c.Address,
                     a.AppointmentID, a.AppointmentDate, a.AppointmentTime, a.Concern,
@@ -78,12 +73,8 @@ if ($pdo) {
         $queueEntries = $queueStmt->fetchAll();
 
         foreach ($queueEntries as &$queueEntry) {
-            $posStmt = $pdo->prepare(
-                "SELECT COUNT(*) FROM Queue WHERE ClinicID = ? AND DATE(CreatedAt) = CURDATE() AND Status = 'Waiting' AND COALESCE(Position, QueueNumber * 10) < (SELECT COALESCE(me.Position, me.QueueNumber * 10) FROM Queue me WHERE me.ClinicID = Queue.ClinicID AND DATE(me.CreatedAt) = CURDATE() AND me.QueueNumber = ? ORDER BY me.QueueID DESC LIMIT 1)"
-            );
-            $posStmt->execute([$queueEntry['ClinicID'], $queueEntry['QueueNumber']]);
-            $queueEntry['AheadCount'] = (int) $posStmt->fetchColumn();
-            $queueEntry['EstimatedWaitMinutes'] = $queueEntry['Status'] === 'Waiting' ? $queueEntry['AheadCount'] * $minutesPerPatient : 0;
+            $progress=patientQueueProgress($pdo,(int)$queueEntry['QueueID']);$queueEntry['AheadCount']=$progress['Ahead'];$queueEntry['NowServing']=$progress['NowServing'];$queueEntry['GraceHeld']=$progress['GraceHeld'];$queueEntry['GraceDeadline']=$progress['GraceDeadline'];
+            $queueEntry['EstimatedWaitMinutes'] = $queueEntry['Status'] === 'Waiting' ? $progress['EstimatedWaitMinutes'] : 0;
         }
         unset($queueEntry);
 
@@ -103,10 +94,16 @@ if ($pdo) {
 } else {
     $dataError = 'Your appointment information is temporarily unavailable.';
 }
+$isClinicNearbyPage=true;
 $pageTitle = 'Patient Dashboard — HealthQueue';
 $appointmentCount = (int) ($appointmentCount ?? count($appointments));
 $primaryQueue = $queueEntries[0] ?? null;
-$nextAppointment = $appointments[0] ?? null;
+$nextAppointment = null;
+foreach ($appointments as $upcomingVisit) {
+    if ($primaryQueue && (int)$upcomingVisit['AppointmentID'] === (int)$primaryQueue['AppointmentID']) continue;
+    $nextAppointment = $upcomingVisit;
+    break;
+}
 $hour = (int) date('G');
 $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
 require __DIR__ . '/../includes/header.php';
@@ -123,35 +120,65 @@ require __DIR__ . '/../includes/header.php';
   <?php if ($unpaidCount > 0): ?><p class="form-message error" role="alert">You have <?= $unpaidCount ?> request(s) awaiting payment. <a href="<?= HQ_BASE_URL ?>/patient/my-appointments.php">Complete payment to send them to the clinic</a></p><?php endif; ?>
 
   <section class="patient-dash-stats" aria-label="Your healthcare summary">
-    <article class="pd-stat-card pd-stat-queue"><span class="pd-stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div class="pd-stat-content"><span>Live Queue</span>
+    <article class="pd-stat-card pd-stat-queue<?= !$primaryQueue ? ' pd-queue-empty' : '' ?>"><span class="pd-stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div class="pd-stat-content"><span>Live Queue</span>
       <?php if ($primaryQueue): $queueNumber = $primaryQueue['ScheduledNumber'] !== null ? 'S-' . (int) $primaryQueue['ScheduledNumber'] : 'A-' . str_pad((string) (int) ($primaryQueue['RegularNumber'] ?? $primaryQueue['QueueNumber']), 3, '0', STR_PAD_LEFT); ?>
-        <strong><?= htmlspecialchars($queueNumber) ?></strong><small><?= $primaryQueue['Status'] === 'Waiting' ? (int) $primaryQueue['AheadCount'] . ' patients ahead · ~' . (int) $primaryQueue['EstimatedWaitMinutes'] . ' min' : ($primaryQueue['Status'] === 'Calling' ? 'Please proceed to the counter' : 'You are being seen') ?></small><?php if ($primaryQueue['Status'] === 'Waiting'): ?><span class="pd-queue-progress"><i style="width:<?= max(12, min(100, (int) (100 / ((int) $primaryQueue['AheadCount'] + 1)))) ?>%"></i></span><?php endif; ?>
-      <?php else: ?><strong>—</strong><small>No active queue today</small><?php endif; ?>
+        <strong><?= htmlspecialchars($queueNumber) ?></strong><small><?= !empty($primaryQueue['GraceHeld']) ? 'Awaiting arrival confirmation from the clinic' : ($primaryQueue['Status'] === 'Waiting' ? (int) $primaryQueue['AheadCount'] . ' patients ahead · ~' . (int) $primaryQueue['EstimatedWaitMinutes'] . ' min' : ($primaryQueue['Status'] === 'Calling' ? 'Please proceed to the counter' : 'You are being seen')) ?></small><?php if ($primaryQueue['Status'] === 'Waiting' && empty($primaryQueue['GraceHeld'])): ?><span class="pd-queue-progress"><i style="width:<?= max(12, min(100, (int) (100 / ((int) $primaryQueue['AheadCount'] + 1)))) ?>%"></i></span><?php endif; ?>
+      <?php else: ?><strong class="pd-queue-desktop-empty">&mdash;</strong><small class="pd-queue-desktop-empty">No active queue today</small><?php endif; ?>
       </div><div class="pd-queue-current"><span>Now serving</span><strong><?= $primaryQueue && $primaryQueue['NowServing'] ? '#' . (int) $primaryQueue['NowServing'] : '—' ?></strong><a href="<?= HQ_BASE_URL ?>/patient/queue-status.php">View live queue</a></div>
+      <?php if (!$primaryQueue): ?>
+      <div class="pd-queue-empty-content">
+        <svg class="pd-queue-calendar" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18M8 15h.01M12 15h.01M16 15h.01M8 18h.01M12 18h.01"/></svg>
+        <h2>No active queue</h2>
+        <p><?= $dataError ? 'Queue information is temporarily unavailable. Please try again.' : ($nextAppointment ? 'View your upcoming visit in My Appointments. Your queue will appear once it is ready.' : 'Book a visit to join your clinic&rsquo;s queue.') ?></p>
+        <?php if (!$dataError && !$nextAppointment): ?>
+          <a class="btn btn-primary pd-queue-book" href="<?= HQ_BASE_URL ?>/patient/clinics.php"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M12 14v5M9.5 16.5h5"/></svg>Book an Appointment</a>
+        <?php elseif (!$dataError): ?>
+          <a class="btn btn-outline pd-queue-book" href="<?= HQ_BASE_URL ?>/patient/my-appointments.php">View my appointment</a>
+        <?php endif; ?>
+      </div>
+      <?php endif; ?>
     </article>
-    <a class="pd-stat-card" href="<?= HQ_BASE_URL ?>/patient/my-appointments.php"><span class="pd-stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2M8 18h2"/></svg></span><div class="pd-stat-content"><span>Upcoming Appointments</span><strong><?= (int) $appointmentCount ?></strong><small><?= $nextAppointment ? 'Next: ' . date('M j', strtotime($nextAppointment['AppointmentDate'])) . ($nextAppointment['AppointmentTime'] ? ' · ' . date('g:i A', strtotime($nextAppointment['AppointmentTime'])) : '') : 'No upcoming visits' ?></small><em>View all</em></div></a>
-    <a class="pd-stat-card" href="<?= HQ_BASE_URL ?>/patient/notifications.php"><span class="pd-stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle;flex-shrink:0"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><div class="pd-stat-content"><span>Notifications</span><strong><?= (int) $unreadCount ?></strong><small>Unread messages</small><em>View all</em></div></a>
-    <a class="pd-stat-card" href="<?= HQ_BASE_URL ?>/patient/medical-records.php"><span class="pd-stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8M8 17h6"/></svg></span><div class="pd-stat-content"><span>Medical Records</span><strong><?= (int) $recordCount ?></strong><small>Completed visits</small><em>View all</em></div></a>
+    <a class="pd-stat-card pd-stat-upcoming" href="<?= HQ_BASE_URL ?>/patient/my-appointments.php"><span class="pd-stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2M8 18h2"/></svg></span><div class="pd-stat-content"><span>Upcoming Appointments</span><strong><?= (int) $appointmentCount ?></strong><small><?= $nextAppointment ? 'Next: ' . date('M j', strtotime($nextAppointment['AppointmentDate'])) . ($nextAppointment['AppointmentTime'] ? ' · ' . date('g:i A', strtotime($nextAppointment['AppointmentTime'])) : '') : ($primaryQueue ? 'Current visit is in Live Queue' : 'No upcoming visits') ?></small><em>View all</em></div></a>
+    <a class="pd-stat-card pd-stat-records" href="<?= HQ_BASE_URL ?>/patient/medical-records.php"><span class="pd-stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8M8 17h6"/></svg></span><div class="pd-stat-content"><span>Medical Records</span><strong><?= (int) $recordCount ?></strong><small>Completed visits</small><em>View all</em></div></a>
   </section>
 
-  <section class="patient-dash-main-grid">
+  <section class="patient-dash-main-grid pd-main-single-column">
     <div class="patient-dash-primary-column">
-      <article class="pd-panel pd-next-appointment"><div class="pd-panel-heading"><h2>Your Next Appointment</h2><a href="<?= HQ_BASE_URL ?>/patient/my-appointments.php">View all</a></div>
-        <?php if ($nextAppointment): ?><?php $hasSpecificTime = (bool) $nextAppointment['BookingFeePaid'] && !empty($nextAppointment['AppointmentTime']) && $nextAppointment['AppointmentTime'] !== '00:00:00'; $doctorPhoto = basename((string) ($nextAppointment['PhyProfilePhoto'] ?? '')); ?>
-          <div class="pd-appointment-body"><div class="pd-appointment-avatar"><?php if ($doctorPhoto !== '' && is_file(__DIR__ . '/../assets/uploads/avatars/' . $doctorPhoto)): ?><img src="<?= HQ_BASE_URL ?>/assets/uploads/avatars/<?= htmlspecialchars($doctorPhoto) ?>" alt="Dr. <?= htmlspecialchars(($nextAppointment['PhyFirstName'] ?? '') . ' ' . ($nextAppointment['PhyLastName'] ?? '')) ?>"><?php else: ?><span aria-hidden="true">✚</span><?php endif; ?></div><div class="pd-appointment-details"><strong><?= htmlspecialchars($nextAppointment['ClinicName']) ?></strong><span><?= $nextAppointment['PhyFirstName'] ? 'Dr. ' . htmlspecialchars($nextAppointment['PhyFirstName'] . ' ' . $nextAppointment['PhyLastName']) : 'Clinic appointment' ?></span><span><?= htmlspecialchars($nextAppointment['Address']) ?></span><span class="pd-appointment-time">◷ &nbsp;<?= htmlspecialchars(date('M j, Y', strtotime($nextAppointment['AppointmentDate']))) ?><?= $hasSpecificTime ? ' · ' . htmlspecialchars(date('g:i A', strtotime($nextAppointment['AppointmentTime']))) : ' · Queue booking' ?></span><span class="pd-status-pill"><?= htmlspecialchars($nextAppointment['Status']) ?></span><div class="pd-appointment-actions"><a class="btn btn-primary btn-sm" href="<?= HQ_BASE_URL ?>/patient/my-appointments.php">View details</a><a class="btn btn-outline btn-sm" href="<?= HQ_BASE_URL ?>/patient/my-appointments.php">Manage</a></div></div></div>
-        <?php else: ?><div class="pd-empty-inline"><strong>No upcoming appointment</strong><span>Browse clinics and request a visit when you’re ready.</span><a href="<?= HQ_BASE_URL ?>/patient/clinics.php">Find a clinic</a></div><?php endif; ?>
-      </article>
-      <article class="pd-panel pd-clinics-panel"><div class="pd-panel-heading"><div><h2>Browse Nearby Clinics</h2><p>Find participating clinics and available physicians.</p></div><a href="<?= HQ_BASE_URL ?>/patient/clinics.php">View all clinics</a></div><form class="pd-clinic-search" method="get" action="<?= HQ_BASE_URL ?>/patient/clinics.php"><label for="dashboardClinicSearch">Search clinic, location, or specialty</label><input id="dashboardClinicSearch" name="q" type="search" placeholder="Search clinics, areas, or specialties"><button type="submit" aria-label="Search clinics">⌕</button></form><div class="pd-clinic-grid">
-        <?php foreach (array_slice($clinics, 0, 3) as $clinic): ?><a class="pd-clinic-card" href="<?= HQ_BASE_URL ?>/patient/clinic-detail.php?clinic_id=<?= (int) $clinic['ClinicID'] ?>"><?php if (!empty($clinic['PhotoUrl'])): ?><img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($clinic['PhotoUrl']) ?>" alt="" loading="lazy"><?php else: ?><div class="pd-clinic-placeholder">+</div><?php endif; ?><div class="pd-clinic-card-content"><strong><?= htmlspecialchars($clinic['ClinicName']) ?></strong><span>⌖ &nbsp;<?= htmlspecialchars($clinic['Address']) ?></span><small>From PHP <?= htmlspecialchars(number_format((float) $clinic['BaseConsultationFee'], 2)) ?></small><em>View clinic</em></div></a><?php endforeach; ?>
+      <article class="pd-panel pd-clinics-panel" data-nearby-root><div class="pd-panel-heading"><div><h2><span class="pd-care-desktop">Browse Nearby Clinics</span><span class="pd-care-mobile">Care near you</span></h2><p><span class="pd-care-desktop">Find participating clinics and available physicians.</span><span class="pd-care-mobile">Find a clinic for your next visit.</span></p></div><a href="<?= HQ_BASE_URL ?>/patient/clinics.php">View all clinics</a></div><?php renderClinicLocationControls(); ?><form class="pd-clinic-search" method="get" action="<?= HQ_BASE_URL ?>/patient/clinics.php"><label for="dashboardClinicSearch">Search clinic, location, or specialty</label><input id="dashboardClinicSearch" name="q" type="search" placeholder="Search clinics, areas, or specialties"><button type="submit" aria-label="Search clinics"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button></form><div class="pd-clinic-grid pd-care-desktop" data-nearby-list>
+        <?php foreach ($clinics as $clinic): ?><article class="pd-clinic-card" <?= clinicNearbyAttributes($clinic) ?>><?php if (!empty($clinic['PhotoUrl'])): ?><img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($clinic['PhotoUrl']) ?>" alt="" loading="lazy"><?php else: ?><div class="pd-clinic-placeholder">+</div><?php endif; ?><div class="pd-clinic-card-content"><strong><?= htmlspecialchars($clinic['ClinicName']) ?></strong><span>⌖ &nbsp;<?= htmlspecialchars($clinic['Address']) ?></span><small>From PHP <?= htmlspecialchars(number_format((float) $clinic['BaseConsultationFee'], 2)) ?></small><span class="nearby-distance" data-nearby-distance hidden></span><div class="nearby-card-actions"><a href="<?= HQ_BASE_URL ?>/patient/clinic-detail.php?clinic_id=<?= (int)$clinic['ClinicID'] ?>">View clinic</a><a class="nearby-directions" href="<?= htmlspecialchars(clinicDirectionsUrl($clinic),ENT_QUOTES) ?>" target="_blank" rel="noopener noreferrer">Get directions</a></div></div></article><?php endforeach; ?>
         <?php if (!$clinics): ?><p class="pd-empty-inline">No participating clinics are listed right now.</p><?php endif; ?>
+      </div>
+      <div class="pd-care-mobile pd-care-content">
+        <?php if ($clinics): ?>
+        <div class="pd-care-carousel" id="nearbyClinicCarousel" data-nearby-list role="region" aria-label="Participating clinics" tabindex="0">
+          <?php foreach ($clinics as $clinic):
+            $openToday = in_array((string)date('N'), array_map('trim',explode(',',(string)$clinic['OpenDays'])),true) && $clinic['OpenTime'] < $clinic['CloseTime'];
+            $openNow = $openToday && date('H:i:s') >= $clinic['OpenTime'] && date('H:i:s') < $clinic['CloseTime'];
+          ?>
+          <article class="pd-care-card" <?= clinicNearbyAttributes($clinic) ?>>
+            <div class="pd-care-photo">
+              <?php if (!empty($clinic['PhotoUrl'])): ?><img src="<?= HQ_BASE_URL ?>/assets/uploads/clinics/<?= htmlspecialchars($clinic['PhotoUrl']) ?>" alt="" loading="lazy">
+              <?php else: ?><div class="pd-care-photo-placeholder" aria-hidden="true"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6h16v15M2 21h20M9 21v-5h6v5M12 3v7M8.5 6.5h7M8 13h.01M16 13h.01"/></svg></div><?php endif; ?>
+              <span class="pd-care-hours<?= $openNow ? ' is-open' : '' ?>"><?= $openNow ? 'Open now' : 'Closed now' ?></span>
+            </div>
+            <div class="pd-care-body">
+              <h3><?= htmlspecialchars($clinic['ClinicName']) ?></h3><span class="nearby-distance" data-nearby-distance hidden></span>
+              <p class="pd-care-location"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><?= htmlspecialchars($clinic['Address']) ?></p>
+              <?php if (trim((string)$clinic['Specialties']) !== ''): ?><p class="pd-care-specialty"><?= htmlspecialchars($clinic['Specialties']) ?></p><?php endif; ?>
+              <div class="pd-care-price"><span>Consultation from</span><strong>PHP <?= number_format((float)$clinic['BaseConsultationFee'],2) ?></strong></div>
+              <div class="nearby-card-actions"><a class="btn btn-primary pd-care-view" href="<?= HQ_BASE_URL ?>/patient/clinic-detail.php?clinic_id=<?= (int)$clinic['ClinicID'] ?>">View clinic</a><a class="nearby-directions" href="<?= htmlspecialchars(clinicDirectionsUrl($clinic),ENT_QUOTES) ?>" target="_blank" rel="noopener noreferrer">Get directions</a></div>
+            </div>
+          </article>
+          <?php endforeach; ?>
+        </div>
+        <?php if (count($clinics)>1): ?>
+        <div class="pd-care-pagination" aria-label="Choose clinic card"><?php foreach ($clinics as $position=>$clinic): ?><button type="button" data-clinic-slide="<?= $position ?>" aria-label="Show <?= htmlspecialchars($clinic['ClinicName']) ?>"<?= $position===0?' aria-current="true"':'' ?>></button><?php endforeach; ?></div>
+        <p class="pd-care-hint">Swipe to explore clinics</p>
+        <?php endif; ?>
+        <div class="pd-care-help"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2"/></svg><div><strong>Ready for your next visit?</strong><p>Choose a clinic to see physicians and available schedules.</p></div></div>
+        <?php else: ?><p class="pd-empty-inline">No participating clinics are listed right now.</p><?php endif; ?>
       </div></article>
     </div>
-    <aside class="patient-dash-side-column">
-      <article class="pd-panel pd-notifications-panel"><div class="pd-panel-heading"><h2>Recent Notifications</h2><a href="<?= HQ_BASE_URL ?>/patient/notifications.php">View all</a></div>
-        <?php if ($recentNotifications): ?><ul class="pd-notification-list"><?php foreach ($recentNotifications as $note): ?><li class="<?= !$note['IsRead'] ? 'is-unread' : '' ?>"><span class="pd-notification-icon" aria-hidden="true"><?= !$note['IsRead'] ? '●' : '✓' ?></span><div><strong><?= htmlspecialchars(mb_strimwidth($note['Message'], 0, 42, '…')) ?></strong><p><?= htmlspecialchars(mb_strimwidth($note['Message'], 0, 76, '…')) ?></p><time><?= htmlspecialchars(date('M j, Y · g:i A', strtotime($note['CreatedAt']))) ?></time></div></li><?php endforeach; ?></ul><?php else: ?><div class="pd-empty-inline"><strong>You’re all caught up</strong><span>Appointment and queue updates will appear here.</span></div><?php endif; ?>
-      </article>
-      <article class="pd-booking-prompt"><div class="pd-booking-art" aria-hidden="true"><img src="<?= HQ_BASE_URL ?>/assets/img/dashboard/doctor-booking-illustration.png" alt=""></div><div class="pd-booking-content"><h2>Need to book an appointment?</h2><p>Find a clinic, choose a doctor, and request your visit.</p><button type="button" class="btn btn-primary" data-modal-open="bookNowModal"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M12 14v4M10 16h4"/></svg> Book an appointment</button></div></article>
-    </aside>
   </section>
 
   <div class="patient-dash-legacy" hidden>
@@ -403,6 +430,37 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 });
+</script>
+
+
+
+<script>
+(function () {
+  var carousel = document.getElementById('nearbyClinicCarousel');
+  if (!carousel) return;
+  var cards = Array.from(carousel.querySelectorAll('.pd-care-card'));
+  var dots = Array.from(document.querySelectorAll('[data-clinic-slide]'));
+  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  carousel.addEventListener('hq:clinics-sorted', function () { cards = Array.from(carousel.querySelectorAll('.pd-care-card')); dots.forEach(function (dot,index) { dot.setAttribute('aria-label','Show '+cards[index].querySelector('h3').textContent);if(index===0)dot.setAttribute('aria-current','true');else dot.removeAttribute('aria-current'); }); });
+  dots.forEach(function (dot, index) {
+    dot.addEventListener('click', function () {
+      carousel.scrollTo({left: cards[index].offsetLeft - cards[0].offsetLeft, behavior: reducedMotion.matches ? 'auto' : 'smooth'});
+    });
+  });
+  var frame = 0;
+  carousel.addEventListener('scroll', function () {
+    if (frame) return;
+    frame = requestAnimationFrame(function () {
+      var nearest = 0, distance = Infinity;
+      cards.forEach(function (card, index) {
+        var delta = Math.abs(card.offsetLeft - cards[0].offsetLeft - carousel.scrollLeft);
+        if (delta < distance) {distance = delta; nearest = index;}
+      });
+      dots.forEach(function (dot, index) {if (index === nearest) dot.setAttribute('aria-current','true'); else dot.removeAttribute('aria-current');});
+      frame = 0;
+    });
+  }, {passive:true});
+})();
 </script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

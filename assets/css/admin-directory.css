@@ -49,6 +49,17 @@
 .dr-page .dr-more:not([open])>.dr-more-content {display:none;}
 .dr-page .dr-more-content form {margin:0;}
 .dr-page .dr-more-content .btn {background:#fff;color:var(--teal-700);border-color:var(--teal-500);}
+.dr-page .dr-action-menu>summary {transition:background .16s,border-color .16s;}
+.dr-page .dr-action-menu>summary:hover,.dr-page .dr-action-menu[open]>summary {background:#e6f5fa;border-color:#a6ccdc;}
+.dr-page .dr-action-menu>summary:focus-visible {outline:2px solid var(--teal-600);outline-offset:3px;}
+.dr-page .dr-action-menu>.dr-more-content {position:fixed;z-index:1000;flex-direction:column;flex-wrap:nowrap;gap:4px;width:190px;padding:6px;margin:0;border:1px solid #dce7ee;border-radius:12px;background:#fff;box-shadow:0 12px 32px #173d5926;box-sizing:border-box;}
+.dr-page .dr-action-menu>.dr-more-content form {width:100%;}
+.dr-page .dr-action-menu>.dr-more-content form+form {border-top:1px solid #edf1f5;padding-top:4px;}
+.dr-page .dr-action-menu>.dr-more-content .btn {display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:42px;padding:10px 12px;margin:0;border:0;border-radius:7px;background:#fff;color:var(--teal-900);box-sizing:border-box;line-height:1.3;font-size:12px;font-weight:500;}
+.dr-page .dr-action-menu>.dr-more-content .btn:hover {background:#edf7fb;}
+.dr-page .dr-action-menu>.dr-more-content svg {width:18px;height:18px;flex-shrink:0;}
+.dr-page .dr-action-menu>.dr-more-content .dr-archive-action {color:#ba3b4b;}
+.dr-page .dr-action-menu>.dr-more-content .dr-archive-action:hover {background:#fff0f2;}
 .dr-page .dr-list-footer {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:20px;font-size:11px;color:#64788d;}
 .dr-page .dr-list-footer nav {display:flex;gap:8px;align-items:center;}
 .dr-page .dr-list-footer nav a {display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:6px 10px;border:1px solid var(--slate-200);border-radius:8px;color:var(--teal-900);text-decoration:none;}
@@ -80,3 +91,31 @@
 .dr-page .dr-actions .dr-status-action .btn {display:inline-flex;align-items:center;justify-content:center;min-width:92px;height:34px;line-height:1.2;}
 
 .dr-dialog .dr-request-review {display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0 0;}
+
+.sa-owner{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px;background:#fff;border:1px solid #dce8f2;border-radius:16px;margin:20px 0}.sa-notice{padding:18px 22px;border-radius:12px;background:#e4f5fc;color:#125674}.sa-owner p{margin:8px 0 0}@media(max-width:650px){.sa-owner{align-items:flex-start;flex-direction:column}}
+
+@media(max-width:650px){.dr-page .sa-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.dr-page .sa-stats article:last-child{grid-column:1/-1}}
+
+/* Physician directory: keep filters, sub-account counts and row actions aligned. */
+.dr-page .dr-physician-directory .dr-search { display:flex; flex-direction:column; gap:6px; }
+.dr-page .dr-physician-directory .dr-search-label { color:#64788d; font-size:11px; font-weight:600; line-height:1.5; }
+.dr-page .dr-physician-directory .dr-filter-field { line-height:1.5; }
+.dr-page .dr-physician-directory .admin-table { min-width:1100px; }
+.dr-page .dr-physician-directory .admin-table th:nth-child(4),
+.dr-page .dr-physician-directory .admin-table td:nth-child(4) { min-width:205px; }
+.dr-page .dr-physician-directory .admin-table th:last-child,
+.dr-page .dr-physician-directory .admin-table td:last-child { width:170px; white-space:nowrap; }
+.dr-page .dr-physician-directory .admin-table td { height:72px; padding-block:16px; }
+.dr-page .dr-physician-directory .dr-sub-accounts { display:flex; align-items:center; gap:10px; white-space:nowrap; }
+.dr-page .dr-physician-directory .dr-sub-count { display:inline-grid; place-items:center; min-width:26px; height:26px; padding:0 6px; border-radius:7px; background:#e5f5fc; color:var(--teal-700); font-size:11px; font-weight:800; }
+.dr-page .dr-physician-directory .dr-sub-accounts .btn { display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:7px 12px; margin:0; border-radius:8px; font-size:11px; line-height:1.2; box-shadow:none; white-space:nowrap; }
+.dr-page .dr-physician-directory .dr-actions > .btn { display:inline-flex; align-items:center; justify-content:center; height:34px; line-height:1.2; }
+/* Admin Clinics: fee requests and directory. */
+.ac-page .dr-heading{align-items:center;margin-bottom:24px}.ac-page .dr-heading h1{font-size:34px}.ac-page .dr-heading-actions{gap:12px}.ac-page .ac-fee-link{display:inline-flex;align-items:center;gap:9px;background:#fff;border-color:#90bfd3;color:#006587}.ac-fee-link svg{width:20px;height:20px;flex-shrink:0}.ac-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;background:#ffedc0;color:#875900;border-radius:50%;font-size:11px;font-weight:700;line-height:1;flex-shrink:0}
+.ac-page .dr-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.ac-page .dr-stats article{padding:22px;min-height:98px;box-sizing:border-box;gap:18px}.ac-page .dr-stat-icon{border-radius:10px;background:#edf9fd}.ac-page .dr-stats h2{font-size:12px}.ac-page .dr-stats strong{font-size:30px}
+.ac-page .dr-panel{padding:22px}.ac-page .dr-panel>.portal-heading{margin-bottom:16px;align-items:center}.ac-export{font-size:11px;white-space:nowrap}.ac-page .ac-tabs{display:flex;align-items:center;flex-wrap:wrap;gap:8px;border:0;border-bottom:1px solid #cfdeea;border-radius:0;overflow:visible;padding:0 0 10px;margin-bottom:20px}.ac-page .ac-tabs a{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:8px;border:0;color:var(--teal-900);font-size:12px;white-space:nowrap;text-decoration:none}.ac-page .ac-tabs a[aria-current=page]{background:var(--gradient-brand);color:#fff}.ac-page .ac-tabs a:hover{background:#eaf6fb}.ac-page .ac-tabs a[aria-current=page]:hover{background:var(--gradient-brand)}
+.ac-page .dr-filters{gap:14px;margin-bottom:18px}.ac-page .dr-filters .dr-search{flex:2;min-width:180px}.ac-page .dr-filters .dr-filter-field{flex:1;min-width:160px}.ac-page .dr-filters .dr-filter-field>span{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0)}.ac-page .dr-filters>.btn{background:#fff;color:#007998;border:1px solid #5aa8c0;min-width:140px}
+.ac-page .admin-table{min-width:890px}.ac-page .admin-table th{font-size:11px;padding:12px}.ac-page .admin-table td{padding:14px 12px;font-size:11px}.ac-page .ac-clinic-name{display:flex;align-items:center;gap:13px;min-width:200px}.ac-clinic-name>img{width:58px;height:44px;object-fit:cover;border-radius:7px;flex-shrink:0}.ac-clinic-name>strong{font-size:12px;line-height:1.6}.ac-page .ac-clinic-name .dr-clinic-avatar{width:58px;height:44px;border-radius:7px}.ac-detail{display:flex;align-items:center;gap:7px;line-height:1.6;max-width:230px;overflow-wrap:anywhere}.ac-detail svg{width:16px;height:16px;flex-shrink:0;color:#0086aa}.ac-phone{white-space:nowrap}.ac-page .status-badge:before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:5px}.ac-page .dr-actions{gap:8px}.ac-page .dr-actions>.btn{display:inline-flex;align-items:center;justify-content:center;height:34px}.ac-page .dr-list-footer{padding-top:18px}
+.ac-page .ac-help{display:flex;align-items:center;justify-content:space-between;gap:20px;border-color:#b5ddec;background:#eaf7fd;padding:18px 22px}.ac-help .text-link{font-size:12px;white-space:nowrap}.ac-help p{margin-bottom:0}
+@media(max-width:900px){.ac-page .dr-heading{align-items:flex-start;flex-direction:column;gap:18px}.ac-page .dr-stats{gap:12px}.ac-page .dr-stats article{padding:16px;gap:10px}.ac-page .dr-stat-icon{width:40px;height:40px}.ac-page .dr-stat-icon svg{width:25px;height:25px}.ac-page .dr-stats h2{font-size:11px}}
+@media(max-width:600px){.ac-page .dr-container{padding-inline:16px}.ac-page .dr-heading h1{font-size:28px}.ac-page .dr-heading-actions{width:100%;gap:10px}.ac-page .dr-heading-actions .btn{font-size:11px;padding:10px 12px}.ac-page .ac-fee-link{flex:1;justify-content:center}.ac-page .dr-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.ac-page .dr-stats article{flex-direction:column;align-items:flex-start;gap:9px;padding:12px}.ac-page .dr-stat-icon{width:32px;height:32px;border-radius:8px}.ac-page .dr-stat-icon svg{width:22px;height:22px}.ac-page .dr-stats h2{font-size:10px;min-height:30px;line-height:1.5}.ac-page .dr-stats strong{font-size:25px}.ac-page .dr-panel{padding:16px}.ac-page .dr-panel>.portal-heading h2{font-size:21px}.ac-page .ac-tabs{gap:5px}.ac-page .ac-tabs a{padding:8px;font-size:10px}.ac-page .ac-tabs .ac-count{width:18px;min-width:18px;height:18px;font-size:10px}.ac-page .dr-filters .dr-search{flex-basis:100%;min-width:0}.ac-page .dr-filters .dr-filter-field{min-width:0;flex:1}.ac-page .dr-filters>.btn{min-width:115px;padding-inline:12px}.ac-page .ac-help{align-items:flex-start;flex-direction:column;gap:12px;padding:16px}.ac-page .ac-help p{font-size:12px}}
